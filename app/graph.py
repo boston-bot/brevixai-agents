@@ -250,6 +250,43 @@ def build_graph(
                     )
                 )
 
+        # Retrieve entity relationship risk data
+        entity_relationship_risk_data = None
+        entity_findings = []
+        try:
+            entity_relationship_risk_data = await tool_client.entity_relationship_risk(
+                state["company_id"],
+                state["user_id"],
+                trace_id=state.get("agent_run_id"),
+                trace_metadata={
+                    "intent": state.get("intent"),
+                    "request_source": state.get("page_context", {}).get("source"),
+                }
+            )
+        except Exception as exc:
+            logger.warning("Failed to retrieve entity relationship risk: %s", exc)
+
+        if entity_relationship_risk_data:
+            entity_score = entity_relationship_risk_data.get("entity_relationship_risk_score", 0)
+            if entity_score >= 40:
+                entity_findings.append(
+                    AgentFinding(
+                        title="High Entity Relationship Risk",
+                        severity=normalize_severity(entity_relationship_risk_data.get('risk_level', 'medium')),
+                        confidence=confidence_from_risk_score(entity_score),
+                        summary=f"Deterministic entity relationship risk score is {entity_score}/100. Action guidance: {entity_relationship_risk_data.get('recommended_next_action')}",
+                        evidence=[
+                            {
+                                "type": "entity_relationship_risk_analysis",
+                                "score": entity_score,
+                                "triggered_rules": entity_relationship_risk_data.get("triggered_rules"),
+                                "supporting_evidence": entity_relationship_risk_data.get("supporting_evidence"),
+                                "related_entities": entity_relationship_risk_data.get("related_entities")
+                            }
+                        ]
+                    )
+                )
+
         # Merge findings
         all_findings = []
         for f in findings:
@@ -257,6 +294,8 @@ def build_graph(
         for f in vendor_findings:
             all_findings.append(f.model_dump())
         for f in recon_findings:
+            all_findings.append(f.model_dump())
+        for f in entity_findings:
             all_findings.append(f.model_dump())
 
         # Compile steps
@@ -297,12 +336,26 @@ def build_graph(
                     }
                 )
             )
+        if entity_relationship_risk_data:
+            steps_list.append(
+                step(
+                    "entity_relationship_risk_analysis",
+                    step_type="tool_call",
+                    input_payload={"tool": "entity_relationship_risk"},
+                    output_payload={
+                        "entity_relationship_risk_score": entity_score,
+                        "entity_findings_count": len(entity_findings),
+                    }
+                )
+            )
 
         tool_results = {"risk_summary": risk_summary}
         if vendor_risk_data:
             tool_results["vendor_risk"] = vendor_risk_data
         if reconciliation_risk_data:
             tool_results["reconciliation_risk"] = reconciliation_risk_data
+        if entity_relationship_risk_data:
+            tool_results["entity_relationship_risk"] = entity_relationship_risk_data
 
         return {
             "tool_results": tool_results,
