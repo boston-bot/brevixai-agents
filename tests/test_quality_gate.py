@@ -334,3 +334,84 @@ def test_old_report_without_prompts_used_loads_in_gate(tmp_path: Path) -> None:
     p.write_text(json.dumps(data))
     # Must not raise; gate should pass (perfect report)
     assert main(["--report-json", str(p)]) == 0
+
+
+# ---------------------------------------------------------------------------
+# active_filters in quality gate output (Phase 2.9)
+# ---------------------------------------------------------------------------
+
+def _report_with_filters(filters: dict, skipped: int = 0) -> BenchmarkReport:
+    r = _perfect_report()
+    r.active_filters = filters
+    r.skipped_scenario_count = skipped
+    return r
+
+
+def test_gate_prints_active_filters_when_present(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    filters = {"category": "accounts_payable", "tags": ["vendor"]}
+    p = _write_report(tmp_path, _report_with_filters(filters, skipped=10))
+    main(["--report-json", str(p)])
+    out = capsys.readouterr().out
+    assert "Active Filters" in out
+    assert "accounts_payable" in out
+    assert "vendor" in out
+
+
+def test_gate_shows_skipped_count_in_filter_output(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    p = _write_report(tmp_path, _report_with_filters({"severity": "high"}, skipped=12))
+    main(["--report-json", str(p)])
+    out = capsys.readouterr().out
+    assert "12" in out
+
+
+def test_gate_omits_active_filters_section_when_empty(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    p = _write_report(tmp_path, _perfect_report())
+    main(["--report-json", str(p)])
+    out = capsys.readouterr().out
+    assert "Active Filters" not in out
+
+
+def test_gate_pass_fail_unaffected_by_active_filters(tmp_path: Path) -> None:
+    """Exit code must not change based on active_filters presence."""
+    p1 = tmp_path / "no_filter.json"
+    p1.write_text(json.dumps(asdict(_perfect_report())))
+    p2 = tmp_path / "with_filter.json"
+    p2.write_text(json.dumps(asdict(_report_with_filters({"category": "payroll"}))))
+    assert main(["--report-json", str(p1)]) == main(["--report-json", str(p2)])
+
+
+def test_old_report_without_filter_fields_loads_in_gate(tmp_path: Path) -> None:
+    """A report JSON that predates active_filters / skipped_scenario_count must load."""
+    data = asdict(_perfect_report())
+    del data["active_filters"]
+    del data["skipped_scenario_count"]
+    p = tmp_path / "pre_29_report.json"
+    p.write_text(json.dumps(data))
+    assert main(["--report-json", str(p)]) == 0
+
+
+def test_gate_with_filtered_report_passes_when_thresholds_met(tmp_path: Path) -> None:
+    """A filtered report (subset of scenarios) still passes if all thresholds met."""
+    r = _perfect_report()
+    r.total_scenarios = 3
+    r.total_passed = 3
+    r.active_filters = {"category": "payroll"}
+    r.skipped_scenario_count = 12
+    p = _write_report(tmp_path, r)
+    assert main(["--report-json", str(p)]) == 0
+
+
+def test_gate_with_filtered_report_fails_when_threshold_breached(tmp_path: Path) -> None:
+    """A filtered report fails the gate if thresholds are not met."""
+    r = _perfect_report()
+    r.pass_rate = 0.5
+    r.active_filters = {"severity": "high"}
+    r.skipped_scenario_count = 10
+    p = _write_report(tmp_path, r)
+    assert main(["--report-json", str(p)]) == 1

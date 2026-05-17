@@ -20,6 +20,7 @@ from app.config import get_settings
 from app.graph import build_graph
 from app.observability import summarize_usage
 from evaluators import run_deterministic_evaluators
+from evaluators.dataset import load_dataset
 from tests.fakes import FixtureLaravelToolClient
 
 DATASET_PATH = Path(__file__).parent.parent / "datasets" / "fraud_benchmarks.json"
@@ -125,8 +126,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", type=Path, default=None, help="Path to write JSON results.")
     args = parser.parse_args(argv)
 
-    with DATASET_PATH.open() as f:
-        dataset = json.load(f)
+    dataset = load_dataset(DATASET_PATH)
 
     settings = get_settings()
     results = asyncio.run(run_all(dataset, settings))

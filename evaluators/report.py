@@ -29,11 +29,17 @@ class BenchmarkReport:
     next_improvements: list[str]
     # Prompt metadata — defaults to [] so old serialised reports deserialise safely.
     prompts_used: list[dict[str, str]] = field(default_factory=list)
+    # Filter metadata — defaults so old serialised reports deserialise safely.
+    active_filters: dict[str, Any] = field(default_factory=dict)
+    skipped_scenario_count: int = 0
 
 
 def generate_report(
     results: list[dict[str, Any]],
     prompts_used: list[dict[str, str]] | None = None,
+    active_filters: dict[str, Any] | None = None,
+    skipped_scenario_count: int = 0,
+    tags_by_id: dict[str, list[str]] | None = None,
 ) -> BenchmarkReport:
     """Build a BenchmarkReport from a list of scenario result dicts.
 
@@ -42,6 +48,8 @@ def generate_report(
     list (including []) to override, e.g. in tests.
     """
     resolved_prompts = prompts_used if prompts_used is not None else collect_prompt_metadata()
+    resolved_filters = active_filters if active_filters is not None else {}
+    resolved_tags = tags_by_id or {}
 
     if not results:
         return BenchmarkReport(
@@ -62,6 +70,8 @@ def generate_report(
             known_gaps=_known_gaps(),
             next_improvements=_next_improvements(),
             prompts_used=resolved_prompts,
+            active_filters=resolved_filters,
+            skipped_scenario_count=skipped_scenario_count,
         )
 
     total = len(results)
@@ -104,6 +114,7 @@ def generate_report(
             "scenario_id": r["scenario_id"],
             "passed": r["passed"],
             "latency_ms": r["latency_ms"],
+            "tags": resolved_tags.get(r["scenario_id"], []),
             "failed_checks": [c["name"] for c in r.get("checks", []) if not c["passed"]],
             "check_scores": {c["name"]: c["score"] for c in r.get("checks", [])},
         }
@@ -128,6 +139,8 @@ def generate_report(
         known_gaps=_known_gaps(),
         next_improvements=_next_improvements(),
         prompts_used=resolved_prompts,
+        active_filters=resolved_filters,
+        skipped_scenario_count=skipped_scenario_count,
     )
 
 
@@ -160,6 +173,20 @@ def report_to_markdown(report: BenchmarkReport) -> str:
         "",
     ]
 
+    if r.active_filters:
+        lines += ["## Active Filters", ""]
+        lines += ["| Filter | Value |", "|--------|-------|"]
+        for k, v in r.active_filters.items():
+            display = ", ".join(v) if isinstance(v, list) else str(v)
+            lines.append(f"| {k} | {display} |")
+        lines.append("")
+        total_in_dataset = r.total_scenarios + r.skipped_scenario_count
+        lines.append(
+            f"Scenarios run: {r.total_scenarios} / {total_in_dataset}"
+            f" ({r.skipped_scenario_count} skipped)"
+        )
+        lines.append("")
+
     if r.prompts_used:
         lines += ["## Prompt Versions", ""]
         lines += [
@@ -174,13 +201,16 @@ def report_to_markdown(report: BenchmarkReport) -> str:
     lines += [
         "## Scenario Breakdown",
         "",
-        "| Scenario | Status | Latency (ms) | Failed Checks |",
-        "|----------|--------|--------------|---------------|",
+        "| Scenario | Status | Latency (ms) | Tags | Failed Checks |",
+        "|----------|--------|--------------|------|---------------|",
     ]
     for s in r.scenario_breakdown:
         status = "PASS" if s["passed"] else "FAIL"
+        tags_str = ", ".join(s.get("tags", [])) or "—"
         failed = ", ".join(s["failed_checks"]) if s["failed_checks"] else "—"
-        lines.append(f"| {s['scenario_id']} | {status} | {s['latency_ms']} | {failed} |")
+        lines.append(
+            f"| {s['scenario_id']} | {status} | {s['latency_ms']} | {tags_str} | {failed} |"
+        )
     lines.append("")
 
     lines += [

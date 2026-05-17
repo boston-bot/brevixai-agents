@@ -1,6 +1,9 @@
 [
   {
     "id": "duplicate_invoice",
+    "category": "accounts_payable",
+    "risk_type": "duplicate_invoice",
+    "tags": ["vendor", "duplicate", "payments"],
     "input_prompt": "Review this month for duplicate invoice risk.",
     "seeded_scenario_id": "phase2_duplicate_invoice",
     "page_context": {
@@ -40,6 +43,9 @@
   },
   {
     "id": "split_payments_under_threshold",
+    "category": "accounts_payable",
+    "risk_type": "threshold_evasion",
+    "tags": ["vendor", "threshold", "payments"],
     "input_prompt": "Look for split payments under approval thresholds.",
     "seeded_scenario_id": "phase2_split_payments_under_threshold",
     "page_context": {
@@ -80,6 +86,9 @@
   },
   {
     "id": "vendor_concentration",
+    "category": "accounts_payable",
+    "risk_type": "vendor_concentration",
+    "tags": ["vendor", "payments"],
     "input_prompt": "Check whether one vendor is concentrating too much spend.",
     "seeded_scenario_id": "phase2_vendor_concentration",
     "page_context": {
@@ -119,6 +128,9 @@
   },
   {
     "id": "round_dollar_payments",
+    "category": "accounts_payable",
+    "risk_type": "unusual_payment_pattern",
+    "tags": ["vendor", "payments"],
     "input_prompt": "Find round-dollar payment patterns that may need review.",
     "seeded_scenario_id": "phase2_round_dollar_payments",
     "page_context": {
@@ -158,6 +170,9 @@
   },
   {
     "id": "reconciliation_mismatch",
+    "category": "accounting",
+    "risk_type": "reconciliation_error",
+    "tags": ["reconciliation", "payments"],
     "input_prompt": "Review reconciliation mismatches for possible risk.",
     "seeded_scenario_id": "phase2_reconciliation_mismatch",
     "page_context": {
@@ -197,6 +212,9 @@
   },
   {
     "id": "ghost_vendor",
+    "category": "vendor_management",
+    "risk_type": "ghost_vendor",
+    "tags": ["vendor", "onboarding", "entity_graph"],
     "input_prompt": "Check for ghost vendor fraud risk this month.",
     "seeded_scenario_id": "phase21_ghost_vendor",
     "seeded_company": {
@@ -274,6 +292,9 @@
   },
   {
     "id": "employee_vendor_overlap",
+    "category": "vendor_management",
+    "risk_type": "conflict_of_interest",
+    "tags": ["vendor", "entity_graph"],
     "input_prompt": "Are any employees also registered as vendors? Check for fraud risk.",
     "seeded_scenario_id": "phase21_employee_vendor_overlap",
     "seeded_company": {
@@ -360,6 +381,9 @@
   },
   {
     "id": "shared_bank_account_multiple_vendors",
+    "category": "vendor_management",
+    "risk_type": "shell_entity",
+    "tags": ["vendor", "entity_graph", "payments"],
     "input_prompt": "Find vendors sharing the same bank account - possible fraud risk.",
     "seeded_scenario_id": "phase21_shared_bank_account",
     "seeded_company": {
@@ -442,6 +466,9 @@
   },
   {
     "id": "vendor_paid_before_onboarding",
+    "category": "vendor_management",
+    "risk_type": "control_bypass",
+    "tags": ["vendor", "onboarding"],
     "input_prompt": "Were any vendors paid before their onboarding was completed? Fraud risk review.",
     "seeded_scenario_id": "phase21_vendor_paid_before_onboarding",
     "seeded_company": {
@@ -509,6 +536,9 @@
   },
   {
     "id": "duplicate_vendor_name_variation",
+    "category": "vendor_management",
+    "risk_type": "duplicate_vendor",
+    "tags": ["vendor", "duplicate", "entity_graph"],
     "input_prompt": "Look for duplicate vendor name variations that may indicate fraud risk.",
     "seeded_scenario_id": "phase21_duplicate_vendor_name",
     "seeded_company": {
@@ -592,6 +622,9 @@
   },
   {
     "id": "unusual_refund_activity",
+    "category": "accounts_payable",
+    "risk_type": "refund_fraud",
+    "tags": ["vendor", "payments"],
     "input_prompt": "Are there unusual refund patterns that may indicate fraud risk?",
     "seeded_scenario_id": "phase21_unusual_refund",
     "seeded_company": {
@@ -676,6 +709,9 @@
   },
   {
     "id": "payroll_anomaly",
+    "category": "payroll",
+    "risk_type": "payroll_fraud",
+    "tags": ["payroll"],
     "input_prompt": "Review payroll for anomalies and signs of fraud risk.",
     "seeded_scenario_id": "phase21_payroll_anomaly",
     "seeded_company": {
@@ -753,6 +789,9 @@
   },
   {
     "id": "weekend_after_hours_payment",
+    "category": "accounts_payable",
+    "risk_type": "unusual_payment_pattern",
+    "tags": ["after_hours", "payments", "vendor"],
     "input_prompt": "Are payments processed on weekends or after hours? Check for fraud risk.",
     "seeded_scenario_id": "phase21_weekend_after_hours",
     "seeded_company": {
@@ -828,6 +867,9 @@
   },
   {
     "id": "approval_threshold_splitting",
+    "category": "accounts_payable",
+    "risk_type": "threshold_evasion",
+    "tags": ["vendor", "threshold", "payments"],
     "input_prompt": "Are any invoices being split to stay under approval thresholds? Fraud risk check.",
     "seeded_scenario_id": "phase21_threshold_splitting",
     "seeded_company": {
@@ -925,6 +967,9 @@
   },
   {
     "id": "high_risk_vendor_concentration_over_time",
+    "category": "accounts_payable",
+    "risk_type": "vendor_concentration",
+    "tags": ["vendor", "payments", "entity_graph"],
     "input_prompt": "Has vendor concentration risk been increasing over time? Review for fraud.",
     "seeded_scenario_id": "phase21_concentration_over_time",
     "seeded_company": {

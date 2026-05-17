@@ -446,6 +446,154 @@ python scripts/run_benchmarks.py --report \
 
 This generates a fresh report and then enforces the quality gate in a single CI step. The pipeline fails if any threshold is breached.
 
+## Scenario Metadata & Selective Runs
+
+Each scenario in `datasets/fraud_benchmarks.json` carries structured metadata that enables targeted local runs without modifying CI.
+
+### Scenario metadata fields
+
+Every scenario entry requires these fields:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `id` | string | yes | Unique scenario identifier |
+| `expected_severity` | string | yes | `critical`, `high`, or `medium` |
+| `category` | string | yes | Logical grouping (e.g. `accounts_payable`, `vendor_management`) |
+| `risk_type` | string | yes | Specific fraud pattern (e.g. `duplicate_invoice`, `ghost_vendor`) |
+| `tags` | list of strings | yes | Searchable labels — must be a list, may be empty |
+
+The dataset loader validates all five fields at load time. A missing or malformed field raises `DatasetValidationError` before any scenario runs.
+
+### Available categories
+
+| Category | Scenarios |
+|----------|-----------|
+| `accounts_payable` | duplicate_invoice, split_payments_under_threshold, vendor_concentration, round_dollar_payments, unusual_refund_activity, weekend_after_hours_payment, approval_threshold_splitting, high_risk_vendor_concentration_over_time |
+| `vendor_management` | ghost_vendor, employee_vendor_overlap, shared_bank_account_multiple_vendors, vendor_paid_before_onboarding, duplicate_vendor_name_variation |
+| `payroll` | payroll_anomaly |
+| `accounting` | reconciliation_mismatch |
+
+### Available tags
+
+| Tag | Meaning |
+|-----|---------|
+| `vendor` | Involves a vendor record or vendor-level risk |
+| `payroll` | Involves payroll disbursements |
+| `reconciliation` | Involves ledger or bank reconciliation |
+| `duplicate` | Involves duplicate invoices or duplicate vendor entries |
+| `threshold` | Involves approval threshold evasion or splitting |
+| `payments` | Involves payment transaction patterns |
+| `after_hours` | Involves weekend or after-hours processing timing |
+| `onboarding` | Involves vendor onboarding controls |
+| `entity_graph` | Involves relationships between entities (vendors, employees, bank accounts) |
+| `false_positive_guardrail` | Reserved for scenarios that specifically test false-positive suppression |
+
+### Selective run examples
+
+Run only vendor management scenarios:
+
+```bash
+python scripts/run_benchmarks.py --report --category vendor_management
+```
+
+Run only high-severity scenarios:
+
+```bash
+python scripts/run_benchmarks.py --report --severity high
+```
+
+Run all scenarios tagged with `vendor`:
+
+```bash
+python scripts/run_benchmarks.py --report --tag vendor
+```
+
+Run scenarios tagged with both `vendor` AND `entity_graph` (AND logic):
+
+```bash
+python scripts/run_benchmarks.py --report --tag vendor --tag entity_graph
+```
+
+Run high-severity payment scenarios:
+
+```bash
+python scripts/run_benchmarks.py --report --severity high --tag payments
+```
+
+Run a specific risk type:
+
+```bash
+python scripts/run_benchmarks.py --report --risk-type threshold_evasion
+```
+
+Multiple filters always combine with AND — a scenario must match every specified filter to be included.
+
+### Filtered report output
+
+When filters are active, reports include an **Active Filters** section:
+
+```markdown
+## Active Filters
+
+| Filter | Value |
+|--------|-------|
+| severity | high |
+| tags | vendor, entity_graph |
+
+Scenarios run: 4 / 15 (11 skipped)
+```
+
+The JSON report includes the same data as top-level fields:
+
+```json
+{
+  "active_filters": { "severity": "high", "tags": ["vendor"] },
+  "skipped_scenario_count": 11,
+  "total_scenarios": 4,
+  ...
+}
+```
+
+The `total_scenarios` field always reflects the number of scenarios actually run (after filtering), not the full dataset size.
+
+### Recommended CI vs. local workflow
+
+**CI (full suite, no filters):**
+
+```bash
+python scripts/run_benchmarks.py --report \
+  && python scripts/quality_gate.py --report-json reports/latest_benchmark_report.json
+```
+
+**Local — targeted smoke test during development:**
+
+```bash
+# Fast check: vendor management scenarios only
+python scripts/run_benchmarks.py --report --category vendor_management
+
+# Focus on the risk type you're working on
+python scripts/run_benchmarks.py --report --risk-type duplicate_invoice
+
+# Run high-severity scenarios before a prompt change
+python scripts/run_benchmarks.py --report --severity high --history
+```
+
+Filtered runs do not overwrite `reports/latest_benchmark_report.json` in a way that breaks CI — they write the same file path but CI always regenerates fresh from the full unfiltered dataset.
+
+### Quality gate with filters
+
+The quality gate supports the same filter flags for fresh benchmark runs:
+
+```bash
+# Gate check on vendor scenarios only (fresh run)
+python scripts/quality_gate.py --tag vendor
+
+# Gate check against an existing filtered report
+python scripts/quality_gate.py --report-json reports/latest_benchmark_report.json
+```
+
+When `--report-json` is provided, filter flags are ignored — the gate evaluates whatever was captured in the report.
+
 ## CI Workflow
 
 The workflow at [`.github/workflows/benchmark-quality-gate.yml`](.github/workflows/benchmark-quality-gate.yml) runs automatically on every pull request and every push to `main`.

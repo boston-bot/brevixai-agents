@@ -10,6 +10,9 @@ Usage:
     # Check gates against a previously generated report
     python scripts/quality_gate.py --report-json reports/latest_benchmark_report.json
 
+    # Run a filtered subset, then check gates
+    python scripts/quality_gate.py --tag vendor --severity high
+
     # Override individual thresholds
     python scripts/quality_gate.py --min-pass-rate 1.0 --max-average-latency-ms 100
 """
@@ -24,7 +27,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.config import get_settings
+from evaluators.dataset import build_active_filters, filter_dataset, load_dataset
 from evaluators.report import BenchmarkReport, generate_report, report_to_json
 from scripts.run_evals import DATASET_PATH, run_all
 
@@ -89,6 +92,18 @@ def _print_gate_results(checks: list[GateCheck], report: BenchmarkReport) -> Non
     print(bar)
     print(f"\n  Scenarios: {report.total_passed}/{report.total_scenarios} passed\n")
 
+    if report.active_filters:
+        print("  Active Filters:")
+        for k, v in report.active_filters.items():
+            display = ", ".join(v) if isinstance(v, list) else str(v)
+            print(f"    {k:<28} {display}")
+        if report.skipped_scenario_count:
+            total_ds = report.total_scenarios + report.skipped_scenario_count
+            print(
+                f"    {'skipped':<28} {report.skipped_scenario_count} of {total_ds} scenarios"
+            )
+        print()
+
     if report.prompts_used:
         print("  Prompt Versions:")
         for p in report.prompts_used:
@@ -149,12 +164,52 @@ def load_report_from_json(path: Path) -> BenchmarkReport:
         raise GateError(f"Report has unexpected structure: {exc}")
 
 
-def _run_and_save() -> BenchmarkReport:
-    with DATASET_PATH.open() as f:
-        dataset = json.load(f)
-    settings = get_settings()
-    results = asyncio.run(run_all(dataset, settings))
-    report = generate_report(results)
+def _run_and_save(
+    *,
+    category: str | None = None,
+    risk_type: str | None = None,
+    severity: str | None = None,
+    tags: list[str] | None = None,
+) -> BenchmarkReport:
+    dataset = load_dataset(DATASET_PATH)
+
+    active_filters = build_active_filters(
+        category=category,
+        risk_type=risk_type,
+        severity=severity,
+        tags=tags,
+    )
+
+    if active_filters:
+        filtered = filter_dataset(
+            dataset,
+            category=category,
+            risk_type=risk_type,
+            severity=severity,
+            tags=tags,
+        )
+        skipped_count = len(dataset) - len(filtered)
+        if not filtered:
+            print(
+                f"WARNING: No scenarios match the specified filters: {active_filters}. "
+                "Nothing to run.",
+                file=sys.stderr,
+            )
+    else:
+        filtered = dataset
+        skipped_count = 0
+
+    settings_module = __import__("app.config", fromlist=["get_settings"])
+    settings = settings_module.get_settings()
+    results = asyncio.run(run_all(filtered, settings))
+
+    tags_by_id = {s["id"]: s.get("tags", []) for s in filtered}
+    report = generate_report(
+        results,
+        active_filters=active_filters,
+        skipped_scenario_count=skipped_count,
+        tags_by_id=tags_by_id,
+    )
 
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     out = REPORTS_DIR / "latest_benchmark_report.json"
@@ -179,12 +234,45 @@ def main(argv: list[str] | None = None) -> int:
         metavar="PATH",
         help="Path to an existing benchmark report JSON. Omit to run benchmarks fresh.",
     )
+    # Threshold flags
     parser.add_argument("--min-pass-rate", type=float, default=0.95, metavar="N")
     parser.add_argument("--min-severity-accuracy", type=float, default=0.95, metavar="N")
     parser.add_argument("--min-evidence-completeness", type=float, default=0.90, metavar="N")
     parser.add_argument("--min-false-positive-pass-rate", type=float, default=0.95, metavar="N")
     parser.add_argument("--max-hallucination-failures", type=int, default=0, metavar="N")
     parser.add_argument("--max-average-latency-ms", type=float, default=500.0, metavar="N")
+    # Scenario filter flags (only applied when running fresh — ignored with --report-json)
+    parser.add_argument(
+        "--category",
+        type=str,
+        default=None,
+        metavar="CATEGORY",
+        help="Only run scenarios with this category (fresh run only).",
+    )
+    parser.add_argument(
+        "--risk-type",
+        type=str,
+        default=None,
+        metavar="RISK_TYPE",
+        help="Only run scenarios with this risk_type (fresh run only).",
+    )
+    parser.add_argument(
+        "--severity",
+        type=str,
+        default=None,
+        metavar="SEVERITY",
+        help="Only run scenarios with this expected_severity (fresh run only).",
+    )
+    parser.add_argument(
+        "--tag",
+        action="append",
+        default=None,
+        metavar="TAG",
+        help=(
+            "Only run scenarios that have this tag (fresh run only). "
+            "Repeat for AND logic: --tag vendor --tag entity_graph"
+        ),
+    )
     args = parser.parse_args(argv)
 
     thresholds = Thresholds(
@@ -203,7 +291,12 @@ def main(argv: list[str] | None = None) -> int:
             print(f"ERROR: {exc}", file=sys.stderr)
             return 1
     else:
-        report = _run_and_save()
+        report = _run_and_save(
+            category=args.category,
+            risk_type=args.risk_type,
+            severity=args.severity,
+            tags=args.tag,
+        )
 
     checks = check_thresholds(report, thresholds)
     _print_gate_results(checks, report)

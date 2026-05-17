@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -499,3 +500,154 @@ def test_benchmark_pass_fail_unaffected_by_prompt_metadata() -> None:
     assert report_a.pass_rate == report_b.pass_rate
     assert report_a.total_passed == report_b.total_passed
     assert report_a.severity_accuracy == report_b.severity_accuracy
+
+
+# ---------------------------------------------------------------------------
+# active_filters and skipped_scenario_count in reports (Phase 2.9)
+# ---------------------------------------------------------------------------
+
+def test_generate_report_active_filters_default_empty() -> None:
+    report = generate_report([_make_result("x")])
+    assert report.active_filters == {}
+
+
+def test_generate_report_active_filters_stored() -> None:
+    filters = {"category": "accounts_payable", "tags": ["vendor"]}
+    report = generate_report([_make_result("x")], active_filters=filters)
+    assert report.active_filters == filters
+
+
+def test_generate_report_skipped_scenario_count_stored() -> None:
+    report = generate_report([_make_result("x")], skipped_scenario_count=7)
+    assert report.skipped_scenario_count == 7
+
+
+def test_generate_report_skipped_default_zero() -> None:
+    report = generate_report([_make_result("x")])
+    assert report.skipped_scenario_count == 0
+
+
+def test_generate_report_empty_results_preserves_filters() -> None:
+    filters = {"severity": "high"}
+    report = generate_report([], active_filters=filters, skipped_scenario_count=10)
+    assert report.active_filters == filters
+    assert report.skipped_scenario_count == 10
+
+
+# ---------------------------------------------------------------------------
+# tags in scenario_breakdown (Phase 2.9)
+# ---------------------------------------------------------------------------
+
+def test_generate_report_breakdown_has_tags_field() -> None:
+    result = _make_result("s1")
+    tags_by_id = {"s1": ["vendor", "payments"]}
+    report = generate_report([result], tags_by_id=tags_by_id)
+    breakdown = report.scenario_breakdown[0]
+    assert "tags" in breakdown
+    assert breakdown["tags"] == ["vendor", "payments"]
+
+
+def test_generate_report_breakdown_tags_default_empty_when_not_provided() -> None:
+    report = generate_report([_make_result("s1")])
+    assert report.scenario_breakdown[0]["tags"] == []
+
+
+def test_generate_report_breakdown_unknown_id_gets_empty_tags() -> None:
+    tags_by_id = {"other_id": ["vendor"]}
+    report = generate_report([_make_result("s1")], tags_by_id=tags_by_id)
+    assert report.scenario_breakdown[0]["tags"] == []
+
+
+# ---------------------------------------------------------------------------
+# JSON report includes active_filters and skipped_scenario_count
+# ---------------------------------------------------------------------------
+
+def test_json_report_includes_active_filters() -> None:
+    filters = {"category": "payroll", "tags": ["payroll"]}
+    report = generate_report([_make_result("x")], active_filters=filters)
+    data = json.loads(report_to_json(report))
+    assert "active_filters" in data
+    assert data["active_filters"] == filters
+
+
+def test_json_report_includes_skipped_scenario_count() -> None:
+    report = generate_report([_make_result("x")], skipped_scenario_count=3)
+    data = json.loads(report_to_json(report))
+    assert "skipped_scenario_count" in data
+    assert data["skipped_scenario_count"] == 3
+
+
+def test_json_report_scenario_breakdown_includes_tags() -> None:
+    tags_by_id = {"s": ["vendor", "entity_graph"]}
+    report = generate_report([_make_result("s")], tags_by_id=tags_by_id)
+    data = json.loads(report_to_json(report))
+    breakdown = data["scenario_breakdown"][0]
+    assert breakdown["tags"] == ["vendor", "entity_graph"]
+
+
+# ---------------------------------------------------------------------------
+# Markdown report includes active filters section
+# ---------------------------------------------------------------------------
+
+def test_markdown_includes_active_filters_section_when_filters_set() -> None:
+    filters = {"category": "accounts_payable", "severity": "high"}
+    report = generate_report([_make_result("x")], active_filters=filters)
+    md = report_to_markdown(report)
+    assert "## Active Filters" in md
+    assert "accounts_payable" in md
+    assert "high" in md
+
+
+def test_markdown_omits_active_filters_section_when_no_filters() -> None:
+    report = generate_report([_make_result("x")])
+    md = report_to_markdown(report)
+    assert "## Active Filters" not in md
+
+
+def test_markdown_active_filters_shows_skipped_count() -> None:
+    filters = {"category": "payroll"}
+    report = generate_report(
+        [_make_result("x")],
+        active_filters=filters,
+        skipped_scenario_count=14,
+    )
+    md = report_to_markdown(report)
+    assert "14" in md
+    assert "skipped" in md
+
+
+def test_markdown_active_filters_tag_list_rendered_as_comma_separated() -> None:
+    filters = {"tags": ["vendor", "entity_graph"]}
+    report = generate_report([_make_result("x")], active_filters=filters)
+    md = report_to_markdown(report)
+    assert "vendor, entity_graph" in md
+
+
+def test_markdown_scenario_breakdown_includes_tags_column() -> None:
+    tags_by_id = {"s": ["vendor", "duplicate"]}
+    report = generate_report([_make_result("s")], tags_by_id=tags_by_id)
+    md = report_to_markdown(report)
+    assert "Tags" in md
+    assert "vendor, duplicate" in md
+
+
+def test_old_report_without_filter_fields_deserialises_safely() -> None:
+    """Reports written before Phase 2.9 (no active_filters / skipped_scenario_count) must load."""
+    import tempfile
+    from dataclasses import asdict
+    from scripts.quality_gate import load_report_from_json
+
+    report = generate_report([_make_result("x")], prompts_used=[])
+    data = asdict(report)
+    del data["active_filters"]
+    del data["skipped_scenario_count"]
+
+    import json as _json
+    with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as f:
+        _json.dump(data, f)
+        tmp = Path(f.name)
+
+    loaded = load_report_from_json(tmp)
+    assert loaded.active_filters == {}
+    assert loaded.skipped_scenario_count == 0
+    tmp.unlink()
