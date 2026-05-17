@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import time
+
 from fastapi import Depends, FastAPI, Header, HTTPException, status
+from langsmith.run_helpers import tracing_context
 
 from app.config import Settings, get_settings
 from app.graph import build_graph
 from app.models import AgentRunRequest, AgentRunResponse
+from app.observability import base_trace_metadata, summarize_usage
 from app.tools.laravel import LaravelToolClient
 
 
@@ -15,7 +19,7 @@ def create_app() -> FastAPI:
         tool_key=settings.laravel_agent_tool_key,
         timeout_seconds=settings.http_timeout_seconds,
     )
-    graph = build_graph(tool_client)
+    graph = build_graph(tool_client, settings=settings)
 
     app = FastAPI(
         title="Brevix AI Agent Service",
@@ -46,15 +50,36 @@ def create_app() -> FastAPI:
             "steps": [],
         }
 
-        result = await graph.ainvoke(state)
+        metadata = base_trace_metadata(state, settings)
+        start = time.perf_counter()
+        with tracing_context(
+            project_name=settings.langchain_project,
+            metadata=metadata,
+            tags=["brevix-ai", "agent-request", settings.graph_version],
+            enabled=settings.langsmith_enabled,
+        ):
+            result = await graph.ainvoke(
+                state,
+                config={
+                    "metadata": metadata,
+                    "tags": ["brevix-ai", "langgraph", settings.graph_version],
+                    "run_name": "brevix_agent_graph",
+                },
+            )
+        request_latency_ms = round((time.perf_counter() - start) * 1000, 2)
+        usage = summarize_usage(result, request_latency_ms, settings)
 
         return AgentRunResponse(
+            trace_id=request.agent_run_id,
             intent=result.get("intent"),
             message=result.get("final_response") or "I could not complete the risk review right now.",
             findings=result.get("findings", []),
             recommended_actions=result.get("recommended_actions", []),
             steps=result.get("steps", []),
             errors=result.get("errors", []),
+            model_provider=settings.model_provider,
+            model_name=settings.model_name,
+            usage=usage,
         )
 
     return app

@@ -1,0 +1,158 @@
+[
+  {
+    "id": "duplicate_invoice",
+    "input_prompt": "Review this month for duplicate invoice risk.",
+    "seeded_scenario_id": "phase2_duplicate_invoice",
+    "page_context": {
+      "selected_period": "2026-05",
+      "source": "evaluation",
+      "fraud_scenario_id": "phase2_duplicate_invoice"
+    },
+    "tool_fixture": {
+      "risk_score": 92,
+      "risk_level": "critical",
+      "top_drivers": [
+        {
+          "driver": "Duplicate invoice pattern",
+          "description": "Two invoices share the same vendor, amount, and invoice reference.",
+          "severity": "critical",
+          "evidence": [
+            { "type": "transaction", "id": "txn-dup-001" },
+            { "type": "transaction", "id": "txn-dup-002" }
+          ]
+        }
+      ]
+    },
+    "expected_findings": ["duplicate invoice"],
+    "expected_severity": "critical",
+    "expected_evidence_patterns": [
+      { "type": "transaction", "min_count": 2 },
+      { "id_contains": "txn-dup" }
+    ]
+  },
+  {
+    "id": "split_payments_under_threshold",
+    "input_prompt": "Look for split payments under approval thresholds.",
+    "seeded_scenario_id": "phase2_split_payments_under_threshold",
+    "page_context": {
+      "selected_period": "2026-05",
+      "source": "evaluation",
+      "fraud_scenario_id": "phase2_split_payments_under_threshold"
+    },
+    "tool_fixture": {
+      "risk_score": 86,
+      "risk_level": "high",
+      "top_drivers": [
+        {
+          "driver": "Split payments under threshold",
+          "description": "Multiple payments to the same vendor were posted just below the approval threshold.",
+          "severity": "high",
+          "evidence": [
+            { "type": "transaction", "id": "txn-split-001" },
+            { "type": "transaction", "id": "txn-split-002" },
+            { "type": "transaction", "id": "txn-split-003" }
+          ]
+        }
+      ]
+    },
+    "expected_findings": ["split payments", "threshold"],
+    "expected_severity": "high",
+    "expected_evidence_patterns": [
+      { "type": "transaction", "min_count": 3 },
+      { "id_contains": "txn-split" }
+    ]
+  },
+  {
+    "id": "vendor_concentration",
+    "input_prompt": "Check whether one vendor is concentrating too much spend.",
+    "seeded_scenario_id": "phase2_vendor_concentration",
+    "page_context": {
+      "selected_period": "2026-05",
+      "source": "evaluation",
+      "fraud_scenario_id": "phase2_vendor_concentration"
+    },
+    "tool_fixture": {
+      "risk_score": 78,
+      "risk_level": "high",
+      "top_drivers": [
+        {
+          "driver": "Vendor concentration",
+          "description": "One vendor represents an unusually high share of monthly spend.",
+          "severity": "high",
+          "evidence": [
+            { "type": "vendor", "id": "vendor-concentration-001" },
+            { "type": "transaction", "id": "txn-vendor-001" }
+          ]
+        }
+      ]
+    },
+    "expected_findings": ["vendor concentration"],
+    "expected_severity": "high",
+    "expected_evidence_patterns": [
+      { "type": "vendor", "min_count": 1 },
+      { "id_contains": "vendor-concentration" }
+    ]
+  },
+  {
+    "id": "round_dollar_payments",
+    "input_prompt": "Find round-dollar payment patterns that may need review.",
+    "seeded_scenario_id": "phase2_round_dollar_payments",
+    "page_context": {
+      "selected_period": "2026-05",
+      "source": "evaluation",
+      "fraud_scenario_id": "phase2_round_dollar_payments"
+    },
+    "tool_fixture": {
+      "risk_score": 64,
+      "risk_level": "medium",
+      "top_drivers": [
+        {
+          "driver": "Round-dollar payments",
+          "description": "Several large payments were posted as exact round-dollar amounts.",
+          "severity": "medium",
+          "evidence": [
+            { "type": "transaction", "id": "txn-round-001" },
+            { "type": "transaction", "id": "txn-round-002" }
+          ]
+        }
+      ]
+    },
+    "expected_findings": ["round-dollar payments"],
+    "expected_severity": "medium",
+    "expected_evidence_patterns": [
+      { "type": "transaction", "min_count": 2 },
+      { "id_contains": "txn-round" }
+    ]
+  },
+  {
+    "id": "reconciliation_mismatch",
+    "input_prompt": "Review reconciliation mismatches for possible risk.",
+    "seeded_scenario_id": "phase2_reconciliation_mismatch",
+    "page_context": {
+      "selected_period": "2026-05",
+      "source": "evaluation",
+      "fraud_scenario_id": "phase2_reconciliation_mismatch"
+    },
+    "tool_fixture": {
+      "risk_score": 73,
+      "risk_level": "high",
+      "top_drivers": [
+        {
+          "driver": "Reconciliation mismatch",
+          "description": "Bank and ledger records do not match for a reviewed payment.",
+          "severity": "high",
+          "evidence": [
+            { "type": "reconciliation_discrepancy", "id": "recon-mismatch-001" },
+            { "type": "transaction", "id": "txn-recon-001" }
+          ]
+        }
+      ]
+    },
+    "expected_findings": ["reconciliation mismatch"],
+    "expected_severity": "high",
+    "expected_evidence_patterns": [
+      { "type": "reconciliation_discrepancy", "min_count": 1 },
+      { "id_contains": "recon-mismatch" }
+    ]
+  }
+]

@@ -13,6 +13,22 @@ class Settings(BaseSettings):
     laravel_agent_tool_key: str = Field(default="", alias="BREVIX_LARAVEL_AGENT_TOOL_KEY")
     http_timeout_seconds: float = Field(default=20.0, alias="HTTP_TIMEOUT_SECONDS")
     log_level: str = Field(default="info", alias="LOG_LEVEL")
+    langchain_tracing_v2: bool = Field(default=False, alias="LANGCHAIN_TRACING_V2")
+    langchain_api_key: str = Field(default="", alias="LANGCHAIN_API_KEY")
+    langchain_project: str = Field(default="brevix-ai", alias="LANGCHAIN_PROJECT")
+    openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
+    graph_version: str = Field(default="phase-2-observability-v1", alias="BREVIX_AGENT_GRAPH_VERSION")
+    feature_flags: str = Field(default="", alias="BREVIX_AGENT_FEATURE_FLAGS")
+    model_provider: str = Field(default="deterministic", alias="BREVIX_AGENT_MODEL_PROVIDER")
+    model_name: str = Field(default="deterministic-risk-v1", alias="BREVIX_AGENT_MODEL_NAME")
+
+    @property
+    def langsmith_enabled(self) -> bool:
+        return self.langchain_tracing_v2 and bool(self.langchain_api_key)
+
+    @property
+    def feature_flag_list(self) -> list[str]:
+        return [flag.strip() for flag in self.feature_flags.split(",") if flag.strip()]
 
 
 @lru_cache

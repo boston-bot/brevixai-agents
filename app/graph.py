@@ -5,7 +5,9 @@ from typing import Any
 
 from langgraph.graph import END, START, StateGraph
 
+from app.config import Settings, get_settings
 from app.models import AgentFinding, BrevixAgentState, RecommendedAction
+from app.observability import instrument_node
 from app.tools.laravel import LaravelToolClient, LaravelToolError
 
 SENSITIVE_ACTION_TYPES = {
@@ -18,12 +20,20 @@ SENSITIVE_ACTION_TYPES = {
 }
 
 
-def build_graph(tool_client: LaravelToolClient):
+def build_graph(tool_client: LaravelToolClient, settings: Settings | None = None):
+    resolved_settings = settings or get_settings()
+
     async def router_node(state: BrevixAgentState) -> dict[str, Any]:
         message = state["user_message"].lower()
         intent = "unknown_or_unsupported"
 
-        if any(term in message for term in ("fraud", "suspicious", "vendor", "risk", "alert", "anomaly")):
+        if any(
+            term in message
+            for term in (
+                "fraud", "suspicious", "vendor", "risk", "alert", "anomaly",
+                "payment", "invoice", "duplicate", "threshold", "split", "concentration",
+            )
+        ):
             intent = "fraud_pattern_search"
         elif any(term in message for term in ("reconciliation", "unmatched", "mismatch")):
             intent = "reconciliation_review"
@@ -41,7 +51,15 @@ def build_graph(tool_client: LaravelToolClient):
 
     async def context_loader_node(state: BrevixAgentState) -> dict[str, Any]:
         try:
-            context = await tool_client.company_context(state["company_id"], state["user_id"])
+            context = await tool_client.company_context(
+                state["company_id"],
+                state["user_id"],
+                trace_id=state.get("agent_run_id"),
+                trace_metadata={
+                    "intent": state.get("intent"),
+                    "request_source": state.get("page_context", {}).get("source"),
+                },
+            )
             return {
                 "company_context": context,
                 "steps": [
@@ -82,7 +100,17 @@ def build_graph(tool_client: LaravelToolClient):
         period = selected_period(state.get("page_context", {}))
 
         try:
-            risk_summary = await tool_client.risk_summary(state["company_id"], state["user_id"], period=period)
+            risk_summary = await tool_client.risk_summary(
+                state["company_id"],
+                state["user_id"],
+                period=period,
+                trace_id=state.get("agent_run_id"),
+                trace_metadata={
+                    "intent": state.get("intent"),
+                    "request_source": state.get("page_context", {}).get("source"),
+                    "fraud_scenario_id": state.get("page_context", {}).get("fraud_scenario_id"),
+                },
+            )
         except LaravelToolError as exc:
             return {
                 "errors": [str(exc)],
@@ -168,12 +196,12 @@ def build_graph(tool_client: LaravelToolClient):
         }
 
     builder = StateGraph(BrevixAgentState)
-    builder.add_node("router", router_node)
-    builder.add_node("context_loader", context_loader_node)
-    builder.add_node("fraud_analyzer", fraud_analyzer_node)
-    builder.add_node("explanation", explanation_node)
-    builder.add_node("action_gate", action_gate_node)
-    builder.add_node("final_response", final_response_node)
+    builder.add_node("router", instrument_node("router", router_node, resolved_settings))
+    builder.add_node("context_loader", instrument_node("context_loader", context_loader_node, resolved_settings))
+    builder.add_node("fraud_analyzer", instrument_node("fraud_analyzer", fraud_analyzer_node, resolved_settings))
+    builder.add_node("explanation", instrument_node("explanation", explanation_node, resolved_settings))
+    builder.add_node("action_gate", instrument_node("action_gate", action_gate_node, resolved_settings))
+    builder.add_node("final_response", instrument_node("final_response", final_response_node, resolved_settings))
     builder.add_edge(START, "router")
     builder.add_edge("router", "context_loader")
     builder.add_edge("context_loader", "fraud_analyzer")

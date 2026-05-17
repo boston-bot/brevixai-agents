@@ -42,6 +42,7 @@ class AgentStep(BaseModel):
 
 
 class AgentRunResponse(BaseModel):
+    trace_id: str | None = None
     intent: str | None = None
     message: str
     findings: list[AgentFinding] = Field(default_factory=list)
@@ -68,3 +69,4 @@ class BrevixAgentState(TypedDict, total=False):
     final_response: str | None
     errors: list[str]
     steps: Annotated[list[dict[str, Any]], add]
+    usage: dict[str, Any]
