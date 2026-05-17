@@ -85,6 +85,48 @@ Or:
 docker compose up --build
 ```
 
+## Prompt Templates
+
+### Where prompts live
+
+All prompt templates are in [`app/prompts/`](app/prompts/). Each template is a versioned Markdown file:
+
+```text
+app/prompts/
+├── router.v1.md
+├── fraud_analyzer_summary.v1.md
+├── explanation.v1.md
+└── action_gate.v1.md
+```
+
+The loader lives at [`app/prompts/loader.py`](app/prompts/loader.py).
+
+### How prompt versioning works
+
+Every prompt file is named `{name}.{version}.md`. The version is an integer (`v1`, `v2`, …). When graph nodes are initialized, all four templates are loaded from disk via `load_prompt(name, version)`. If any file is missing, the graph fails at startup — not silently at runtime.
+
+Template variables use `{{double_brace}}` syntax and are interpolated at request time. The loader computes a SHA-256 hash of the raw file content (including frontmatter) and returns it as `prompt_hash`.
+
+### How to create a new prompt version
+
+1. Copy the existing file: `cp app/prompts/explanation.v1.md app/prompts/explanation.v2.md`
+2. Edit `explanation.v2.md` with your changes.
+3. Update the version string in `build_graph()` in [`app/graph.py`](app/graph.py):
+   ```python
+   _explanation_prompt = load_prompt("explanation", "v2")
+   ```
+4. Run tests and benchmarks. The new `prompt_hash` will appear in all trace metadata and benchmark reports, making it easy to correlate quality changes to the exact template that produced them.
+
+**Rule: never edit an old prompt version after it has been benchmarked.** Once a benchmark report records a `prompt_hash`, that hash must remain stable so regressions can be traced back to the exact template. Create `v2` instead.
+
+### Why prompt hashes are included in benchmark metadata
+
+Each benchmark result in `reports/latest_benchmark_report.json` carries the `prompt_hash` of every template that was active during the run. This means:
+
+- If benchmark quality drops between two runs, you can diff the hashes to identify which template changed.
+- Rolled-back prompt versions produce identical hashes, confirming the regression was prompt-driven.
+- CI enforces quality gates against the current prompt — if a prompt edit causes a regression the gate fails before merge.
+
 ## Model Providers
 
 The agent explanation layer is backed by a swappable model provider. The provider is selected with `BREVIX_AGENT_MODEL_PROVIDER`.

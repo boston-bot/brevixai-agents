@@ -8,6 +8,7 @@ from langgraph.graph import END, START, StateGraph
 from app.config import Settings, get_settings
 from app.models import AgentFinding, BrevixAgentState, RecommendedAction
 from app.observability import instrument_node
+from app.prompts import load_prompt
 from app.providers import ModelProvider, get_provider
 from app.tools.laravel import LaravelToolClient, LaravelToolError
 
@@ -28,6 +29,12 @@ def build_graph(
 ):
     resolved_settings = settings or get_settings()
     resolved_provider = provider or get_provider(resolved_settings)
+
+    # Load prompt templates once at graph-build time — fail early if any are missing.
+    _router_prompt = load_prompt("router", "v1")
+    _fraud_analyzer_prompt = load_prompt("fraud_analyzer_summary", "v1")
+    _explanation_prompt = load_prompt("explanation", "v1")
+    _action_gate_prompt = load_prompt("action_gate", "v1")
 
     async def router_node(state: BrevixAgentState) -> dict[str, Any]:
         message = state["user_message"].lower()
@@ -50,7 +57,7 @@ def build_graph(
                 step(
                     "router",
                     input_payload={"message": state["user_message"]},
-                    output_payload={"intent": intent},
+                    output_payload={"intent": intent, **_router_prompt.metadata},
                 )
             ],
         }
@@ -146,6 +153,7 @@ def build_graph(
                         "risk_score": risk_summary.get("risk_score"),
                         "risk_level": risk_summary.get("risk_level"),
                         "finding_count": len(findings),
+                        **_fraud_analyzer_prompt.metadata,
                     },
                 )
             ],
@@ -153,7 +161,19 @@ def build_graph(
 
     async def explanation_node(state: BrevixAgentState) -> dict[str, Any]:
         context = _build_context(state)
-        prompt = _build_prompt(context)
+        findings_text = (
+            "\n".join(
+                f"- {f.get('title')} (severity: {f.get('severity', 'unknown')})"
+                for f in context.get("findings", [])
+            )
+            or "No specific findings returned."
+        )
+        prompt = _explanation_prompt.render({
+            "intent": str(context.get("intent") or ""),
+            "risk_score": str(context.get("risk_score", 0)),
+            "risk_level": str(context.get("risk_level", "low")),
+            "findings_text": findings_text,
+        })
         provider_response = await resolved_provider.generate(prompt, context)
 
         return {
@@ -169,6 +189,7 @@ def build_graph(
                         "provider_latency_ms": provider_response.latency_ms,
                         "tokens_input": provider_response.tokens_input,
                         "tokens_output": provider_response.tokens_output,
+                        **_explanation_prompt.metadata,
                     },
                 )
             ],
@@ -192,6 +213,7 @@ def build_graph(
                         "action_count": len(gated),
                         "executed_actions": 0,
                         "autonomous_actions_enabled": False,
+                        **_action_gate_prompt.metadata,
                     },
                 )
             ],
@@ -312,27 +334,6 @@ def _build_context(state: BrevixAgentState) -> dict[str, Any]:
         "risk_score": risk_summary.get("risk_score", 0),
         "risk_level": risk_summary.get("risk_level", "low"),
     }
-
-
-def _build_prompt(context: dict[str, Any]) -> str:
-    findings_text = (
-        "\n".join(
-            f"- {f.get('title')} (severity: {f.get('severity', 'unknown')})"
-            for f in context.get("findings", [])
-        )
-        or "No specific findings returned."
-    )
-    return (
-        "You are a financial risk analysis assistant for Brevix. Summarize the following "
-        "risk analysis results for an accounting team in 2-4 concise sentences.\n\n"
-        f"Intent: {context.get('intent')}\n"
-        f"Risk score: {context.get('risk_score', 0)}/100 ({context.get('risk_level', 'low')})\n"
-        f"Findings:\n{findings_text}\n\n"
-        "Guidelines:\n"
-        "- Use 'may indicate' language; never accuse of fraud\n"
-        "- Be factual and professional\n"
-        "- End with: No alerts or cases were created."
-    )
 
 
 def suggested_actions(state: BrevixAgentState) -> list[RecommendedAction]:
