@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from langgraph.graph import END, START, StateGraph
@@ -193,7 +193,7 @@ def step(
     status: str = "completed",
     error_message: str | None = None,
 ) -> dict[str, Any]:
-    timestamp = datetime.now(UTC).isoformat()
+    timestamp = datetime.now(timezone.utc).isoformat()
 
     return {
         "step_name": step_name,
