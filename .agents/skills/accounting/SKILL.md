@@ -1,0 +1,1 @@
+- [ ] Set up Stripe (or payment processor) to deposit to business account

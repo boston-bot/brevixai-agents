@@ -2,6 +2,7 @@
 
 Usage:
     python scripts/run_benchmarks.py --report
+    python scripts/run_benchmarks.py --report --history
     python scripts/run_benchmarks.py --report --output path/to/results.json
 """
 from __future__ import annotations
@@ -10,15 +11,23 @@ import argparse
 import asyncio
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.config import get_settings
-from evaluators.report import generate_report, report_to_json, report_to_markdown
+from evaluators.report import BenchmarkReport, generate_report, report_to_json, report_to_markdown
 from scripts.run_evals import DATASET_PATH, run_all
 
 REPORTS_DIR = Path(__file__).parent.parent / "reports"
+HISTORY_DIR = REPORTS_DIR / "history"
+
+
+def _history_timestamp(report: BenchmarkReport) -> str:
+    """Return a YYYYMMDD_HHMMSS string derived from the report's generated_at field."""
+    dt = datetime.fromisoformat(report.generated_at)
+    return dt.strftime("%Y%m%d_%H%M%S")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -29,6 +38,14 @@ def main(argv: list[str] | None = None) -> int:
         "--report",
         action="store_true",
         help="Generate JSON and Markdown reports in reports/.",
+    )
+    parser.add_argument(
+        "--history",
+        action="store_true",
+        help=(
+            "Also write timestamped copies to reports/history/. "
+            "Requires --report. Enables report comparison with compare_benchmark_reports.py."
+        ),
     )
     parser.add_argument(
         "--output",
@@ -65,7 +82,19 @@ def main(argv: list[str] | None = None) -> int:
         rate = report.pass_rate
         print(f"\nBenchmark complete: {passed}/{total} passed ({rate:.1%})")
         print(f"  JSON report -> {json_path}")
-        print(f"  MD   report -> {md_path}\n")
+        print(f"  MD   report -> {md_path}")
+
+        if args.history:
+            HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+            ts = _history_timestamp(report)
+            hist_json = HISTORY_DIR / f"benchmark_report_{ts}.json"
+            hist_md = HISTORY_DIR / f"benchmark_report_{ts}.md"
+            hist_json.write_text(report_to_json(report))
+            hist_md.write_text(report_to_markdown(report))
+            print(f"  History JSON -> {hist_json}")
+            print(f"  History MD   -> {hist_md}")
+
+        print()
 
     return 0 if all(r["passed"] for r in results) else 1
 

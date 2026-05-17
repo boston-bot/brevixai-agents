@@ -190,19 +190,118 @@ Brevix AI Quality Gate
 
 ### How to compare reports across prompt versions
 
-1. Generate a report before editing a prompt and save it:
-   ```bash
-   python scripts/run_benchmarks.py --report
-   cp reports/latest_benchmark_report.json reports/before_prompt_change.json
-   ```
-2. Edit the prompt (bump to `v2`), update the registry, run benchmarks again:
-   ```bash
-   python scripts/run_benchmarks.py --report
-   ```
-3. Compare `prompts_used[].prompt_hash` between the two reports. A changed hash confirms which template was active when quality changed.
-4. Compare quality metrics side by side to determine whether the prompt change improved or degraded results.
+See the [Benchmark History & Comparison](#benchmark-history--comparison) section below for the full comparison workflow.
 
 Old reports written before Phase 2.7 (without a `prompts_used` key) load and gate correctly — the field defaults to an empty list.
+
+## Benchmark History & Comparison
+
+### Saving timestamped benchmark history
+
+Pass `--history` alongside `--report` to write a timestamped copy of every report to `reports/history/`:
+
+```bash
+python scripts/run_benchmarks.py --report --history
+```
+
+Output:
+
+```text
+reports/latest_benchmark_report.json        ← always overwritten (latest)
+reports/latest_benchmark_report.md
+reports/history/benchmark_report_20260517_143052.json   ← timestamped copy
+reports/history/benchmark_report_20260517_143052.md
+```
+
+The timestamp is derived from the report's `generated_at` field in `YYYYMMDD_HHMMSS` format. Accumulating history files lets you compare any two runs at any point in time.
+
+### Comparing two reports
+
+```bash
+python scripts/compare_benchmark_reports.py \
+  --base  reports/history/benchmark_report_20260515_100000.json \
+  --current reports/latest_benchmark_report.json
+```
+
+With optional file output:
+
+```bash
+python scripts/compare_benchmark_reports.py \
+  --base  reports/history/benchmark_report_20260515_100000.json \
+  --current reports/latest_benchmark_report.json \
+  --output-json reports/comparison.json \
+  --output-md  reports/comparison.md
+```
+
+### How to interpret the comparison output
+
+**Console summary:**
+
+```
+==============================================================
+Brevix AI Benchmark Comparison
+==============================================================
+
+  Base:    2026-05-15T10:00:00+00:00
+  Current: 2026-05-17T14:30:52+00:00
+
+  Metric Deltas
+  ----------------------------------------------------------
+  BETTER   pass_rate                       0.9375 -> 1.0  (+0.0625)
+  SAME     severity_accuracy               1.0  (no change)
+  WORSE    average_latency_ms              4.7 -> 8.5  (+3.8)
+
+  Scenario Changes
+  ----------------------------------------------------------
+  Newly failed  (1): split_payments_under_threshold
+  Newly passing (2): vendor_concentration, duplicate_invoice
+
+  Prompt Changes
+  ----------------------------------------------------------
+  SAME     action_gate                     d7f3a8c2
+  CHANGED  explanation                     c5d1e2b9 -> e8b1f4c7
+  SAME     fraud_analyzer_summary          8b4e7f0a
+  SAME     router                          3a9f2c1d
+
+==============================================================
+Summary: 1 improved, 1 degraded | 1 new failure(s), 2 new pass(es) | 1 prompt change(s)
+(Informational only — does not affect CI pass/fail)
+==============================================================
+```
+
+**Metric direction labels:**
+
+| Label | Meaning |
+|-------|---------|
+| `BETTER` | Metric moved in a positive direction (higher for rates, lower for latency/failures) |
+| `WORSE` | Metric moved in a negative direction |
+| `SAME` | Change smaller than 0.000001 — treated as stable |
+
+**Prompt Changes block:** `CHANGED` means the SHA-256 hash of the template file is different between runs. Use this to confirm whether a quality shift was prompt-driven.
+
+### Typical workflow for a prompt change
+
+```bash
+# 1. Save a baseline before editing
+python scripts/run_benchmarks.py --report --history
+
+# 2. Edit the prompt (create v2, bump version in build_graph)
+
+# 3. Run again and save new history entry
+python scripts/run_benchmarks.py --report --history
+
+# 4. Compare
+python scripts/compare_benchmark_reports.py \
+  --base  reports/history/benchmark_report_<before_ts>.json \
+  --current reports/latest_benchmark_report.json \
+  --output-md reports/comparison.md
+```
+
+The `CHANGED` flag in the Prompt Changes section confirms exactly which template hash changed, and the Metric Deltas section shows whether the change helped or hurt.
+
+### Why comparison is informational for now
+
+The comparison script always exits 0 (except when a file cannot be loaded). Degradations are visible in the output but do not block CI. The quality gate (`quality_gate.py`) enforces absolute thresholds; the comparison tool provides relative context that is most useful during prompt iteration and code review.
 
 ## Model Providers
 
