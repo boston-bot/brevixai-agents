@@ -1,0 +1,27 @@
+{
+  "serviceName": "brevixai-agent-service",
+  "cluster": "brevixai-production",
+  "taskDefinition": "brevixai-agent-service",
+  "desiredCount": 1,
+  "launchType": "FARGATE",
+  "platformVersion": "LATEST",
+  "networkConfiguration": {
+    "awsvpcConfiguration": {
+      "subnets": ["subnet-private-a", "subnet-private-b"],
+      "securityGroups": ["sg-agent-service-private"],
+      "assignPublicIp": "DISABLED"
+    }
+  },
+  "loadBalancers": [
+    {
+      "targetGroupArn": "arn:aws:elasticloadbalancing:<region>:<account-id>:targetgroup/brevixai-agent-service/<id>",
+      "containerName": "agent-service",
+      "containerPort": 8010
+    }
+  ],
+  "deploymentConfiguration": {
+    "maximumPercent": 200,
+    "minimumHealthyPercent": 100
+  },
+  "enableExecuteCommand": true
+}

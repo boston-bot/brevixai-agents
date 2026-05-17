@@ -1,0 +1,17 @@
+services:
+  agent-service:
+    build: .
+    image: brevixai-agent-service:local
+    ports:
+      - "8010:8010"
+    env_file:
+      - .env
+    environment:
+      BREVIX_LARAVEL_BASE_URL: ${BREVIX_LARAVEL_BASE_URL:-http://host.docker.internal:8000}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8010/health').read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

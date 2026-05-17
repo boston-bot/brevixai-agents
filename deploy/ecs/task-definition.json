@@ -1,0 +1,62 @@
+{
+  "family": "brevixai-agent-service",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::<account-id>:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::<account-id>:role/brevixai-agent-service-task-role",
+  "containerDefinitions": [
+    {
+      "name": "agent-service",
+      "image": "<account-id>.dkr.ecr.<region>.amazonaws.com/brevixai-agent-service:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8010,
+          "hostPort": 8010,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "APP_ENV",
+          "value": "production"
+        },
+        {
+          "name": "BREVIX_LARAVEL_BASE_URL",
+          "value": "https://api.internal.brevixai.com"
+        },
+        {
+          "name": "HTTP_TIMEOUT_SECONDS",
+          "value": "20"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "BREVIX_AGENT_SERVICE_KEY",
+          "valueFrom": "arn:aws:ssm:<region>:<account-id>:parameter/brevix/agent-service/key"
+        },
+        {
+          "name": "BREVIX_LARAVEL_AGENT_TOOL_KEY",
+          "valueFrom": "arn:aws:ssm:<region>:<account-id>:parameter/brevix/laravel-agent-tool/key"
+        }
+      ],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8010/health').read()\""],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 20
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/brevixai-agent-service",
+          "awslogs-region": "<region>",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}
