@@ -1,3 +1,15 @@
-from app.prompts.loader import PromptNotFoundError, PromptTemplate, load_prompt
+from app.prompts.loader import (
+    PROMPT_REGISTRY,
+    PromptNotFoundError,
+    PromptTemplate,
+    collect_prompt_metadata,
+    load_prompt,
+)
 
-__all__ = ["load_prompt", "PromptTemplate", "PromptNotFoundError"]
+__all__ = [
+    "load_prompt",
+    "collect_prompt_metadata",
+    "PROMPT_REGISTRY",
+    "PromptTemplate",
+    "PromptNotFoundError",
+]

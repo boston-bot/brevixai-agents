@@ -127,6 +127,83 @@ Each benchmark result in `reports/latest_benchmark_report.json` carries the `pro
 - Rolled-back prompt versions produce identical hashes, confirming the regression was prompt-driven.
 - CI enforces quality gates against the current prompt — if a prompt edit causes a regression the gate fails before merge.
 
+### How prompt metadata appears in reports
+
+**JSON report** (`reports/latest_benchmark_report.json`) includes a top-level `prompts_used` array:
+
+```json
+"prompts_used": [
+  {
+    "prompt_name": "router",
+    "prompt_version": "v1",
+    "prompt_hash": "3a9f2c1d..."
+  },
+  {
+    "prompt_name": "fraud_analyzer_summary",
+    "prompt_version": "v1",
+    "prompt_hash": "8b4e7f0a..."
+  },
+  {
+    "prompt_name": "explanation",
+    "prompt_version": "v1",
+    "prompt_hash": "c5d1e2b9..."
+  },
+  {
+    "prompt_name": "action_gate",
+    "prompt_version": "v1",
+    "prompt_hash": "f7a3c8d2..."
+  }
+]
+```
+
+**Markdown report** (`reports/latest_benchmark_report.md`) includes a **Prompt Versions** section:
+
+```markdown
+## Prompt Versions
+
+| Prompt                 | Version | Hash (short) |
+|------------------------|---------|--------------|
+| router                 | v1      | `3a9f2c1d`   |
+| fraud_analyzer_summary | v1      | `8b4e7f0a`   |
+| explanation            | v1      | `c5d1e2b9`   |
+| action_gate            | v1      | `f7a3c8d2`   |
+```
+
+**Quality gate output** prints prompt versions before the metric checks:
+
+```
+==============================================================
+Brevix AI Quality Gate
+==============================================================
+
+  Scenarios: 16/16 passed
+
+  Prompt Versions:
+    router                       v1   3a9f2c1d
+    fraud_analyzer_summary       v1   8b4e7f0a
+    explanation                  v1   c5d1e2b9
+    action_gate                  v1   f7a3c8d2
+
+  PASS  pass_rate                    1.000      >= 0.95
+  ...
+```
+
+### How to compare reports across prompt versions
+
+1. Generate a report before editing a prompt and save it:
+   ```bash
+   python scripts/run_benchmarks.py --report
+   cp reports/latest_benchmark_report.json reports/before_prompt_change.json
+   ```
+2. Edit the prompt (bump to `v2`), update the registry, run benchmarks again:
+   ```bash
+   python scripts/run_benchmarks.py --report
+   ```
+3. Compare `prompts_used[].prompt_hash` between the two reports. A changed hash confirms which template was active when quality changed.
+4. Compare quality metrics side by side to determine whether the prompt change improved or degraded results.
+
+Old reports written before Phase 2.7 (without a `prompts_used` key) load and gate correctly — the field defaults to an empty list.
+
 ## Model Providers
 
 The agent explanation layer is backed by a swappable model provider. The provider is selected with `BREVIX_AGENT_MODEL_PROVIDER`.

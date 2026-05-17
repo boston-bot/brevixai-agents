@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any
+
+from app.prompts.loader import collect_prompt_metadata
 
 
 @dataclass
@@ -25,10 +27,22 @@ class BenchmarkReport:
     scenario_breakdown: list[dict[str, Any]]
     known_gaps: list[str]
     next_improvements: list[str]
+    # Prompt metadata — defaults to [] so old serialised reports deserialise safely.
+    prompts_used: list[dict[str, str]] = field(default_factory=list)
 
 
-def generate_report(results: list[dict[str, Any]]) -> BenchmarkReport:
-    """Build a BenchmarkReport from a list of scenario result dicts."""
+def generate_report(
+    results: list[dict[str, Any]],
+    prompts_used: list[dict[str, str]] | None = None,
+) -> BenchmarkReport:
+    """Build a BenchmarkReport from a list of scenario result dicts.
+
+    prompts_used defaults to the live prompt registry so reports always
+    document which prompt versions produced the results. Pass an explicit
+    list (including []) to override, e.g. in tests.
+    """
+    resolved_prompts = prompts_used if prompts_used is not None else collect_prompt_metadata()
+
     if not results:
         return BenchmarkReport(
             generated_at=_now(),
@@ -47,6 +61,7 @@ def generate_report(results: list[dict[str, Any]]) -> BenchmarkReport:
             scenario_breakdown=[],
             known_gaps=_known_gaps(),
             next_improvements=_next_improvements(),
+            prompts_used=resolved_prompts,
         )
 
     total = len(results)
@@ -112,6 +127,7 @@ def generate_report(results: list[dict[str, Any]]) -> BenchmarkReport:
         scenario_breakdown=scenario_breakdown,
         known_gaps=_known_gaps(),
         next_improvements=_next_improvements(),
+        prompts_used=resolved_prompts,
     )
 
 
@@ -143,6 +159,17 @@ def report_to_markdown(report: BenchmarkReport) -> str:
         f"| Average Latency | {r.average_latency_ms:.1f} ms |",
         "",
     ]
+
+    if r.prompts_used:
+        lines += ["## Prompt Versions", ""]
+        lines += [
+            "| Prompt | Version | Hash (short) |",
+            "|--------|---------|--------------|",
+        ]
+        for p in r.prompts_used:
+            short_hash = p.get("prompt_hash", "")[:8]
+            lines.append(f"| {p.get('prompt_name')} | {p.get('prompt_version')} | `{short_hash}` |")
+        lines.append("")
 
     lines += [
         "## Scenario Breakdown",

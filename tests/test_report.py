@@ -382,3 +382,120 @@ def test_diagnostics_multiple_failed_scenarios_all_listed() -> None:
     ]
     report = generate_report(results)
     assert sorted(report.failed_scenario_ids) == ["fail_0", "fail_1", "fail_2"]
+
+
+# ---------------------------------------------------------------------------
+# Prompt metadata in reports (Phase 2.7)
+# ---------------------------------------------------------------------------
+
+_SAMPLE_PROMPTS: list[dict] = [
+    {"prompt_name": "router", "prompt_version": "v1", "prompt_hash": "a" * 64},
+    {"prompt_name": "explanation", "prompt_version": "v1", "prompt_hash": "b" * 64},
+]
+
+
+def test_generate_report_includes_prompt_metadata() -> None:
+    report = generate_report([_make_result("x")], prompts_used=_SAMPLE_PROMPTS)
+    assert report.prompts_used == _SAMPLE_PROMPTS
+
+
+def test_generate_report_empty_results_includes_prompt_metadata() -> None:
+    report = generate_report([], prompts_used=_SAMPLE_PROMPTS)
+    assert report.prompts_used == _SAMPLE_PROMPTS
+
+
+def test_generate_report_explicit_empty_prompts_list() -> None:
+    report = generate_report([_make_result("x")], prompts_used=[])
+    assert report.prompts_used == []
+
+
+def test_json_report_includes_prompts_used_key() -> None:
+    report = generate_report([_make_result("x")], prompts_used=_SAMPLE_PROMPTS)
+    data = json.loads(report_to_json(report))
+    assert "prompts_used" in data
+    assert isinstance(data["prompts_used"], list)
+
+
+def test_json_report_prompts_used_has_required_fields() -> None:
+    report = generate_report([_make_result("x")], prompts_used=_SAMPLE_PROMPTS)
+    data = json.loads(report_to_json(report))
+    for entry in data["prompts_used"]:
+        assert "prompt_name" in entry
+        assert "prompt_version" in entry
+        assert "prompt_hash" in entry
+
+
+def test_json_report_prompts_used_values_match_input() -> None:
+    report = generate_report([_make_result("x")], prompts_used=_SAMPLE_PROMPTS)
+    data = json.loads(report_to_json(report))
+    names = {e["prompt_name"] for e in data["prompts_used"]}
+    assert "router" in names
+    assert "explanation" in names
+
+
+def test_json_report_prompts_used_empty_when_not_provided() -> None:
+    report = generate_report([_make_result("x")], prompts_used=[])
+    data = json.loads(report_to_json(report))
+    assert data["prompts_used"] == []
+
+
+def test_markdown_includes_prompt_versions_section() -> None:
+    report = generate_report([_make_result("x")], prompts_used=_SAMPLE_PROMPTS)
+    md = report_to_markdown(report)
+    assert "## Prompt Versions" in md
+
+
+def test_markdown_prompt_versions_table_has_all_names() -> None:
+    report = generate_report([_make_result("x")], prompts_used=_SAMPLE_PROMPTS)
+    md = report_to_markdown(report)
+    assert "router" in md
+    assert "explanation" in md
+
+
+def test_markdown_prompt_versions_shows_short_hash() -> None:
+    report = generate_report([_make_result("x")], prompts_used=_SAMPLE_PROMPTS)
+    md = report_to_markdown(report)
+    # Short hash is first 8 chars of the 64-char hash
+    assert "aaaaaaaa" in md
+    assert "bbbbbbbb" in md
+
+
+def test_markdown_no_prompt_versions_section_when_empty() -> None:
+    report = generate_report([_make_result("x")], prompts_used=[])
+    md = report_to_markdown(report)
+    assert "## Prompt Versions" not in md
+
+
+def test_old_report_without_prompts_used_deserialises_safely() -> None:
+    """Reports written before Phase 2.7 (no prompts_used key) must load without error."""
+    from dataclasses import asdict
+    from scripts.quality_gate import load_report_from_json
+
+    report = generate_report([_make_result("x")], prompts_used=_SAMPLE_PROMPTS)
+    data = asdict(report)
+    del data["prompts_used"]  # simulate a pre-2.7 report
+
+    import json as _json
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as f:
+        _json.dump(data, f)
+        tmp = Path(f.name)
+
+    loaded = load_report_from_json(tmp)
+    assert loaded.prompts_used == []
+    tmp.unlink()
+
+
+def test_benchmark_pass_fail_unaffected_by_prompt_metadata() -> None:
+    """Pass/fail logic must not change when prompts_used is populated."""
+    results_a = [_make_result("x")]
+    results_b = [_make_result("x")]
+
+    report_a = generate_report(results_a, prompts_used=[])
+    report_b = generate_report(results_b, prompts_used=_SAMPLE_PROMPTS)
+
+    assert report_a.pass_rate == report_b.pass_rate
+    assert report_a.total_passed == report_b.total_passed
+    assert report_a.severity_accuracy == report_b.severity_accuracy

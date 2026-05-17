@@ -89,6 +89,15 @@ def _print_gate_results(checks: list[GateCheck], report: BenchmarkReport) -> Non
     print(bar)
     print(f"\n  Scenarios: {report.total_passed}/{report.total_scenarios} passed\n")
 
+    if report.prompts_used:
+        print("  Prompt Versions:")
+        for p in report.prompts_used:
+            name = p.get("prompt_name", "")
+            version = p.get("prompt_version", "")
+            short_hash = p.get("prompt_hash", "")[:8]
+            print(f"    {name:<28} {version}   {short_hash}")
+        print()
+
     for c in checks:
         label = "PASS" if c.passed else "FAIL"
         actual_str = _fmt(c.actual)

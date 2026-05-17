@@ -87,3 +87,22 @@ def _strip_frontmatter(text: str) -> str:
     if end == -1:
         return text
     return text[end + 5:]
+
+
+# Canonical list of all prompt templates active in the graph.
+# Update this when adding or bumping a prompt version.
+PROMPT_REGISTRY: list[tuple[str, str]] = [
+    ("router", "v1"),
+    ("fraud_analyzer_summary", "v1"),
+    ("explanation", "v1"),
+    ("action_gate", "v1"),
+]
+
+
+def collect_prompt_metadata() -> list[dict[str, str]]:
+    """Return metadata for every prompt in PROMPT_REGISTRY.
+
+    Called by the report generator so benchmark reports always document
+    which prompt versions produced the results.
+    """
+    return [load_prompt(name, version).metadata for name, version in PROMPT_REGISTRY]

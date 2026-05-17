@@ -258,3 +258,79 @@ def test_main_hallucination_threshold_flag(tmp_path: Path) -> None:
     p = _write_report(tmp_path, report)
     assert main(["--report-json", str(p), "--max-hallucination-failures", "3"]) == 0
     assert main(["--report-json", str(p), "--max-hallucination-failures", "1"]) == 1
+
+
+# ---------------------------------------------------------------------------
+# Prompt metadata in quality gate output (Phase 2.7)
+# ---------------------------------------------------------------------------
+
+_SAMPLE_PROMPTS: list[dict] = [
+    {"prompt_name": "router", "prompt_version": "v1", "prompt_hash": "a" * 64},
+    {"prompt_name": "explanation", "prompt_version": "v1", "prompt_hash": "b" * 64},
+    {"prompt_name": "fraud_analyzer_summary", "prompt_version": "v1", "prompt_hash": "c" * 64},
+    {"prompt_name": "action_gate", "prompt_version": "v1", "prompt_hash": "d" * 64},
+]
+
+
+def _report_with_prompts() -> BenchmarkReport:
+    r = _perfect_report()
+    r.prompts_used = _SAMPLE_PROMPTS
+    return r
+
+
+def test_gate_prints_prompt_versions_when_present(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    p = _write_report(tmp_path, _report_with_prompts())
+    main(["--report-json", str(p)])
+    out = capsys.readouterr().out
+    assert "Prompt Versions" in out
+    assert "router" in out
+    assert "explanation" in out
+    assert "fraud_analyzer_summary" in out
+    assert "action_gate" in out
+
+
+def test_gate_prints_short_hash_for_each_prompt(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    p = _write_report(tmp_path, _report_with_prompts())
+    main(["--report-json", str(p)])
+    out = capsys.readouterr().out
+    # Each 64-char hash is truncated to 8 chars in output
+    assert "aaaaaaaa" in out
+    assert "bbbbbbbb" in out
+    assert "cccccccc" in out
+    assert "dddddddd" in out
+
+
+def test_gate_omits_prompt_section_when_prompts_used_empty(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    report = _perfect_report()
+    # prompts_used defaults to [] — old report with no prompt metadata
+    p = _write_report(tmp_path, report)
+    main(["--report-json", str(p)])
+    out = capsys.readouterr().out
+    assert "Prompt Versions" not in out
+
+
+def test_gate_pass_fail_unaffected_by_prompt_metadata(tmp_path: Path) -> None:
+    """Exit code must not change based on prompt metadata presence."""
+    p1 = tmp_path / "without_prompts.json"
+    p1.write_text(json.dumps(asdict(_perfect_report())))
+
+    p2 = tmp_path / "with_prompts.json"
+    p2.write_text(json.dumps(asdict(_report_with_prompts())))
+
+    assert main(["--report-json", str(p1)]) == main(["--report-json", str(p2)])
+
+
+def test_old_report_without_prompts_used_loads_in_gate(tmp_path: Path) -> None:
+    """A report JSON that predates prompts_used must load without error."""
+    data = asdict(_perfect_report())
+    del data["prompts_used"]
+    p = tmp_path / "old_report.json"
+    p.write_text(json.dumps(data))
+    # Must not raise; gate should pass (perfect report)
+    assert main(["--report-json", str(p)]) == 0
