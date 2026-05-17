@@ -7,8 +7,8 @@ This service does not connect to the Brevix database and does not expose raw SQL
 ## Local Setup
 
 ```bash
-cd /Users/joe.eagan/Documents/GitHub/brevixai-agent-service
-python -m venv .venv
+cd brevixai-agents
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 cp .env.example .env
@@ -84,3 +84,97 @@ Or:
 ```bash
 docker compose up --build
 ```
+
+## Benchmarks & Quality Gates
+
+All benchmark and quality gate commands require the virtualenv to be active:
+
+```bash
+source .venv/bin/activate
+```
+
+### Run benchmarks
+
+Run the full fraud scenario benchmark suite and print a per-scenario report:
+
+```bash
+python scripts/run_evals.py
+```
+
+### Generate reports
+
+Run benchmarks and write structured JSON and Markdown reports to `reports/`:
+
+```bash
+python scripts/run_benchmarks.py --report
+```
+
+Output files:
+
+```text
+reports/latest_benchmark_report.json
+reports/latest_benchmark_report.md
+```
+
+### Run the quality gate locally
+
+Check that benchmark results meet the minimum quality thresholds. Exits 0 on pass, 1 on fail.
+
+**Run benchmarks then check gates in one step:**
+
+```bash
+python scripts/quality_gate.py
+```
+
+**Check gates against an existing report (faster — skips re-running benchmarks):**
+
+```bash
+python scripts/quality_gate.py --report-json reports/latest_benchmark_report.json
+```
+
+**Override individual thresholds:**
+
+```bash
+python scripts/quality_gate.py \
+  --report-json reports/latest_benchmark_report.json \
+  --min-pass-rate 1.0 \
+  --min-severity-accuracy 0.95 \
+  --min-evidence-completeness 0.90 \
+  --min-false-positive-pass-rate 0.95 \
+  --max-hallucination-failures 0 \
+  --max-average-latency-ms 500
+```
+
+Default thresholds:
+
+| Metric | Default |
+|--------|---------|
+| `pass_rate` | >= 0.95 |
+| `severity_accuracy` | >= 0.95 |
+| `evidence_completeness_avg` | >= 0.90 |
+| `false_positive_pass_rate` | >= 0.95 |
+| `hallucination_failure_count` | <= 0 |
+| `average_latency_ms` | <= 500 ms |
+
+### Run benchmark tests in CI
+
+Unit tests only (fast, no benchmark run):
+
+```bash
+pytest tests/test_report.py tests/test_quality_gate.py -v
+```
+
+Full benchmark suite as pytest (one test per scenario):
+
+```bash
+pytest tests/test_evals.py -v
+```
+
+### Suggested CI command
+
+```bash
+python scripts/run_benchmarks.py --report \
+  && python scripts/quality_gate.py --report-json reports/latest_benchmark_report.json
+```
+
+This generates a fresh report and then enforces the quality gate in a single CI step. The pipeline fails if any threshold is breached.

@@ -1,6 +1,6 @@
 # Brevix AI Benchmark Report
 
-Generated: 2026-05-17T19:33:55.815545+00:00
+Generated: 2026-05-17T19:44:21.409386+00:00
 
 ## Summary
 
@@ -14,37 +14,37 @@ Generated: 2026-05-17T19:33:55.815545+00:00
 | Evidence Completeness (avg) | 100.0% |
 | False Positive Clean Rate | 100.0% |
 | Hallucination Failures | 0 |
-| Average Latency | 4.5 ms |
+| Average Latency | 3.3 ms |
 
 ## Scenario Breakdown
 
 | Scenario | Status | Latency (ms) | Failed Checks |
 |----------|--------|--------------|---------------|
-| duplicate_invoice | PASS | 7.97 | — |
-| split_payments_under_threshold | PASS | 4.23 | — |
-| vendor_concentration | PASS | 4.33 | — |
-| round_dollar_payments | PASS | 4.6 | — |
-| reconciliation_mismatch | PASS | 3.51 | — |
-| ghost_vendor | PASS | 3.85 | — |
-| employee_vendor_overlap | PASS | 3.86 | — |
-| shared_bank_account_multiple_vendors | PASS | 3.69 | — |
-| vendor_paid_before_onboarding | PASS | 3.67 | — |
-| duplicate_vendor_name_variation | PASS | 3.59 | — |
-| unusual_refund_activity | PASS | 4.47 | — |
-| payroll_anomaly | PASS | 5.27 | — |
-| weekend_after_hours_payment | PASS | 5.17 | — |
-| approval_threshold_splitting | PASS | 4.89 | — |
-| high_risk_vendor_concentration_over_time | PASS | 4.69 | — |
+| duplicate_invoice | PASS | 6.41 | — |
+| split_payments_under_threshold | PASS | 3.29 | — |
+| vendor_concentration | PASS | 3.23 | — |
+| round_dollar_payments | PASS | 3.83 | — |
+| reconciliation_mismatch | PASS | 3.24 | — |
+| ghost_vendor | PASS | 3.0 | — |
+| employee_vendor_overlap | PASS | 2.9 | — |
+| shared_bank_account_multiple_vendors | PASS | 2.85 | — |
+| vendor_paid_before_onboarding | PASS | 2.98 | — |
+| duplicate_vendor_name_variation | PASS | 2.9 | — |
+| unusual_refund_activity | PASS | 3.34 | — |
+| payroll_anomaly | PASS | 3.09 | — |
+| weekend_after_hours_payment | PASS | 2.95 | — |
+| approval_threshold_splitting | PASS | 2.94 | — |
+| high_risk_vendor_concentration_over_time | PASS | 2.96 | — |
 
 ## Slowest Scenarios
 
 | Scenario | Latency (ms) |
 |----------|--------------|
-| duplicate_invoice | 7.97 |
-| payroll_anomaly | 5.27 |
-| weekend_after_hours_payment | 5.17 |
-| approval_threshold_splitting | 4.89 |
-| high_risk_vendor_concentration_over_time | 4.69 |
+| duplicate_invoice | 6.41 |
+| round_dollar_payments | 3.83 |
+| unusual_refund_activity | 3.34 |
+| split_payments_under_threshold | 3.29 |
+| reconciliation_mismatch | 3.24 |
 
 ## Failed Checks
 
