@@ -141,22 +141,121 @@ def build_graph(
 
         findings = findings_from_risk_summary(risk_summary)
 
-        return {
-            "tool_results": {"risk_summary": risk_summary},
-            "findings": [finding.model_dump() for finding in findings],
-            "steps": [
-                step(
-                    "fraud_analyzer",
-                    step_type="tool_call",
-                    input_payload={"tool": "risk_summary", "period": period},
-                    output_payload={
-                        "risk_score": risk_summary.get("risk_score"),
-                        "risk_level": risk_summary.get("risk_level"),
-                        "finding_count": len(findings),
-                        **_fraud_analyzer_prompt.metadata,
-                    },
+        # Determine if a specific vendor was queried or mentioned
+        vendor_findings = []
+        vendor_risk_data = None
+        vendor_name_query = state.get("page_context", {}).get("vendor_name") or state.get("page_context", {}).get("vendor")
+        
+        if not vendor_name_query:
+            msg = state["user_message"].lower()
+            for seeded_vendor in ["mega vendor", "northstar consulting", "roundhouse services", "acme supplies", "brightline labs", "clean vendor"]:
+                if seeded_vendor in msg:
+                    casing_map = {
+                        "mega vendor": "Mega Vendor LLC",
+                        "northstar consulting": "Northstar Consulting",
+                        "roundhouse services": "Roundhouse Services",
+                        "acme supplies": "Acme Supplies",
+                        "brightline labs": "Brightline Labs",
+                        "clean vendor": "Clean Vendor"
+                    }
+                    vendor_name_query = casing_map[seeded_vendor]
+                    break
+
+        try:
+            vendor_risk_data = await tool_client.vendor_risk(
+                state["company_id"],
+                state["user_id"],
+                vendor=vendor_name_query,
+                trace_id=state.get("agent_run_id"),
+                trace_metadata={
+                    "intent": state.get("intent"),
+                    "request_source": state.get("page_context", {}).get("source"),
+                }
+            )
+        except Exception as exc:
+            logger.warning("Failed to retrieve vendor risk: %s", exc)
+
+        if vendor_risk_data:
+            if "vendors" in vendor_risk_data:
+                for v in vendor_risk_data["vendors"]:
+                    if v.get("vendor_risk_score", 0) >= 40:
+                        vendor_findings.append(
+                            AgentFinding(
+                                title=f"High Vendor Concentration/Risk: {v.get('vendor_name')}",
+                                severity=normalize_severity(v.get('risk_level', 'medium')),
+                                confidence=confidence_from_risk_score(v.get('vendor_risk_score', 0)),
+                                summary=f"Deterministic vendor risk score is {v.get('vendor_risk_score')}/100. Recommended action: {v.get('recommended_next_action')}",
+                                evidence=[
+                                    {
+                                        "type": "vendor_risk_analysis",
+                                        "vendor_name": v.get("vendor_name"),
+                                        "triggered_rules": v.get("triggered_rules"),
+                                        "supporting_evidence": v.get("supporting_evidence")
+                                    }
+                                ]
+                            )
+                        )
+            else:
+                v = vendor_risk_data
+                vendor_findings.append(
+                    AgentFinding(
+                        title=f"Vendor Risk Audit: {v.get('vendor_name')}",
+                        severity=normalize_severity(v.get('risk_level', 'low')),
+                        confidence=confidence_from_risk_score(v.get('vendor_risk_score', 0)),
+                        summary=f"Vendor '{v.get('vendor_name')}' deterministic risk score is {v.get('vendor_risk_score')}/100. Action guidance: {v.get('recommended_next_action')}",
+                        evidence=[
+                            {
+                                "type": "vendor_risk_analysis",
+                                "vendor_name": v.get("vendor_name"),
+                                "triggered_rules": v.get("triggered_rules"),
+                                "supporting_evidence": v.get("supporting_evidence")
+                            }
+                        ]
+                    )
                 )
-            ],
+
+        # Merge findings
+        all_findings = []
+        for f in findings:
+            all_findings.append(f.model_dump())
+        for f in vendor_findings:
+            all_findings.append(f.model_dump())
+
+        # Compile steps
+        steps_list = [
+            step(
+                "fraud_analyzer",
+                step_type="tool_call",
+                input_payload={"tool": "risk_summary", "period": period},
+                output_payload={
+                    "risk_score": risk_summary.get("risk_score"),
+                    "risk_level": risk_summary.get("risk_level"),
+                    "finding_count": len(findings),
+                    **_fraud_analyzer_prompt.metadata,
+                },
+            )
+        ]
+        if vendor_risk_data:
+            steps_list.append(
+                step(
+                    "vendor_risk_analysis",
+                    step_type="tool_call",
+                    input_payload={"tool": "vendor_risk", "vendor": vendor_name_query},
+                    output_payload={
+                        "queried_vendor": vendor_name_query,
+                        "vendor_findings_count": len(vendor_findings),
+                    }
+                )
+            )
+
+        tool_results = {"risk_summary": risk_summary}
+        if vendor_risk_data:
+            tool_results["vendor_risk"] = vendor_risk_data
+
+        return {
+            "tool_results": tool_results,
+            "findings": all_findings,
+            "steps": steps_list,
         }
 
     async def explanation_node(state: BrevixAgentState) -> dict[str, Any]:

@@ -84,6 +84,34 @@ class LaravelToolClient:
             ),
         )
 
+    async def vendor_risk(
+        self,
+        company_id: str,
+        user_id: str,
+        vendor: str | None = None,
+        trace_id: str | None = None,
+        trace_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        params = {"vendor": vendor} if vendor else None
+        return await self._get(
+            f"/api/internal/agent-tools/company/{company_id}/vendor-risk",
+            user_id,
+            params=params,
+            trace_id=trace_id,
+            trace_metadata={
+                "tool_name": "vendor_risk",
+                "company_id": company_id,
+                **(trace_metadata or {}),
+            },
+            langsmith_extra=self._langsmith_extra(
+                "vendor_risk",
+                company_id,
+                user_id,
+                trace_id,
+                trace_metadata,
+            ),
+        )
+
     @traceable(
         name="agent.tool.laravel_get",
         run_type="tool",
