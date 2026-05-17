@@ -2,6 +2,9 @@
 
 Phase 1 FastAPI/LangGraph orchestration service for Brevix AI.
 
+> [!NOTE]
+> For a deep, step-by-step guide on the benchmark framework, dataset quality validation rules, reporting tools, and scenario authoring guidelines, see the complete [Benchmark System Documentation](docs/benchmarks.md).
+
 This service does not connect to the Brevix database and does not expose raw SQL tools. Fraud and risk analysis is based only on deterministic Laravel tool endpoints under `/api/internal/agent-tools/*`.
 
 ## Local Setup
