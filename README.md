@@ -85,6 +85,55 @@ Or:
 docker compose up --build
 ```
 
+## Model Providers
+
+The agent explanation layer is backed by a swappable model provider. The provider is selected with `BREVIX_AGENT_MODEL_PROVIDER`.
+
+### Deterministic mode (default)
+
+No external API calls. Rule-based explanation generation. Required for tests, CI, and benchmarks.
+
+```env
+BREVIX_AGENT_MODEL_PROVIDER=deterministic
+BREVIX_AGENT_MODEL_NAME=deterministic-risk-v1
+```
+
+This is the default — no extra configuration needed.
+
+### OpenAI mode (local development / production)
+
+Calls the OpenAI Chat Completions API to generate explanations.
+
+```env
+BREVIX_AGENT_MODEL_PROVIDER=openai
+BREVIX_AGENT_MODEL_NAME=gpt-4o
+OPENAI_API_KEY=sk-...
+BREVIX_AGENT_MODEL_TIMEOUT_SECONDS=30
+```
+
+Install the optional dependency first:
+
+```bash
+pip install -e ".[llm]"
+```
+
+If `OPENAI_API_KEY` is missing or empty when `model_provider=openai`, the service will refuse to start with a clear configuration error. It will never silently fall back to deterministic mode in production.
+
+### Why CI uses deterministic mode
+
+- Zero external API cost or latency in CI
+- Perfectly reproducible outputs — benchmarks are stable across runs
+- No secrets required in the GitHub Actions environment
+
+### Required env vars for real LLM mode
+
+| Variable | Required for OpenAI | Default |
+|----------|--------------------|---------| 
+| `BREVIX_AGENT_MODEL_PROVIDER` | yes (`openai`) | `deterministic` |
+| `BREVIX_AGENT_MODEL_NAME` | yes | `deterministic-risk-v1` |
+| `OPENAI_API_KEY` | yes | _(empty)_ |
+| `BREVIX_AGENT_MODEL_TIMEOUT_SECONDS` | no | `30` |
+
 ## Benchmarks & Quality Gates
 
 All benchmark and quality gate commands require the virtualenv to be active:

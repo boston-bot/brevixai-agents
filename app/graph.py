@@ -8,6 +8,7 @@ from langgraph.graph import END, START, StateGraph
 from app.config import Settings, get_settings
 from app.models import AgentFinding, BrevixAgentState, RecommendedAction
 from app.observability import instrument_node
+from app.providers import ModelProvider, get_provider
 from app.tools.laravel import LaravelToolClient, LaravelToolError
 
 SENSITIVE_ACTION_TYPES = {
@@ -20,8 +21,13 @@ SENSITIVE_ACTION_TYPES = {
 }
 
 
-def build_graph(tool_client: LaravelToolClient, settings: Settings | None = None):
+def build_graph(
+    tool_client: LaravelToolClient,
+    settings: Settings | None = None,
+    provider: ModelProvider | None = None,
+):
     resolved_settings = settings or get_settings()
+    resolved_provider = provider or get_provider(resolved_settings)
 
     async def router_node(state: BrevixAgentState) -> dict[str, Any]:
         message = state["user_message"].lower()
@@ -146,14 +152,24 @@ def build_graph(tool_client: LaravelToolClient, settings: Settings | None = None
         }
 
     async def explanation_node(state: BrevixAgentState) -> dict[str, Any]:
-        response = build_explanation(state)
+        context = _build_context(state)
+        prompt = _build_prompt(context)
+        provider_response = await resolved_provider.generate(prompt, context)
 
         return {
-            "final_response": response,
+            "final_response": provider_response.text,
             "steps": [
                 step(
                     "explanation",
-                    output_payload={"message": response, "finding_count": len(state.get("findings", []))},
+                    output_payload={
+                        "message": provider_response.text,
+                        "finding_count": len(state.get("findings", [])),
+                        "provider_name": provider_response.provider_name,
+                        "model_name": provider_response.model_name,
+                        "provider_latency_ms": provider_response.latency_ms,
+                        "tokens_input": provider_response.tokens_input,
+                        "tokens_output": provider_response.tokens_output,
+                    },
                 )
             ],
         }
@@ -287,33 +303,35 @@ def confidence_from_risk_score(score: int) -> float:
     return 0.0
 
 
-def build_explanation(state: BrevixAgentState) -> str:
-    if state.get("errors"):
-        return "I could not complete the risk review right now. No alerts or cases were created."
-
-    if state.get("intent") == "unknown_or_unsupported":
-        return (
-            "I can help with risk, suspicious activity, vendor, transaction, and alert questions. "
-            "No alerts or cases were created."
-        )
-
+def _build_context(state: BrevixAgentState) -> dict[str, Any]:
     risk_summary = state.get("tool_results", {}).get("risk_summary", {})
-    risk_score = risk_summary.get("risk_score", 0)
-    risk_level = risk_summary.get("risk_level", "low")
-    findings = state.get("findings", [])
+    return {
+        "intent": state.get("intent"),
+        "errors": state.get("errors", []),
+        "findings": state.get("findings", []),
+        "risk_score": risk_summary.get("risk_score", 0),
+        "risk_level": risk_summary.get("risk_level", "low"),
+    }
 
-    if not findings:
-        return (
-            f"The deterministic Brevix risk services did not return specific fraud indicators for this request. "
-            f"The current risk score is {risk_score}/100 ({risk_level}). No alerts or cases were created."
+
+def _build_prompt(context: dict[str, Any]) -> str:
+    findings_text = (
+        "\n".join(
+            f"- {f.get('title')} (severity: {f.get('severity', 'unknown')})"
+            for f in context.get("findings", [])
         )
-
-    first = findings[0]
+        or "No specific findings returned."
+    )
     return (
-        f"Brevix found {len(findings)} pattern{'s' if len(findings) != 1 else ''} worth reviewing. "
-        f"The current risk score is {risk_score}/100 ({risk_level}). "
-        f"The strongest signal is: {first.get('title')}. "
-        "This may indicate an accounting risk, but it does not prove fraud. No alerts or cases were created."
+        "You are a financial risk analysis assistant for Brevix. Summarize the following "
+        "risk analysis results for an accounting team in 2-4 concise sentences.\n\n"
+        f"Intent: {context.get('intent')}\n"
+        f"Risk score: {context.get('risk_score', 0)}/100 ({context.get('risk_level', 'low')})\n"
+        f"Findings:\n{findings_text}\n\n"
+        "Guidelines:\n"
+        "- Use 'may indicate' language; never accuse of fraud\n"
+        "- Be factual and professional\n"
+        "- End with: No alerts or cases were created."
     )
 
 

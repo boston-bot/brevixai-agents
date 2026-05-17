@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-17T19:47:32.973581+00:00",
+  "generated_at": "2026-05-17T19:59:43.653131+00:00",
   "total_scenarios": 15,
   "total_passed": 15,
   "total_failed": 0,
@@ -10,34 +10,34 @@
   "evidence_completeness_avg": 1.0,
   "false_positive_pass_rate": 1.0,
   "hallucination_failure_count": 0,
-  "average_latency_ms": 4.61,
+  "average_latency_ms": 4.7,
   "slowest_scenarios": [
     {
-      "scenario_id": "approval_threshold_splitting",
-      "latency_ms": 5.79
-    },
-    {
       "scenario_id": "duplicate_invoice",
-      "latency_ms": 5.68
+      "latency_ms": 9.85
     },
     {
-      "scenario_id": "weekend_after_hours_payment",
-      "latency_ms": 5.25
+      "scenario_id": "duplicate_vendor_name_variation",
+      "latency_ms": 5.17
     },
     {
-      "scenario_id": "payroll_anomaly",
-      "latency_ms": 5.12
+      "scenario_id": "unusual_refund_activity",
+      "latency_ms": 4.92
     },
     {
-      "scenario_id": "high_risk_vendor_concentration_over_time",
-      "latency_ms": 4.98
+      "scenario_id": "round_dollar_payments",
+      "latency_ms": 4.87
+    },
+    {
+      "scenario_id": "split_payments_under_threshold",
+      "latency_ms": 4.76
     }
   ],
   "scenario_breakdown": [
     {
       "scenario_id": "duplicate_invoice",
       "passed": true,
-      "latency_ms": 5.68,
+      "latency_ms": 9.85,
       "failed_checks": [],
       "check_scores": {
         "response_contract_validation": 1.0,
@@ -51,7 +51,7 @@
     {
       "scenario_id": "split_payments_under_threshold",
       "passed": true,
-      "latency_ms": 4.8,
+      "latency_ms": 4.76,
       "failed_checks": [],
       "check_scores": {
         "response_contract_validation": 1.0,
@@ -65,7 +65,7 @@
     {
       "scenario_id": "vendor_concentration",
       "passed": true,
-      "latency_ms": 4.08,
+      "latency_ms": 3.8,
       "failed_checks": [],
       "check_scores": {
         "response_contract_validation": 1.0,
@@ -79,7 +79,7 @@
     {
       "scenario_id": "round_dollar_payments",
       "passed": true,
-      "latency_ms": 4.78,
+      "latency_ms": 4.87,
       "failed_checks": [],
       "check_scores": {
         "response_contract_validation": 1.0,
@@ -93,7 +93,7 @@
     {
       "scenario_id": "reconciliation_mismatch",
       "passed": true,
-      "latency_ms": 4.07,
+      "latency_ms": 4.09,
       "failed_checks": [],
       "check_scores": {
         "response_contract_validation": 1.0,
@@ -107,7 +107,7 @@
     {
       "scenario_id": "ghost_vendor",
       "passed": true,
-      "latency_ms": 3.94,
+      "latency_ms": 4.45,
       "failed_checks": [],
       "check_scores": {
         "response_contract_validation": 1.0,
@@ -121,7 +121,7 @@
     {
       "scenario_id": "employee_vendor_overlap",
       "passed": true,
-      "latency_ms": 3.77,
+      "latency_ms": 3.79,
       "failed_checks": [],
       "check_scores": {
         "response_contract_validation": 1.0,
@@ -135,7 +135,7 @@
     {
       "scenario_id": "shared_bank_account_multiple_vendors",
       "passed": true,
-      "latency_ms": 3.82,
+      "latency_ms": 3.72,
       "failed_checks": [],
       "check_scores": {
         "response_contract_validation": 1.0,
@@ -149,7 +149,7 @@
     {
       "scenario_id": "vendor_paid_before_onboarding",
       "passed": true,
-      "latency_ms": 4.18,
+      "latency_ms": 3.76,
       "failed_checks": [],
       "check_scores": {
         "response_contract_validation": 1.0,
@@ -163,7 +163,7 @@
     {
       "scenario_id": "duplicate_vendor_name_variation",
       "passed": true,
-      "latency_ms": 4.76,
+      "latency_ms": 5.17,
       "failed_checks": [],
       "check_scores": {
         "response_contract_validation": 1.0,
@@ -177,7 +177,7 @@
     {
       "scenario_id": "unusual_refund_activity",
       "passed": true,
-      "latency_ms": 4.15,
+      "latency_ms": 4.92,
       "failed_checks": [],
       "check_scores": {
         "response_contract_validation": 1.0,
@@ -191,7 +191,7 @@
     {
       "scenario_id": "payroll_anomaly",
       "passed": true,
-      "latency_ms": 5.12,
+      "latency_ms": 4.22,
       "failed_checks": [],
       "check_scores": {
         "response_contract_validation": 1.0,
@@ -205,7 +205,7 @@
     {
       "scenario_id": "weekend_after_hours_payment",
       "passed": true,
-      "latency_ms": 5.25,
+      "latency_ms": 4.01,
       "failed_checks": [],
       "check_scores": {
         "response_contract_validation": 1.0,
@@ -219,7 +219,7 @@
     {
       "scenario_id": "approval_threshold_splitting",
       "passed": true,
-      "latency_ms": 5.79,
+      "latency_ms": 4.68,
       "failed_checks": [],
       "check_scores": {
         "response_contract_validation": 1.0,
@@ -233,7 +233,7 @@
     {
       "scenario_id": "high_risk_vendor_concentration_over_time",
       "passed": true,
-      "latency_ms": 4.98,
+      "latency_ms": 4.48,
       "failed_checks": [],
       "check_scores": {
         "response_contract_validation": 1.0,

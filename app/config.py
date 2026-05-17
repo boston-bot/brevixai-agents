@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     feature_flags: str = Field(default="", alias="BREVIX_AGENT_FEATURE_FLAGS")
     model_provider: str = Field(default="deterministic", alias="BREVIX_AGENT_MODEL_PROVIDER")
     model_name: str = Field(default="deterministic-risk-v1", alias="BREVIX_AGENT_MODEL_NAME")
+    model_timeout_seconds: float = Field(default=30.0, alias="BREVIX_AGENT_MODEL_TIMEOUT_SECONDS")
 
     @property
     def langsmith_enabled(self) -> bool:

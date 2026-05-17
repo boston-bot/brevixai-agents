@@ -134,13 +134,6 @@ def enrich_steps_with_metrics(
     if not isinstance(steps, list):
         return result
 
-    metrics = {
-        "latency_ms": latency_ms,
-        "model_name": settings.model_name,
-        "token_usage": {"input": 0, "output": 0, "total": 0},
-        "estimated_cost_usd": 0.0,
-    }
-
     for step in steps:
         if not isinstance(step, dict) or step.get("step_name") != node_name:
             continue
@@ -150,6 +143,17 @@ def enrich_steps_with_metrics(
         output_payload = step.get("output_payload")
         if not isinstance(output_payload, dict):
             output_payload = {}
+
+        tokens_in = int(output_payload.get("tokens_input", 0))
+        tokens_out = int(output_payload.get("tokens_output", 0))
+        metrics = {
+            "latency_ms": latency_ms,
+            "provider_name": output_payload.get("provider_name", settings.model_provider),
+            "model_name": output_payload.get("model_name", settings.model_name),
+            "provider_latency_ms": output_payload.get("provider_latency_ms", 0.0),
+            "token_usage": {"input": tokens_in, "output": tokens_out, "total": tokens_in + tokens_out},
+            "estimated_cost_usd": 0.0,
+        }
         step["output_payload"] = {
             **output_payload,
             "metrics": metrics,
@@ -228,14 +232,28 @@ def summarize_usage(result: dict[str, Any], request_latency_ms: float, settings:
         if isinstance(metrics, dict) and isinstance(metrics.get("latency_ms"), (int, float)):
             node_latencies[str(step.get("step_name"))] = float(metrics["latency_ms"])
 
+    tokens_input = 0
+    tokens_output = 0
+    for step in steps if isinstance(steps, list) else []:
+        if not isinstance(step, dict):
+            continue
+        token_usage = (
+            (step.get("output_payload") or {})
+            .get("metrics", {})
+            .get("token_usage", {})
+        )
+        if isinstance(token_usage, dict):
+            tokens_input += int(token_usage.get("input", 0))
+            tokens_output += int(token_usage.get("output", 0))
+
     return {
         "request_latency_ms": request_latency_ms,
         "node_latency_ms": node_latencies,
         "tool_call_count": tool_call_count,
         "failed_tool_call_count": failed_tool_call_count,
-        "tokens_input": 0,
-        "tokens_output": 0,
-        "tokens_total": 0,
+        "tokens_input": tokens_input,
+        "tokens_output": tokens_output,
+        "tokens_total": tokens_input + tokens_output,
         "estimated_cost_usd": 0.0,
         "model_provider": settings.model_provider,
         "model_name": settings.model_name,
