@@ -178,3 +178,59 @@ python scripts/run_benchmarks.py --report \
 ```
 
 This generates a fresh report and then enforces the quality gate in a single CI step. The pipeline fails if any threshold is breached.
+
+## CI Workflow
+
+The workflow at [`.github/workflows/benchmark-quality-gate.yml`](.github/workflows/benchmark-quality-gate.yml) runs automatically on every pull request and every push to `main`.
+
+### What the workflow does
+
+1. Checks out the repo and sets up Python 3.10.
+2. Installs all dependencies with `pip install -e ".[dev]"`.
+3. Runs unit tests (report generation, quality gate logic) — fast, no benchmark run.
+4. Runs the full fraud benchmark suite and writes `reports/latest_benchmark_report.json` and `reports/latest_benchmark_report.md`.
+5. Enforces the quality gate against the generated report.
+6. Uploads the `reports/` directory as a build artifact named `benchmark-reports-<run-id>` — available even when the gate fails.
+
+### What causes CI failure
+
+The pipeline fails (exit 1) when any quality gate threshold is breached:
+
+| Metric | Threshold |
+|--------|-----------|
+| `pass_rate` | < 0.95 |
+| `severity_accuracy` | < 0.95 |
+| `evidence_completeness_avg` | < 0.90 |
+| `false_positive_pass_rate` | < 0.95 |
+| `hallucination_failure_count` | > 0 |
+| `average_latency_ms` | > 500 ms |
+
+Unit test failures also block the pipeline before benchmarks run.
+
+### Where benchmark reports are uploaded
+
+Go to the failed workflow run on GitHub → **Summary** → **Artifacts** → `benchmark-reports-<run-id>`. The artifact contains:
+
+```text
+latest_benchmark_report.json   # machine-readable metrics
+latest_benchmark_report.md     # human-readable breakdown with failed checks
+```
+
+Reports are uploaded on every run, including failures, so you can inspect what regressed.
+
+### How to reproduce CI locally
+
+```bash
+source .venv/bin/activate
+
+# Step 1: unit tests
+pytest tests/ --ignore=tests/test_evals.py -q
+
+# Step 2: benchmarks + report
+python scripts/run_benchmarks.py --report
+
+# Step 3: quality gate
+python scripts/quality_gate.py --report-json reports/latest_benchmark_report.json
+```
+
+No GitHub secrets are required. The benchmark suite uses the deterministic model provider and makes no external API calls.
