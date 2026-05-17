@@ -214,11 +214,49 @@ def build_graph(
                     )
                 )
 
+        # Retrieve reconciliation risk data
+        reconciliation_risk_data = None
+        recon_findings = []
+        try:
+            reconciliation_risk_data = await tool_client.reconciliation_risk(
+                state["company_id"],
+                state["user_id"],
+                trace_id=state.get("agent_run_id"),
+                trace_metadata={
+                    "intent": state.get("intent"),
+                    "request_source": state.get("page_context", {}).get("source"),
+                }
+            )
+        except Exception as exc:
+            logger.warning("Failed to retrieve reconciliation risk: %s", exc)
+
+        if reconciliation_risk_data:
+            recon_score = reconciliation_risk_data.get("reconciliation_risk_score", 0)
+            if recon_score >= 40:
+                recon_findings.append(
+                    AgentFinding(
+                        title="High Reconciliation Anomaly Risk",
+                        severity=normalize_severity(reconciliation_risk_data.get('risk_level', 'medium')),
+                        confidence=confidence_from_risk_score(recon_score),
+                        summary=f"Deterministic reconciliation risk score is {recon_score}/100. Action guidance: {reconciliation_risk_data.get('recommended_next_action')}",
+                        evidence=[
+                            {
+                                "type": "reconciliation_risk_analysis",
+                                "score": recon_score,
+                                "triggered_rules": reconciliation_risk_data.get("triggered_rules"),
+                                "supporting_evidence": reconciliation_risk_data.get("supporting_evidence")
+                            }
+                        ]
+                    )
+                )
+
         # Merge findings
         all_findings = []
         for f in findings:
             all_findings.append(f.model_dump())
         for f in vendor_findings:
+            all_findings.append(f.model_dump())
+        for f in recon_findings:
             all_findings.append(f.model_dump())
 
         # Compile steps
@@ -247,10 +285,24 @@ def build_graph(
                     }
                 )
             )
+        if reconciliation_risk_data:
+            steps_list.append(
+                step(
+                    "reconciliation_risk_analysis",
+                    step_type="tool_call",
+                    input_payload={"tool": "reconciliation_risk"},
+                    output_payload={
+                        "reconciliation_risk_score": recon_score,
+                        "reconciliation_findings_count": len(recon_findings),
+                    }
+                )
+            )
 
         tool_results = {"risk_summary": risk_summary}
         if vendor_risk_data:
             tool_results["vendor_risk"] = vendor_risk_data
+        if reconciliation_risk_data:
+            tool_results["reconciliation_risk"] = reconciliation_risk_data
 
         return {
             "tool_results": tool_results,

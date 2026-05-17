@@ -112,6 +112,31 @@ class LaravelToolClient:
             ),
         )
 
+    async def reconciliation_risk(
+        self,
+        company_id: str,
+        user_id: str,
+        trace_id: str | None = None,
+        trace_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return await self._get(
+            f"/api/internal/agent-tools/company/{company_id}/reconciliation-risk",
+            user_id,
+            trace_id=trace_id,
+            trace_metadata={
+                "tool_name": "reconciliation_risk",
+                "company_id": company_id,
+                **(trace_metadata or {}),
+            },
+            langsmith_extra=self._langsmith_extra(
+                "reconciliation_risk",
+                company_id,
+                user_id,
+                trace_id,
+                trace_metadata,
+            ),
+        )
+
     @traceable(
         name="agent.tool.laravel_get",
         run_type="tool",
