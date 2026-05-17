@@ -73,11 +73,15 @@ async def _run_scenario(scenario: dict, settings) -> dict:
     }
 
 
-async def _run_all(dataset: list[dict], settings) -> list[dict]:
+async def run_all(dataset: list[dict], settings) -> list[dict]:
     results = []
     for scenario in dataset:
         results.append(await _run_scenario(scenario, settings))
     return results
+
+
+# Alias kept for any direct callers that used the private name.
+_run_all = run_all
 
 
 def _print_report(results: list[dict]) -> None:
@@ -125,7 +129,7 @@ def main(argv: list[str] | None = None) -> int:
         dataset = json.load(f)
 
     settings = get_settings()
-    results = asyncio.run(_run_all(dataset, settings))
+    results = asyncio.run(run_all(dataset, settings))
     _print_report(results)
 
     out_path = _save_results(results, args.output)

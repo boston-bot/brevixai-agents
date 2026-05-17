@@ -1,0 +1,262 @@
+{
+  "generated_at": "2026-05-17T19:33:55.815545+00:00",
+  "total_scenarios": 15,
+  "total_passed": 15,
+  "total_failed": 0,
+  "pass_rate": 1.0,
+  "failed_scenario_ids": [],
+  "failed_evaluator_names": [],
+  "severity_accuracy": 1.0,
+  "evidence_completeness_avg": 1.0,
+  "false_positive_pass_rate": 1.0,
+  "hallucination_failure_count": 0,
+  "average_latency_ms": 4.52,
+  "slowest_scenarios": [
+    {
+      "scenario_id": "duplicate_invoice",
+      "latency_ms": 7.97
+    },
+    {
+      "scenario_id": "payroll_anomaly",
+      "latency_ms": 5.27
+    },
+    {
+      "scenario_id": "weekend_after_hours_payment",
+      "latency_ms": 5.17
+    },
+    {
+      "scenario_id": "approval_threshold_splitting",
+      "latency_ms": 4.89
+    },
+    {
+      "scenario_id": "high_risk_vendor_concentration_over_time",
+      "latency_ms": 4.69
+    }
+  ],
+  "scenario_breakdown": [
+    {
+      "scenario_id": "duplicate_invoice",
+      "passed": true,
+      "latency_ms": 7.97,
+      "failed_checks": [],
+      "check_scores": {
+        "response_contract_validation": 1.0,
+        "finding_correctness": 1.0,
+        "severity_correctness": 1.0,
+        "evidence_completeness": 1.0,
+        "hallucination_detection": 1.0,
+        "false_positive_rate": 1.0
+      }
+    },
+    {
+      "scenario_id": "split_payments_under_threshold",
+      "passed": true,
+      "latency_ms": 4.23,
+      "failed_checks": [],
+      "check_scores": {
+        "response_contract_validation": 1.0,
+        "finding_correctness": 1.0,
+        "severity_correctness": 1.0,
+        "evidence_completeness": 1.0,
+        "hallucination_detection": 1.0,
+        "false_positive_rate": 1.0
+      }
+    },
+    {
+      "scenario_id": "vendor_concentration",
+      "passed": true,
+      "latency_ms": 4.33,
+      "failed_checks": [],
+      "check_scores": {
+        "response_contract_validation": 1.0,
+        "finding_correctness": 1.0,
+        "severity_correctness": 1.0,
+        "evidence_completeness": 1.0,
+        "hallucination_detection": 1.0,
+        "false_positive_rate": 1.0
+      }
+    },
+    {
+      "scenario_id": "round_dollar_payments",
+      "passed": true,
+      "latency_ms": 4.6,
+      "failed_checks": [],
+      "check_scores": {
+        "response_contract_validation": 1.0,
+        "finding_correctness": 1.0,
+        "severity_correctness": 1.0,
+        "evidence_completeness": 1.0,
+        "hallucination_detection": 1.0,
+        "false_positive_rate": 1.0
+      }
+    },
+    {
+      "scenario_id": "reconciliation_mismatch",
+      "passed": true,
+      "latency_ms": 3.51,
+      "failed_checks": [],
+      "check_scores": {
+        "response_contract_validation": 1.0,
+        "finding_correctness": 1.0,
+        "severity_correctness": 1.0,
+        "evidence_completeness": 1.0,
+        "hallucination_detection": 1.0,
+        "false_positive_rate": 1.0
+      }
+    },
+    {
+      "scenario_id": "ghost_vendor",
+      "passed": true,
+      "latency_ms": 3.85,
+      "failed_checks": [],
+      "check_scores": {
+        "response_contract_validation": 1.0,
+        "finding_correctness": 1.0,
+        "severity_correctness": 1.0,
+        "evidence_completeness": 1.0,
+        "hallucination_detection": 1.0,
+        "false_positive_rate": 1.0
+      }
+    },
+    {
+      "scenario_id": "employee_vendor_overlap",
+      "passed": true,
+      "latency_ms": 3.86,
+      "failed_checks": [],
+      "check_scores": {
+        "response_contract_validation": 1.0,
+        "finding_correctness": 1.0,
+        "severity_correctness": 1.0,
+        "evidence_completeness": 1.0,
+        "hallucination_detection": 1.0,
+        "false_positive_rate": 1.0
+      }
+    },
+    {
+      "scenario_id": "shared_bank_account_multiple_vendors",
+      "passed": true,
+      "latency_ms": 3.69,
+      "failed_checks": [],
+      "check_scores": {
+        "response_contract_validation": 1.0,
+        "finding_correctness": 1.0,
+        "severity_correctness": 1.0,
+        "evidence_completeness": 1.0,
+        "hallucination_detection": 1.0,
+        "false_positive_rate": 1.0
+      }
+    },
+    {
+      "scenario_id": "vendor_paid_before_onboarding",
+      "passed": true,
+      "latency_ms": 3.67,
+      "failed_checks": [],
+      "check_scores": {
+        "response_contract_validation": 1.0,
+        "finding_correctness": 1.0,
+        "severity_correctness": 1.0,
+        "evidence_completeness": 1.0,
+        "hallucination_detection": 1.0,
+        "false_positive_rate": 1.0
+      }
+    },
+    {
+      "scenario_id": "duplicate_vendor_name_variation",
+      "passed": true,
+      "latency_ms": 3.59,
+      "failed_checks": [],
+      "check_scores": {
+        "response_contract_validation": 1.0,
+        "finding_correctness": 1.0,
+        "severity_correctness": 1.0,
+        "evidence_completeness": 1.0,
+        "hallucination_detection": 1.0,
+        "false_positive_rate": 1.0
+      }
+    },
+    {
+      "scenario_id": "unusual_refund_activity",
+      "passed": true,
+      "latency_ms": 4.47,
+      "failed_checks": [],
+      "check_scores": {
+        "response_contract_validation": 1.0,
+        "finding_correctness": 1.0,
+        "severity_correctness": 1.0,
+        "evidence_completeness": 1.0,
+        "hallucination_detection": 1.0,
+        "false_positive_rate": 1.0
+      }
+    },
+    {
+      "scenario_id": "payroll_anomaly",
+      "passed": true,
+      "latency_ms": 5.27,
+      "failed_checks": [],
+      "check_scores": {
+        "response_contract_validation": 1.0,
+        "finding_correctness": 1.0,
+        "severity_correctness": 1.0,
+        "evidence_completeness": 1.0,
+        "hallucination_detection": 1.0,
+        "false_positive_rate": 1.0
+      }
+    },
+    {
+      "scenario_id": "weekend_after_hours_payment",
+      "passed": true,
+      "latency_ms": 5.17,
+      "failed_checks": [],
+      "check_scores": {
+        "response_contract_validation": 1.0,
+        "finding_correctness": 1.0,
+        "severity_correctness": 1.0,
+        "evidence_completeness": 1.0,
+        "hallucination_detection": 1.0,
+        "false_positive_rate": 1.0
+      }
+    },
+    {
+      "scenario_id": "approval_threshold_splitting",
+      "passed": true,
+      "latency_ms": 4.89,
+      "failed_checks": [],
+      "check_scores": {
+        "response_contract_validation": 1.0,
+        "finding_correctness": 1.0,
+        "severity_correctness": 1.0,
+        "evidence_completeness": 1.0,
+        "hallucination_detection": 1.0,
+        "false_positive_rate": 1.0
+      }
+    },
+    {
+      "scenario_id": "high_risk_vendor_concentration_over_time",
+      "passed": true,
+      "latency_ms": 4.69,
+      "failed_checks": [],
+      "check_scores": {
+        "response_contract_validation": 1.0,
+        "finding_correctness": 1.0,
+        "severity_correctness": 1.0,
+        "evidence_completeness": 1.0,
+        "hallucination_detection": 1.0,
+        "false_positive_rate": 1.0
+      }
+    }
+  ],
+  "known_gaps": [
+    "No LLM-based evaluators \u2014 all checks are deterministic; nuanced reasoning quality is unmeasured.",
+    "Latency benchmarks use the deterministic model provider; real LLM latency will differ significantly.",
+    "Dataset covers 16 scenarios; edge cases like multi-fraud overlaps are not yet represented.",
+    "No cross-scenario confusion testing (a scenario triggering a different scenario's pattern).",
+    "Evidence ID validation relies on tool fixture; does not test evidence retrieval accuracy end-to-end."
+  ],
+  "next_improvements": [
+    "Add LLM-as-judge evaluation for response reasoning quality and explanation clarity.",
+    "Expand dataset to cover compound fraud patterns (e.g., duplicate + split threshold).",
+    "Add latency benchmarks against the real model provider to establish production SLOs.",
+    "Introduce mutation testing: perturb fixtures to verify evaluators catch regressions.",
+    "Add a trend report comparing multiple eval runs over time to surface score drift."
+  ]
+}
