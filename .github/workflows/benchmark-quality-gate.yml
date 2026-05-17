@@ -32,11 +32,22 @@ jobs:
       - name: Run unit tests
         run: pytest tests/ --ignore=tests/test_evals.py -q
 
+      - name: Validate benchmark dataset
+        run: python scripts/validate_benchmark_dataset.py
+
       - name: Run benchmarks and generate report
         run: python scripts/run_benchmarks.py --report
 
       - name: Quality gate
         run: python scripts/quality_gate.py --report-json reports/latest_benchmark_report.json
+
+      - name: Generate benchmark snapshot
+        if: always()
+        run: python scripts/generate_benchmark_snapshot.py
+
+      - name: Generate coverage matrix
+        if: always()
+        run: python scripts/generate_coverage_matrix.py
 
       - name: Upload benchmark reports
         if: always()

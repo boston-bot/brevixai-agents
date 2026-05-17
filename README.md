@@ -446,6 +446,111 @@ python scripts/run_benchmarks.py --report \
 
 This generates a fresh report and then enforces the quality gate in a single CI step. The pipeline fails if any threshold is breached.
 
+## Coverage Matrix
+
+The coverage matrix shows which fraud categories, risk types, severities, and tags are exercised by the benchmark suite. Use it to spot gaps before adding new scenarios.
+
+### Generating the coverage matrix
+
+```bash
+python scripts/generate_coverage_matrix.py
+```
+
+Output files:
+
+```text
+reports/coverage_matrix.json   # machine-readable counts and quality checks
+reports/coverage_matrix.md     # human-readable tables and gap recommendations
+```
+
+CI generates both files automatically on every run and uploads them with the benchmark artifact.
+
+### Interpreting coverage gaps
+
+The Markdown report includes a **Recommended Gaps to Fill Next** section that flags:
+
+| Signal | Meaning |
+|--------|---------|
+| `Tag X has 0 scenarios` | No scenario exercises this fraud pattern label — add one |
+| `Severity X has no coverage` | No scenario tests this severity level — add one |
+| `Category X has only 1 scenario` | Thin coverage — a single scenario is a weak signal for a whole category |
+| `Duplicate scenario IDs` | Two entries share the same `id` — one must be renamed |
+| `Missing evidence patterns` | A scenario has no `expected_evidence_patterns` — evidence completeness evaluation is skipped |
+| `Missing false-positive guardrails` | A scenario has no `false_positive_guardrails` — false-positive detection is disabled |
+
+The **Data Quality Checks** table shows PASS/FAIL for each check. Any FAIL blocks clean benchmark interpretation.
+
+## Scenario Authoring & Validation (Phase 2.12)
+
+To ensure that the benchmark suite remains high-quality and consistent, all benchmark scenarios (including those in `datasets/fraud_benchmarks.json`) must follow strict schema and quality rules. 
+
+### How to add a new benchmark scenario
+
+1. **Locate the Scenario Template**: Use [datasets/templates/fraud_scenario_template.json](file:///Users/joe.eagan/Documents/GitHub/brevixai-agents/datasets/templates/fraud_scenario_template.json) as a starting point.
+2. **Draft your Scenario**: Copy the template structure, fill in all required fields (under realistic conditions/fakes), and place the new entry inside the array in `datasets/fraud_benchmarks.json`.
+3. **Validate your changes**: Run the local validator CLI before committing:
+   ```bash
+   python scripts/validate_benchmark_dataset.py
+   ```
+4. **Run coverage checks**: Run `python scripts/generate_coverage_matrix.py` and inspect `reports/coverage_matrix.md` to verify that your scenario closes actual gaps.
+5. **Run the benchmarks**: Ensure the new scenario passes execution and evaluation without regressing other scenarios:
+   ```bash
+   python scripts/run_benchmarks.py --report
+   ```
+
+---
+
+### Dataset Quality Rules
+
+A benchmark scenario is considered high-quality only if it satisfies all of the following rules:
+
+1. **12 Required Fields**:
+   - `scenario_id`: A unique string identifier.
+   - `title`: A human-friendly title for UI and reporting.
+   - `category`: Logical grouping (e.g., `accounts_payable`, `vendor_management`, `payroll`, `accounting`).
+   - `risk_type`: Specific fraud pattern under test.
+   - `severity`: Ground-truth risk severity level (`info`, `low`, `medium`, `high`, `critical`).
+   - `tags`: List of searchable labels (cannot be empty).
+   - `input_prompt`: The simulated user message.
+   - `expected_findings`: List of lowercase key phrases that the agent must mention in its findings text.
+   - `expected_severity`: Expected severity output by the agent (must match ground-truth severity).
+   - `expected_evidence_patterns`: Structural patterns to verify agent evidence completeness.
+   - `expected_recommended_action`: The expected action type recommendations.
+   - `false_positive_guardrails`: Keyword terms characteristic of other fraud patterns to prevent false positives.
+   
+2. **Format and Uniqueness Rules**:
+   - `scenario_id` must use lowercase `snake_case` (matching `^[a-z0-9_]+$`).
+   - `scenario_id` (and the `id` alias) must be unique across the entire dataset.
+   - Ground-truth and expected severity must be one of: `info`, `low`, `medium`, `high`, `critical` (case-insensitive).
+   
+3. **Non-Empty Checks**:
+   - `tags` must be a non-empty list of non-empty strings.
+   - `expected_findings` must be a non-empty list of non-empty strings.
+   - `expected_evidence_patterns` must be non-empty list/dict structure.
+   - `false_positive_guardrails` must be non-empty list/dict structure.
+
+4. **Security & PII Shielding (Prohibited Sensitive Raw Payloads)**:
+   To prevent real-world private data from leaking into git history or benchmark logs, no plain, raw, or unmasked sensitive credentials or PII fields are allowed in tool fixtures, seeded companies, seeded vendors, or seeded transactions. The validator CLI scans the entire scenario JSON recursively to block keys matching:
+   `ssn`, `social_security_number`, `password`, `api_key`, `apikey`, `secret`, `secret_key`, `private_key`, `routing_number`, `bank_routing_number`, `credit_card`, `card_number`, `cvv`, `pin`.
+
+---
+
+### How to validate before committing
+
+The CLI validator `scripts/validate_benchmark_dataset.py` checks both single scenario files and the entire dataset:
+
+```bash
+# Validate the default dataset (datasets/fraud_benchmarks.json)
+python scripts/validate_benchmark_dataset.py
+
+# Validate a specific file or draft scenario
+python scripts/validate_benchmark_dataset.py datasets/templates/fraud_scenario_template.json
+```
+
+It outputs clear, color-coded details of any quality breaches and exits with code `0` if all checks pass, and `1` if any fail. This validation is run in GitHub Actions on every pull request and push to `main` before benchmark execution starts, blocking any non-compliant additions.
+
+---
+
 ## Scenario Metadata & Selective Runs
 
 Each scenario in `datasets/fraud_benchmarks.json` carries structured metadata that enables targeted local runs without modifying CI.
@@ -456,13 +561,14 @@ Every scenario entry requires these fields:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `id` | string | yes | Unique scenario identifier |
-| `expected_severity` | string | yes | `critical`, `high`, or `medium` |
+| `scenario_id` | string | yes | Unique scenario identifier in lowercase snake_case |
+| `title` | string | yes | Descriptive title for reporting |
 | `category` | string | yes | Logical grouping (e.g. `accounts_payable`, `vendor_management`) |
 | `risk_type` | string | yes | Specific fraud pattern (e.g. `duplicate_invoice`, `ghost_vendor`) |
-| `tags` | list of strings | yes | Searchable labels — must be a list, may be empty |
+| `severity` | string | yes | `critical`, `high`, `medium`, `low`, or `info` |
+| `tags` | list of strings | yes | Searchable labels — must be a non-empty list of strings |
 
-The dataset loader validates all five fields at load time. A missing or malformed field raises `DatasetValidationError` before any scenario runs.
+The dataset loader validates fields at load time. A missing or malformed field raises `DatasetValidationError` before any scenario runs.
 
 ### Available categories
 
@@ -593,6 +699,57 @@ python scripts/quality_gate.py --report-json reports/latest_benchmark_report.jso
 ```
 
 When `--report-json` is provided, filter flags are ignored — the gate evaluates whatever was captured in the report.
+
+## Benchmark Snapshot
+
+### What BENCHMARK_SNAPSHOT.md is
+
+`reports/BENCHMARK_SNAPSHOT.md` is a polished, human-readable summary generated from the latest benchmark report. It is designed to be read without tooling, attached to release notes, or shared in a PR description.
+
+It includes:
+- Service version and generation timestamp
+- **Release readiness status** — `READY` or `REVIEW REQUIRED` based on default quality gate thresholds
+- Quality metrics table with threshold and pass/fail for each metric
+- Dataset coverage: total scenarios run and categories covered
+- Active filters if the report was produced by a filtered run
+- Slowest scenarios
+- Prompt versions and short hashes
+- Known gaps
+
+### When it is generated
+
+CI generates `BENCHMARK_SNAPSHOT.md` automatically on every PR and push to `main`, immediately after the quality gate step. It is included in the `benchmark-reports-<run-id>` artifact alongside the JSON and Markdown reports.
+
+If the quality gate fails, the snapshot is still generated (with `REVIEW REQUIRED` status) so reviewers can read a clear human summary of what failed.
+
+### How to generate it locally
+
+```bash
+python scripts/generate_benchmark_snapshot.py
+```
+
+This reads `reports/latest_benchmark_report.json` and writes `reports/BENCHMARK_SNAPSHOT.md`. Run the benchmarks first:
+
+```bash
+python scripts/run_benchmarks.py --report
+python scripts/generate_benchmark_snapshot.py
+```
+
+With a custom report or output path:
+
+```bash
+python scripts/generate_benchmark_snapshot.py \
+  --report-json reports/history/benchmark_report_20260517_143052.json \
+  --output /tmp/snapshot.md
+```
+
+### How to attach it to release notes
+
+1. Download the `benchmark-reports-<run-id>` artifact from the CI run that corresponds to the release commit.
+2. Open `BENCHMARK_SNAPSHOT.md` — it is ready to paste or attach.
+3. Copy the **Release Readiness** and **Quality Metrics** sections into your release notes or GitHub Release description.
+
+The snapshot is self-contained and does not require access to the benchmark tooling to read.
 
 ## CI Workflow
 

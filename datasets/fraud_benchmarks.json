@@ -3,7 +3,11 @@
     "id": "duplicate_invoice",
     "category": "accounts_payable",
     "risk_type": "duplicate_invoice",
-    "tags": ["vendor", "duplicate", "payments"],
+    "tags": [
+      "vendor",
+      "duplicate",
+      "payments"
+    ],
     "input_prompt": "Review this month for duplicate invoice risk.",
     "seeded_scenario_id": "phase2_duplicate_invoice",
     "page_context": {
@@ -20,17 +24,30 @@
           "description": "Two invoices share the same vendor, amount, and invoice reference.",
           "severity": "critical",
           "evidence": [
-            { "type": "transaction", "id": "txn-dup-001" },
-            { "type": "transaction", "id": "txn-dup-002" }
+            {
+              "type": "transaction",
+              "id": "txn-dup-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-dup-002"
+            }
           ]
         }
       ]
     },
-    "expected_findings": ["duplicate invoice"],
+    "expected_findings": [
+      "duplicate invoice"
+    ],
     "expected_severity": "critical",
     "expected_evidence_patterns": [
-      { "type": "transaction", "min_count": 2 },
-      { "id_contains": "txn-dup" }
+      {
+        "type": "transaction",
+        "min_count": 2
+      },
+      {
+        "id_contains": "txn-dup"
+      }
     ],
     "expected_recommended_action": "review_findings",
     "false_positive_guardrails": [
@@ -39,13 +56,20 @@
       "payroll anomaly",
       "ghost vendor",
       "unusual refund"
-    ]
+    ],
+    "scenario_id": "duplicate_invoice",
+    "severity": "critical",
+    "title": "Duplicate Invoice"
   },
   {
     "id": "split_payments_under_threshold",
     "category": "accounts_payable",
     "risk_type": "threshold_evasion",
-    "tags": ["vendor", "threshold", "payments"],
+    "tags": [
+      "vendor",
+      "threshold",
+      "payments"
+    ],
     "input_prompt": "Look for split payments under approval thresholds.",
     "seeded_scenario_id": "phase2_split_payments_under_threshold",
     "page_context": {
@@ -62,18 +86,35 @@
           "description": "Multiple payments to the same vendor were posted just below the approval threshold.",
           "severity": "high",
           "evidence": [
-            { "type": "transaction", "id": "txn-split-001" },
-            { "type": "transaction", "id": "txn-split-002" },
-            { "type": "transaction", "id": "txn-split-003" }
+            {
+              "type": "transaction",
+              "id": "txn-split-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-split-002"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-split-003"
+            }
           ]
         }
       ]
     },
-    "expected_findings": ["split payments", "threshold"],
+    "expected_findings": [
+      "split payments",
+      "threshold"
+    ],
     "expected_severity": "high",
     "expected_evidence_patterns": [
-      { "type": "transaction", "min_count": 3 },
-      { "id_contains": "txn-split" }
+      {
+        "type": "transaction",
+        "min_count": 3
+      },
+      {
+        "id_contains": "txn-split"
+      }
     ],
     "expected_recommended_action": "review_findings",
     "false_positive_guardrails": [
@@ -82,13 +123,19 @@
       "shared bank account",
       "ghost vendor",
       "unusual refund"
-    ]
+    ],
+    "scenario_id": "split_payments_under_threshold",
+    "severity": "high",
+    "title": "Split Payments Under Threshold"
   },
   {
     "id": "vendor_concentration",
     "category": "accounts_payable",
     "risk_type": "vendor_concentration",
-    "tags": ["vendor", "payments"],
+    "tags": [
+      "vendor",
+      "payments"
+    ],
     "input_prompt": "Check whether one vendor is concentrating too much spend.",
     "seeded_scenario_id": "phase2_vendor_concentration",
     "page_context": {
@@ -105,17 +152,30 @@
           "description": "One vendor represents an unusually high share of monthly spend.",
           "severity": "high",
           "evidence": [
-            { "type": "vendor", "id": "vendor-concentration-001" },
-            { "type": "transaction", "id": "txn-vendor-001" }
+            {
+              "type": "vendor",
+              "id": "vendor-concentration-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-vendor-001"
+            }
           ]
         }
       ]
     },
-    "expected_findings": ["vendor concentration"],
+    "expected_findings": [
+      "vendor concentration"
+    ],
     "expected_severity": "high",
     "expected_evidence_patterns": [
-      { "type": "vendor", "min_count": 1 },
-      { "id_contains": "vendor-concentration" }
+      {
+        "type": "vendor",
+        "min_count": 1
+      },
+      {
+        "id_contains": "vendor-concentration"
+      }
     ],
     "expected_recommended_action": "review_findings",
     "false_positive_guardrails": [
@@ -124,13 +184,19 @@
       "shared bank account",
       "ghost vendor",
       "unusual refund"
-    ]
+    ],
+    "scenario_id": "vendor_concentration",
+    "severity": "high",
+    "title": "Vendor Concentration"
   },
   {
     "id": "round_dollar_payments",
     "category": "accounts_payable",
     "risk_type": "unusual_payment_pattern",
-    "tags": ["vendor", "payments"],
+    "tags": [
+      "vendor",
+      "payments"
+    ],
     "input_prompt": "Find round-dollar payment patterns that may need review.",
     "seeded_scenario_id": "phase2_round_dollar_payments",
     "page_context": {
@@ -147,17 +213,30 @@
           "description": "Several large payments were posted as exact round-dollar amounts.",
           "severity": "medium",
           "evidence": [
-            { "type": "transaction", "id": "txn-round-001" },
-            { "type": "transaction", "id": "txn-round-002" }
+            {
+              "type": "transaction",
+              "id": "txn-round-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-round-002"
+            }
           ]
         }
       ]
     },
-    "expected_findings": ["round-dollar payments"],
+    "expected_findings": [
+      "round-dollar payments"
+    ],
     "expected_severity": "medium",
     "expected_evidence_patterns": [
-      { "type": "transaction", "min_count": 2 },
-      { "id_contains": "txn-round" }
+      {
+        "type": "transaction",
+        "min_count": 2
+      },
+      {
+        "id_contains": "txn-round"
+      }
     ],
     "expected_recommended_action": "review_findings",
     "false_positive_guardrails": [
@@ -166,13 +245,19 @@
       "shared bank account",
       "ghost vendor",
       "unusual refund"
-    ]
+    ],
+    "scenario_id": "round_dollar_payments",
+    "severity": "medium",
+    "title": "Round Dollar Payments"
   },
   {
     "id": "reconciliation_mismatch",
     "category": "accounting",
     "risk_type": "reconciliation_error",
-    "tags": ["reconciliation", "payments"],
+    "tags": [
+      "reconciliation",
+      "payments"
+    ],
     "input_prompt": "Review reconciliation mismatches for possible risk.",
     "seeded_scenario_id": "phase2_reconciliation_mismatch",
     "page_context": {
@@ -189,17 +274,30 @@
           "description": "Bank and ledger records do not match for a reviewed payment.",
           "severity": "high",
           "evidence": [
-            { "type": "reconciliation_discrepancy", "id": "recon-mismatch-001" },
-            { "type": "transaction", "id": "txn-recon-001" }
+            {
+              "type": "reconciliation_discrepancy",
+              "id": "recon-mismatch-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-recon-001"
+            }
           ]
         }
       ]
     },
-    "expected_findings": ["reconciliation mismatch"],
+    "expected_findings": [
+      "reconciliation mismatch"
+    ],
     "expected_severity": "high",
     "expected_evidence_patterns": [
-      { "type": "reconciliation_discrepancy", "min_count": 1 },
-      { "id_contains": "recon-mismatch" }
+      {
+        "type": "reconciliation_discrepancy",
+        "min_count": 1
+      },
+      {
+        "id_contains": "recon-mismatch"
+      }
     ],
     "expected_recommended_action": "review_findings",
     "false_positive_guardrails": [
@@ -208,13 +306,20 @@
       "shared bank account",
       "ghost vendor",
       "unusual refund"
-    ]
+    ],
+    "scenario_id": "reconciliation_mismatch",
+    "severity": "high",
+    "title": "Reconciliation Mismatch"
   },
   {
     "id": "ghost_vendor",
     "category": "vendor_management",
     "risk_type": "ghost_vendor",
-    "tags": ["vendor", "onboarding", "entity_graph"],
+    "tags": [
+      "vendor",
+      "onboarding",
+      "entity_graph"
+    ],
     "input_prompt": "Check for ghost vendor fraud risk this month.",
     "seeded_scenario_id": "phase21_ghost_vendor",
     "seeded_company": {
@@ -239,14 +344,14 @@
       {
         "id": "txn-ghost-001",
         "vendor_id": "ghost-vendor-001",
-        "amount_usd": 12500.00,
+        "amount_usd": 12500.0,
         "date": "2026-05-08",
         "approved_by": "user-ap-clerk-01"
       },
       {
         "id": "txn-ghost-002",
         "vendor_id": "ghost-vendor-001",
-        "amount_usd": 12500.00,
+        "amount_usd": 12500.0,
         "date": "2026-05-15",
         "approved_by": "user-ap-clerk-01"
       }
@@ -265,19 +370,38 @@
           "description": "A vendor with no verifiable business registration or physical address received two payments totalling $25,000. The vendor has no tax ID on file and onboarding was never completed.",
           "severity": "high",
           "evidence": [
-            { "type": "vendor", "id": "ghost-vendor-001" },
-            { "type": "transaction", "id": "txn-ghost-001" },
-            { "type": "transaction", "id": "txn-ghost-002" }
+            {
+              "type": "vendor",
+              "id": "ghost-vendor-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-ghost-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-ghost-002"
+            }
           ]
         }
       ]
     },
-    "expected_findings": ["ghost vendor"],
+    "expected_findings": [
+      "ghost vendor"
+    ],
     "expected_severity": "high",
     "expected_evidence_patterns": [
-      { "type": "vendor", "min_count": 1 },
-      { "type": "transaction", "min_count": 2 },
-      { "id_contains": "ghost-vendor" }
+      {
+        "type": "vendor",
+        "min_count": 1
+      },
+      {
+        "type": "transaction",
+        "min_count": 2
+      },
+      {
+        "id_contains": "ghost-vendor"
+      }
     ],
     "expected_recommended_action": "review_findings",
     "false_positive_guardrails": [
@@ -288,13 +412,19 @@
       "unusual refund",
       "after-hours payment",
       "threshold splitting"
-    ]
+    ],
+    "scenario_id": "ghost_vendor",
+    "severity": "high",
+    "title": "Ghost Vendor"
   },
   {
     "id": "employee_vendor_overlap",
     "category": "vendor_management",
     "risk_type": "conflict_of_interest",
-    "tags": ["vendor", "entity_graph"],
+    "tags": [
+      "vendor",
+      "entity_graph"
+    ],
     "input_prompt": "Are any employees also registered as vendors? Check for fraud risk.",
     "seeded_scenario_id": "phase21_employee_vendor_overlap",
     "seeded_company": {
@@ -327,14 +457,14 @@
       {
         "id": "txn-overlap-001",
         "vendor_id": "overlap-vendor-001",
-        "amount_usd": 8400.00,
+        "amount_usd": 8400.0,
         "date": "2026-05-05",
         "approved_by": "emp-overlap-001"
       },
       {
         "id": "txn-overlap-002",
         "vendor_id": "overlap-vendor-001",
-        "amount_usd": 8400.00,
+        "amount_usd": 8400.0,
         "date": "2026-05-19",
         "approved_by": "emp-overlap-001"
       }
@@ -353,21 +483,46 @@
           "description": "An Accounts Payable employee shares a tax ID with an active vendor and has self-approved both vendor payments this period totalling $16,800.",
           "severity": "critical",
           "evidence": [
-            { "type": "vendor", "id": "overlap-vendor-001" },
-            { "type": "employee_record", "id": "emp-overlap-001" },
-            { "type": "transaction", "id": "txn-overlap-001" },
-            { "type": "transaction", "id": "txn-overlap-002" }
+            {
+              "type": "vendor",
+              "id": "overlap-vendor-001"
+            },
+            {
+              "type": "employee_record",
+              "id": "emp-overlap-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-overlap-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-overlap-002"
+            }
           ]
         }
       ]
     },
-    "expected_findings": ["employee-vendor overlap"],
+    "expected_findings": [
+      "employee-vendor overlap"
+    ],
     "expected_severity": "critical",
     "expected_evidence_patterns": [
-      { "type": "vendor", "min_count": 1 },
-      { "type": "employee_record", "min_count": 1 },
-      { "type": "transaction", "min_count": 2 },
-      { "id_contains": "overlap" }
+      {
+        "type": "vendor",
+        "min_count": 1
+      },
+      {
+        "type": "employee_record",
+        "min_count": 1
+      },
+      {
+        "type": "transaction",
+        "min_count": 2
+      },
+      {
+        "id_contains": "overlap"
+      }
     ],
     "expected_recommended_action": "review_findings",
     "false_positive_guardrails": [
@@ -377,13 +532,20 @@
       "unusual refund",
       "after-hours payment",
       "threshold splitting"
-    ]
+    ],
+    "scenario_id": "employee_vendor_overlap",
+    "severity": "critical",
+    "title": "Employee Vendor Overlap"
   },
   {
     "id": "shared_bank_account_multiple_vendors",
     "category": "vendor_management",
     "risk_type": "shell_entity",
-    "tags": ["vendor", "entity_graph", "payments"],
+    "tags": [
+      "vendor",
+      "entity_graph",
+      "payments"
+    ],
     "input_prompt": "Find vendors sharing the same bank account - possible fraud risk.",
     "seeded_scenario_id": "phase21_shared_bank_account",
     "seeded_company": {
@@ -413,13 +575,13 @@
       {
         "id": "txn-sharedbank-001",
         "vendor_id": "shared-bank-vendor-001",
-        "amount_usd": 47000.00,
+        "amount_usd": 47000.0,
         "date": "2026-05-06"
       },
       {
         "id": "txn-sharedbank-002",
         "vendor_id": "shared-bank-vendor-002",
-        "amount_usd": 38500.00,
+        "amount_usd": 38500.0,
         "date": "2026-05-13"
       }
     ],
@@ -437,22 +599,51 @@
           "description": "Two vendors with different legal names and registrations route payments to the same bank account, totalling $85,500 this period. This pattern is consistent with shell company or controlled-entity fraud.",
           "severity": "high",
           "evidence": [
-            { "type": "bank_account", "id": "shared-bank-999" },
-            { "type": "vendor", "id": "shared-bank-vendor-001" },
-            { "type": "vendor", "id": "shared-bank-vendor-002" },
-            { "type": "transaction", "id": "txn-sharedbank-001" },
-            { "type": "transaction", "id": "txn-sharedbank-002" }
+            {
+              "type": "bank_account",
+              "id": "shared-bank-999"
+            },
+            {
+              "type": "vendor",
+              "id": "shared-bank-vendor-001"
+            },
+            {
+              "type": "vendor",
+              "id": "shared-bank-vendor-002"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-sharedbank-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-sharedbank-002"
+            }
           ]
         }
       ]
     },
-    "expected_findings": ["shared bank account", "multiple vendors"],
+    "expected_findings": [
+      "shared bank account",
+      "multiple vendors"
+    ],
     "expected_severity": "high",
     "expected_evidence_patterns": [
-      { "type": "bank_account", "min_count": 1 },
-      { "type": "vendor", "min_count": 2 },
-      { "type": "transaction", "min_count": 2 },
-      { "id_contains": "shared-bank" }
+      {
+        "type": "bank_account",
+        "min_count": 1
+      },
+      {
+        "type": "vendor",
+        "min_count": 2
+      },
+      {
+        "type": "transaction",
+        "min_count": 2
+      },
+      {
+        "id_contains": "shared-bank"
+      }
     ],
     "expected_recommended_action": "review_findings",
     "false_positive_guardrails": [
@@ -462,13 +653,19 @@
       "unusual refund",
       "after-hours payment",
       "threshold splitting"
-    ]
+    ],
+    "scenario_id": "shared_bank_account_multiple_vendors",
+    "severity": "high",
+    "title": "Shared Bank Account Multiple Vendors"
   },
   {
     "id": "vendor_paid_before_onboarding",
     "category": "vendor_management",
     "risk_type": "control_bypass",
-    "tags": ["vendor", "onboarding"],
+    "tags": [
+      "vendor",
+      "onboarding"
+    ],
     "input_prompt": "Were any vendors paid before their onboarding was completed? Fraud risk review.",
     "seeded_scenario_id": "phase21_vendor_paid_before_onboarding",
     "seeded_company": {
@@ -492,7 +689,7 @@
       {
         "id": "txn-preonboard-001",
         "vendor_id": "preonboard-vendor-001",
-        "amount_usd": 22000.00,
+        "amount_usd": 22000.0,
         "date": "2026-05-03"
       }
     ],
@@ -510,18 +707,34 @@
           "description": "A payment of $22,000 was issued to a vendor whose onboarding process had not been started at the time of payment, bypassing vendor validation controls.",
           "severity": "high",
           "evidence": [
-            { "type": "vendor_onboarding", "id": "preonboard-vendor-001" },
-            { "type": "transaction", "id": "txn-preonboard-001" }
+            {
+              "type": "vendor_onboarding",
+              "id": "preonboard-vendor-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-preonboard-001"
+            }
           ]
         }
       ]
     },
-    "expected_findings": ["before onboarding"],
+    "expected_findings": [
+      "before onboarding"
+    ],
     "expected_severity": "high",
     "expected_evidence_patterns": [
-      { "type": "vendor_onboarding", "min_count": 1 },
-      { "type": "transaction", "min_count": 1 },
-      { "id_contains": "preonboard" }
+      {
+        "type": "vendor_onboarding",
+        "min_count": 1
+      },
+      {
+        "type": "transaction",
+        "min_count": 1
+      },
+      {
+        "id_contains": "preonboard"
+      }
     ],
     "expected_recommended_action": "review_findings",
     "false_positive_guardrails": [
@@ -532,13 +745,20 @@
       "unusual refund",
       "after-hours payment",
       "threshold splitting"
-    ]
+    ],
+    "scenario_id": "vendor_paid_before_onboarding",
+    "severity": "high",
+    "title": "Vendor Paid Before Onboarding"
   },
   {
     "id": "duplicate_vendor_name_variation",
     "category": "vendor_management",
     "risk_type": "duplicate_vendor",
-    "tags": ["vendor", "duplicate", "entity_graph"],
+    "tags": [
+      "vendor",
+      "duplicate",
+      "entity_graph"
+    ],
     "input_prompt": "Look for duplicate vendor name variations that may indicate fraud risk.",
     "seeded_scenario_id": "phase21_duplicate_vendor_name",
     "seeded_company": {
@@ -570,13 +790,13 @@
       {
         "id": "txn-dupname-001",
         "vendor_id": "dup-vendor-001",
-        "amount_usd": 15000.00,
+        "amount_usd": 15000.0,
         "date": "2026-05-07"
       },
       {
         "id": "txn-dupname-002",
         "vendor_id": "dup-vendor-002",
-        "amount_usd": 15000.00,
+        "amount_usd": 15000.0,
         "date": "2026-05-07"
       }
     ],
@@ -594,20 +814,43 @@
           "description": "Two vendor records with nearly identical names, different tax IDs, and different bank accounts received identical payment amounts on the same date. This pattern is consistent with duplicate-vendor fraud.",
           "severity": "high",
           "evidence": [
-            { "type": "vendor", "id": "dup-vendor-001" },
-            { "type": "vendor", "id": "dup-vendor-002" },
-            { "type": "transaction", "id": "txn-dupname-001" },
-            { "type": "transaction", "id": "txn-dupname-002" }
+            {
+              "type": "vendor",
+              "id": "dup-vendor-001"
+            },
+            {
+              "type": "vendor",
+              "id": "dup-vendor-002"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-dupname-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-dupname-002"
+            }
           ]
         }
       ]
     },
-    "expected_findings": ["duplicate vendor", "name variation"],
+    "expected_findings": [
+      "duplicate vendor",
+      "name variation"
+    ],
     "expected_severity": "high",
     "expected_evidence_patterns": [
-      { "type": "vendor", "min_count": 2 },
-      { "type": "transaction", "min_count": 2 },
-      { "id_contains": "dup-vendor" }
+      {
+        "type": "vendor",
+        "min_count": 2
+      },
+      {
+        "type": "transaction",
+        "min_count": 2
+      },
+      {
+        "id_contains": "dup-vendor"
+      }
     ],
     "expected_recommended_action": "review_findings",
     "false_positive_guardrails": [
@@ -618,13 +861,19 @@
       "unusual refund",
       "after-hours payment",
       "threshold splitting"
-    ]
+    ],
+    "scenario_id": "duplicate_vendor_name_variation",
+    "severity": "high",
+    "title": "Duplicate Vendor Name Variation"
   },
   {
     "id": "unusual_refund_activity",
     "category": "accounts_payable",
     "risk_type": "refund_fraud",
-    "tags": ["vendor", "payments"],
+    "tags": [
+      "vendor",
+      "payments"
+    ],
     "input_prompt": "Are there unusual refund patterns that may indicate fraud risk?",
     "seeded_scenario_id": "phase21_unusual_refund",
     "seeded_company": {
@@ -647,14 +896,14 @@
       {
         "id": "txn-refund-original-001",
         "vendor_id": "refund-vendor-001",
-        "amount_usd": 9800.00,
+        "amount_usd": 9800.0,
         "date": "2026-04-20",
         "type": "invoice_payment"
       },
       {
         "id": "txn-refund-001",
         "vendor_id": "refund-vendor-001",
-        "amount_usd": -14200.00,
+        "amount_usd": -14200.0,
         "date": "2026-05-02",
         "type": "refund",
         "routed_to_account": "bank-personal-external"
@@ -662,7 +911,7 @@
       {
         "id": "txn-refund-002",
         "vendor_id": "refund-vendor-001",
-        "amount_usd": -11000.00,
+        "amount_usd": -11000.0,
         "date": "2026-05-11",
         "type": "refund",
         "routed_to_account": "bank-personal-external"
@@ -682,19 +931,38 @@
           "description": "Two refund credits exceed the original invoice amount and were routed to a bank account not on file for this vendor. Total refund exposure is $25,200.",
           "severity": "high",
           "evidence": [
-            { "type": "transaction", "id": "txn-refund-001" },
-            { "type": "transaction", "id": "txn-refund-002" },
-            { "type": "vendor", "id": "refund-vendor-001" }
+            {
+              "type": "transaction",
+              "id": "txn-refund-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-refund-002"
+            },
+            {
+              "type": "vendor",
+              "id": "refund-vendor-001"
+            }
           ]
         }
       ]
     },
-    "expected_findings": ["unusual refund"],
+    "expected_findings": [
+      "unusual refund"
+    ],
     "expected_severity": "high",
     "expected_evidence_patterns": [
-      { "type": "transaction", "min_count": 2 },
-      { "type": "vendor", "min_count": 1 },
-      { "id_contains": "txn-refund" }
+      {
+        "type": "transaction",
+        "min_count": 2
+      },
+      {
+        "type": "vendor",
+        "min_count": 1
+      },
+      {
+        "id_contains": "txn-refund"
+      }
     ],
     "expected_recommended_action": "review_findings",
     "false_positive_guardrails": [
@@ -705,13 +973,18 @@
       "duplicate vendor name",
       "after-hours payment",
       "threshold splitting"
-    ]
+    ],
+    "scenario_id": "unusual_refund_activity",
+    "severity": "high",
+    "title": "Unusual Refund Activity"
   },
   {
     "id": "payroll_anomaly",
     "category": "payroll",
     "risk_type": "payroll_fraud",
-    "tags": ["payroll"],
+    "tags": [
+      "payroll"
+    ],
     "input_prompt": "Review payroll for anomalies and signs of fraud risk.",
     "seeded_scenario_id": "phase21_payroll_anomaly",
     "seeded_company": {
@@ -735,7 +1008,7 @@
         "id": "txn-payroll-001",
         "type": "payroll",
         "employee_id": "emp-ghost-pay-001",
-        "amount_usd": 5800.00,
+        "amount_usd": 5800.0,
         "date": "2026-05-01",
         "pay_period": "2026-04"
       },
@@ -743,7 +1016,7 @@
         "id": "txn-payroll-002",
         "type": "payroll",
         "employee_id": "emp-ghost-pay-001",
-        "amount_usd": 5800.00,
+        "amount_usd": 5800.0,
         "date": "2026-05-15",
         "pay_period": "2026-05"
       }
@@ -762,19 +1035,38 @@
           "description": "A terminated employee received two payroll disbursements totalling $11,600 after their termination date of 2026-03-31. Payments were routed to an external account added after termination.",
           "severity": "high",
           "evidence": [
-            { "type": "payroll_record", "id": "emp-ghost-pay-001" },
-            { "type": "transaction", "id": "txn-payroll-001" },
-            { "type": "transaction", "id": "txn-payroll-002" }
+            {
+              "type": "payroll_record",
+              "id": "emp-ghost-pay-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-payroll-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-payroll-002"
+            }
           ]
         }
       ]
     },
-    "expected_findings": ["payroll anomaly"],
+    "expected_findings": [
+      "payroll anomaly"
+    ],
     "expected_severity": "high",
     "expected_evidence_patterns": [
-      { "type": "payroll_record", "min_count": 1 },
-      { "type": "transaction", "min_count": 2 },
-      { "id_contains": "payroll" }
+      {
+        "type": "payroll_record",
+        "min_count": 1
+      },
+      {
+        "type": "transaction",
+        "min_count": 2
+      },
+      {
+        "id_contains": "payroll"
+      }
     ],
     "expected_recommended_action": "review_findings",
     "false_positive_guardrails": [
@@ -785,13 +1077,20 @@
       "duplicate vendor name",
       "after-hours payment",
       "threshold splitting"
-    ]
+    ],
+    "scenario_id": "payroll_anomaly",
+    "severity": "high",
+    "title": "Payroll Anomaly"
   },
   {
     "id": "weekend_after_hours_payment",
     "category": "accounts_payable",
     "risk_type": "unusual_payment_pattern",
-    "tags": ["after_hours", "payments", "vendor"],
+    "tags": [
+      "after_hours",
+      "payments",
+      "vendor"
+    ],
     "input_prompt": "Are payments processed on weekends or after hours? Check for fraud risk.",
     "seeded_scenario_id": "phase21_weekend_after_hours",
     "seeded_company": {
@@ -814,7 +1113,7 @@
       {
         "id": "txn-weekend-001",
         "vendor_id": "offhours-vendor-001",
-        "amount_usd": 31000.00,
+        "amount_usd": 31000.0,
         "date": "2026-05-03",
         "processed_at": "2026-05-03T02:14:00Z",
         "day_of_week": "Sunday"
@@ -822,7 +1121,7 @@
       {
         "id": "txn-weekend-002",
         "vendor_id": "offhours-vendor-001",
-        "amount_usd": 28500.00,
+        "amount_usd": 28500.0,
         "date": "2026-05-10",
         "processed_at": "2026-05-10T01:47:00Z",
         "day_of_week": "Sunday"
@@ -842,17 +1141,31 @@
           "description": "Two large payments totalling $59,500 were processed on Sundays between 1-3 AM, outside of normal business hours and approval windows.",
           "severity": "medium",
           "evidence": [
-            { "type": "transaction", "id": "txn-weekend-001" },
-            { "type": "transaction", "id": "txn-weekend-002" }
+            {
+              "type": "transaction",
+              "id": "txn-weekend-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-weekend-002"
+            }
           ]
         }
       ]
     },
-    "expected_findings": ["weekend", "after-hours payment"],
+    "expected_findings": [
+      "weekend",
+      "after-hours payment"
+    ],
     "expected_severity": "medium",
     "expected_evidence_patterns": [
-      { "type": "transaction", "min_count": 2 },
-      { "id_contains": "txn-weekend" }
+      {
+        "type": "transaction",
+        "min_count": 2
+      },
+      {
+        "id_contains": "txn-weekend"
+      }
     ],
     "expected_recommended_action": "review_findings",
     "false_positive_guardrails": [
@@ -863,13 +1176,20 @@
       "unusual refund",
       "duplicate vendor name",
       "threshold splitting"
-    ]
+    ],
+    "scenario_id": "weekend_after_hours_payment",
+    "severity": "medium",
+    "title": "Weekend After Hours Payment"
   },
   {
     "id": "approval_threshold_splitting",
     "category": "accounts_payable",
     "risk_type": "threshold_evasion",
-    "tags": ["vendor", "threshold", "payments"],
+    "tags": [
+      "vendor",
+      "threshold",
+      "payments"
+    ],
     "input_prompt": "Are any invoices being split to stay under approval thresholds? Fraud risk check.",
     "seeded_scenario_id": "phase21_threshold_splitting",
     "seeded_company": {
@@ -892,35 +1212,35 @@
       {
         "id": "txn-threshold-split-001",
         "vendor_id": "thresholdsplit-vendor-001",
-        "amount_usd": 19800.00,
+        "amount_usd": 19800.0,
         "date": "2026-05-04",
         "purchase_order": "PO-2026-1141"
       },
       {
         "id": "txn-threshold-split-002",
         "vendor_id": "thresholdsplit-vendor-001",
-        "amount_usd": 19800.00,
+        "amount_usd": 19800.0,
         "date": "2026-05-04",
         "purchase_order": "PO-2026-1142"
       },
       {
         "id": "txn-threshold-split-003",
         "vendor_id": "thresholdsplit-vendor-001",
-        "amount_usd": 19800.00,
+        "amount_usd": 19800.0,
         "date": "2026-05-04",
         "purchase_order": "PO-2026-1143"
       },
       {
         "id": "txn-threshold-split-004",
         "vendor_id": "thresholdsplit-vendor-001",
-        "amount_usd": 19800.00,
+        "amount_usd": 19800.0,
         "date": "2026-05-04",
         "purchase_order": "PO-2026-1144"
       },
       {
         "id": "txn-threshold-split-005",
         "vendor_id": "thresholdsplit-vendor-001",
-        "amount_usd": 19800.00,
+        "amount_usd": 19800.0,
         "date": "2026-05-04",
         "purchase_order": "PO-2026-1145"
       }
@@ -939,20 +1259,43 @@
           "description": "Five invoices of $19,800 each were posted to the same vendor on the same date across separate purchase orders. The combined total of $99,000 requires CFO approval, but each individual invoice falls just below the $20,000 manager approval threshold.",
           "severity": "critical",
           "evidence": [
-            { "type": "transaction", "id": "txn-threshold-split-001" },
-            { "type": "transaction", "id": "txn-threshold-split-002" },
-            { "type": "transaction", "id": "txn-threshold-split-003" },
-            { "type": "transaction", "id": "txn-threshold-split-004" },
-            { "type": "transaction", "id": "txn-threshold-split-005" }
+            {
+              "type": "transaction",
+              "id": "txn-threshold-split-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-threshold-split-002"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-threshold-split-003"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-threshold-split-004"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-threshold-split-005"
+            }
           ]
         }
       ]
     },
-    "expected_findings": ["approval", "threshold splitting"],
+    "expected_findings": [
+      "approval",
+      "threshold splitting"
+    ],
     "expected_severity": "critical",
     "expected_evidence_patterns": [
-      { "type": "transaction", "min_count": 5 },
-      { "id_contains": "threshold-split" }
+      {
+        "type": "transaction",
+        "min_count": 5
+      },
+      {
+        "id_contains": "threshold-split"
+      }
     ],
     "expected_recommended_action": "review_findings",
     "false_positive_guardrails": [
@@ -963,13 +1306,20 @@
       "unusual refund",
       "duplicate vendor name",
       "after-hours payment"
-    ]
+    ],
+    "scenario_id": "approval_threshold_splitting",
+    "severity": "critical",
+    "title": "Approval Threshold Splitting"
   },
   {
     "id": "high_risk_vendor_concentration_over_time",
     "category": "accounts_payable",
     "risk_type": "vendor_concentration",
-    "tags": ["vendor", "payments", "entity_graph"],
+    "tags": [
+      "vendor",
+      "payments",
+      "entity_graph"
+    ],
     "input_prompt": "Has vendor concentration risk been increasing over time? Review for fraud.",
     "seeded_scenario_id": "phase21_concentration_over_time",
     "seeded_company": {
@@ -989,15 +1339,30 @@
       }
     ],
     "seeded_period_data": [
-      { "period": "2026-03", "vendor_id": "concentration-trend-vendor-001", "spend_usd": 340000, "pct_of_total": 0.09 },
-      { "period": "2026-04", "vendor_id": "concentration-trend-vendor-001", "spend_usd": 1020000, "pct_of_total": 0.27 },
-      { "period": "2026-05", "vendor_id": "concentration-trend-vendor-001", "spend_usd": 2470000, "pct_of_total": 0.65 }
+      {
+        "period": "2026-03",
+        "vendor_id": "concentration-trend-vendor-001",
+        "spend_usd": 340000,
+        "pct_of_total": 0.09
+      },
+      {
+        "period": "2026-04",
+        "vendor_id": "concentration-trend-vendor-001",
+        "spend_usd": 1020000,
+        "pct_of_total": 0.27
+      },
+      {
+        "period": "2026-05",
+        "vendor_id": "concentration-trend-vendor-001",
+        "spend_usd": 2470000,
+        "pct_of_total": 0.65
+      }
     ],
     "seeded_transactions": [
       {
         "id": "txn-concentration-trend-001",
         "vendor_id": "concentration-trend-vendor-001",
-        "amount_usd": 2470000.00,
+        "amount_usd": 2470000.0,
         "date": "2026-05-31",
         "period": "2026-05"
       }
@@ -1016,20 +1381,43 @@
           "description": "A single vendor's share of total spend increased from 9% in March to 27% in April to 65% in May. This rapid concentration growth is an indicator of potential fraudulent diversion or kickback arrangements.",
           "severity": "high",
           "evidence": [
-            { "type": "vendor", "id": "concentration-trend-vendor-001" },
-            { "type": "period_comparison", "id": "concentration-trend-2026-03-05" },
-            { "type": "transaction", "id": "txn-concentration-trend-001" }
+            {
+              "type": "vendor",
+              "id": "concentration-trend-vendor-001"
+            },
+            {
+              "type": "period_comparison",
+              "id": "concentration-trend-2026-03-05"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-concentration-trend-001"
+            }
           ]
         }
       ]
     },
-    "expected_findings": ["vendor concentration", "over time"],
+    "expected_findings": [
+      "vendor concentration",
+      "over time"
+    ],
     "expected_severity": "high",
     "expected_evidence_patterns": [
-      { "type": "vendor", "min_count": 1 },
-      { "type": "period_comparison", "min_count": 1 },
-      { "type": "transaction", "min_count": 1 },
-      { "id_contains": "concentration-trend" }
+      {
+        "type": "vendor",
+        "min_count": 1
+      },
+      {
+        "type": "period_comparison",
+        "min_count": 1
+      },
+      {
+        "type": "transaction",
+        "min_count": 1
+      },
+      {
+        "id_contains": "concentration-trend"
+      }
     ],
     "expected_recommended_action": "review_findings",
     "false_positive_guardrails": [
@@ -1040,6 +1428,9 @@
       "unusual refund",
       "after-hours payment",
       "threshold splitting"
-    ]
+    ],
+    "scenario_id": "high_risk_vendor_concentration_over_time",
+    "severity": "high",
+    "title": "High Risk Vendor Concentration Over Time"
   }
 ]

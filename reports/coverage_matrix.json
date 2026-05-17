@@ -1,0 +1,52 @@
+{
+  "generated_at": "2026-05-17T21:15:09.180850+00:00",
+  "total_scenarios": 15,
+  "by_category": {
+    "accounting": 1,
+    "accounts_payable": 8,
+    "payroll": 1,
+    "vendor_management": 5
+  },
+  "by_risk_type": {
+    "conflict_of_interest": 1,
+    "control_bypass": 1,
+    "duplicate_invoice": 1,
+    "duplicate_vendor": 1,
+    "ghost_vendor": 1,
+    "payroll_fraud": 1,
+    "reconciliation_error": 1,
+    "refund_fraud": 1,
+    "shell_entity": 1,
+    "threshold_evasion": 2,
+    "unusual_payment_pattern": 2,
+    "vendor_concentration": 2
+  },
+  "by_severity": {
+    "critical": 3,
+    "high": 10,
+    "medium": 2
+  },
+  "by_tag": {
+    "after_hours": 1,
+    "duplicate": 2,
+    "entity_graph": 5,
+    "onboarding": 2,
+    "payments": 10,
+    "payroll": 1,
+    "reconciliation": 1,
+    "threshold": 2,
+    "vendor": 13
+  },
+  "missing_recommended_tags": [
+    "false_positive_guardrail"
+  ],
+  "duplicate_scenario_ids": [],
+  "missing_evidence_patterns": [],
+  "missing_false_positive_guardrails": [],
+  "recommended_gaps": [
+    "Tag `false_positive_guardrail` has 0 scenarios \u2014 add at least one scenario that exercises this pattern.",
+    "Severity `low` has no coverage \u2014 consider adding a scenario at this severity level.",
+    "Category `accounting` has only 1 scenario \u2014 thin coverage increases regression risk.",
+    "Category `payroll` has only 1 scenario \u2014 thin coverage increases regression risk."
+  ]
+}

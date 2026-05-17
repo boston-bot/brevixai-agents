@@ -1,0 +1,103 @@
+{
+  "_notes": {
+    "purpose": "Template for creating new fraud benchmark scenarios.",
+    "instructions": "Copy this file, fill in the fields, validate with scripts/validate_benchmark_dataset.py, and add it to datasets/fraud_benchmarks.json."
+  },
+  "scenario_id": "new_fraud_scenario_name",
+  "title": "A descriptive title for the benchmark scenario",
+  "category": "accounts_payable",
+  "risk_type": "ghost_vendor",
+  "severity": "high",
+  "tags": [
+    "vendor",
+    "onboarding"
+  ],
+  "input_prompt": "Analyze this month's payments for ghost vendor risk.",
+  "seeded_company": {
+    "company_id": "eval-company",
+    "name": "Brevix Eval Co",
+    "industry": "Professional Services",
+    "employee_count": 100,
+    "monthly_ap_volume_usd": 200000
+  },
+  "seeded_vendors": [
+    {
+      "vendor_id": "vendor-001",
+      "name": "Acme Corp",
+      "tax_id": "XXX-XX-1234",
+      "bank_account_id": "bank-acme-001",
+      "registration_status": "unverified",
+      "onboarding_complete": false
+    }
+  ],
+  "seeded_transactions": [
+    {
+      "id": "txn-001",
+      "vendor_id": "vendor-001",
+      "amount_usd": 15000.00,
+      "date": "2026-05-15"
+    }
+  ],
+  "page_context": {
+    "selected_period": "2026-05",
+    "source": "evaluation",
+    "fraud_scenario_id": "new_fraud_scenario_name"
+  },
+  "tool_fixture": {
+    "risk_score": 85,
+    "risk_level": "high",
+    "top_drivers": [
+      {
+        "driver": "Ghost vendor detected",
+        "description": "A payment was issued to a vendor with unverified registration status.",
+        "severity": "high",
+        "evidence": [
+          { "type": "vendor", "id": "vendor-001" },
+          { "type": "transaction", "id": "txn-001" }
+        ]
+      }
+    ]
+  },
+  "expected_findings": [
+    "ghost vendor",
+    "unverified"
+  ],
+  "expected_severity": "high",
+  "expected_evidence_patterns": [
+    {
+      "type": "vendor",
+      "min_count": 1
+    },
+    {
+      "type": "transaction",
+      "min_count": 1
+    },
+    {
+      "id_contains": "vendor"
+    }
+  ],
+  "expected_recommended_action": "review_findings",
+  "false_positive_guardrails": [
+    "employee-vendor overlap",
+    "shared bank account",
+    "payroll anomaly",
+    "duplicate vendor name",
+    "unusual refund",
+    "after-hours payment",
+    "threshold splitting"
+  ],
+  "_field_notes": {
+    "scenario_id": "Unique identifier in lowercase snake_case (e.g. ghost_vendor_detection). Must match format ^[a-z0-9_]+$.",
+    "title": "Short descriptive title for reporting and UI.",
+    "category": "The business category, e.g. accounts_payable, vendor_management, payroll, accounting.",
+    "risk_type": "The risk classification, e.g. duplicate_invoice, ghost_vendor, conflict_of_interest, shell_entity.",
+    "severity": "The ground truth risk severity level. One of: info, low, medium, high, critical.",
+    "tags": "A non-empty list of tags for filtering benchmarks, e.g. ['vendor', 'payments'].",
+    "input_prompt": "The simulated user question or instruction to the agent.",
+    "expected_findings": "A non-empty list of lowercase phrases that the agent must mention in its findings text.",
+    "expected_severity": "The expected severity level classified by the agent (should match severity).",
+    "expected_evidence_patterns": "A non-empty list of structural patterns the agent must include in its findings evidence. Each pattern can specify 'type', 'min_count', or 'id_contains'.",
+    "expected_recommended_action": "The recommended next action the agent should propose (e.g. review_findings).",
+    "false_positive_guardrails": "A non-empty list of keyword phrases characteristic of other fraud scenarios that must NOT be mentioned. If mentioned, it counts as a false positive."
+  }
+}
