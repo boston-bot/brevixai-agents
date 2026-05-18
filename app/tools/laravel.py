@@ -35,12 +35,32 @@ class LaravelToolClient:
         self,
         company_id: str,
         user_id: str,
+        dashboard_context: bool = False,
+        transaction_filters: dict[str, Any] | None = None,
         trace_id: str | None = None,
         trace_metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        params: dict[str, Any] | None = None
+        if dashboard_context or transaction_filters is not None:
+            params = {}
+
+        if dashboard_context and params is not None:
+            params["include_dashboard"] = "1"
+
+        if transaction_filters is not None and params is not None:
+            params.update({
+                "include_transactions": "1",
+                **{
+                    key: value
+                    for key, value in transaction_filters.items()
+                    if key in {"date_from", "date_to", "limit"} and value is not None
+                },
+            })
+
         return await self._get(
             f"/api/internal/agent-tools/companies/{company_id}/context",
             user_id,
+            params=params,
             trace_id=trace_id,
             trace_metadata={
                 "tool_name": "company_context",
@@ -162,6 +182,31 @@ class LaravelToolClient:
             ),
         )
 
+    async def aggregate_risk_summary(
+        self,
+        company_id: str,
+        user_id: str,
+        trace_id: str | None = None,
+        trace_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return await self._get(
+            f"/api/internal/agent-tools/company/{company_id}/aggregate-risk-summary",
+            user_id,
+            trace_id=trace_id,
+            trace_metadata={
+                "tool_name": "aggregate_risk_summary",
+                "company_id": company_id,
+                **(trace_metadata or {}),
+            },
+            langsmith_extra=self._langsmith_extra(
+                "aggregate_risk_summary",
+                company_id,
+                user_id,
+                trace_id,
+                trace_metadata,
+            ),
+        )
+
     @traceable(
         name="agent.tool.laravel_get",
         run_type="tool",
@@ -204,17 +249,26 @@ class LaravelToolClient:
 
         try:
             async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
-                response = await client.get(
-                    f"{self.base_url}{path}",
-                    headers=headers,
-                    params=params,
-                )
+                try:
+                    response = await client.get(
+                        f"{self.base_url}{path}",
+                        headers=headers,
+                        params=params,
+                    )
+                except httpx.RequestError as exc:
+                    status = "failed"
+                    raise LaravelToolError(f"Laravel tool request failed: {exc.__class__.__name__}.") from exc
 
             if response.status_code >= 400:
                 status = "failed"
                 raise LaravelToolError(f"Laravel tool request failed with status {response.status_code}.")
 
-            data = response.json()
+            try:
+                data = response.json()
+            except ValueError as exc:
+                status = "failed"
+                raise LaravelToolError("Laravel tool returned an invalid JSON payload.") from exc
+
             if not isinstance(data, dict):
                 status = "failed"
                 raise LaravelToolError("Laravel tool returned an invalid payload.")

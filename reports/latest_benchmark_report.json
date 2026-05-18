@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-17T19:59:43.653131+00:00",
+  "generated_at": "2026-05-18T01:52:35.548583+00:00",
   "total_scenarios": 15,
   "total_passed": 15,
   "total_failed": 0,
@@ -10,34 +10,39 @@
   "evidence_completeness_avg": 1.0,
   "false_positive_pass_rate": 1.0,
   "hallucination_failure_count": 0,
-  "average_latency_ms": 4.7,
+  "average_latency_ms": 8.48,
   "slowest_scenarios": [
     {
-      "scenario_id": "duplicate_invoice",
-      "latency_ms": 9.85
+      "scenario_id": "reconciliation_mismatch",
+      "latency_ms": 27.42
     },
     {
-      "scenario_id": "duplicate_vendor_name_variation",
-      "latency_ms": 5.17
-    },
-    {
-      "scenario_id": "unusual_refund_activity",
-      "latency_ms": 4.92
+      "scenario_id": "ghost_vendor",
+      "latency_ms": 22.68
     },
     {
       "scenario_id": "round_dollar_payments",
-      "latency_ms": 4.87
+      "latency_ms": 8.01
     },
     {
-      "scenario_id": "split_payments_under_threshold",
-      "latency_ms": 4.76
+      "scenario_id": "duplicate_invoice",
+      "latency_ms": 7.78
+    },
+    {
+      "scenario_id": "employee_vendor_overlap",
+      "latency_ms": 6.76
     }
   ],
   "scenario_breakdown": [
     {
       "scenario_id": "duplicate_invoice",
       "passed": true,
-      "latency_ms": 9.85,
+      "latency_ms": 7.78,
+      "tags": [
+        "vendor",
+        "duplicate",
+        "payments"
+      ],
       "failed_checks": [],
       "check_scores": {
         "response_contract_validation": 1.0,
@@ -51,7 +56,12 @@
     {
       "scenario_id": "split_payments_under_threshold",
       "passed": true,
-      "latency_ms": 4.76,
+      "latency_ms": 4.86,
+      "tags": [
+        "vendor",
+        "threshold",
+        "payments"
+      ],
       "failed_checks": [],
       "check_scores": {
         "response_contract_validation": 1.0,
@@ -65,7 +75,11 @@
     {
       "scenario_id": "vendor_concentration",
       "passed": true,
-      "latency_ms": 3.8,
+      "latency_ms": 6.3,
+      "tags": [
+        "vendor",
+        "payments"
+      ],
       "failed_checks": [],
       "check_scores": {
         "response_contract_validation": 1.0,
@@ -79,7 +93,11 @@
     {
       "scenario_id": "round_dollar_payments",
       "passed": true,
-      "latency_ms": 4.87,
+      "latency_ms": 8.01,
+      "tags": [
+        "vendor",
+        "payments"
+      ],
       "failed_checks": [],
       "check_scores": {
         "response_contract_validation": 1.0,
@@ -93,7 +111,11 @@
     {
       "scenario_id": "reconciliation_mismatch",
       "passed": true,
-      "latency_ms": 4.09,
+      "latency_ms": 27.42,
+      "tags": [
+        "reconciliation",
+        "payments"
+      ],
       "failed_checks": [],
       "check_scores": {
         "response_contract_validation": 1.0,
@@ -107,7 +129,12 @@
     {
       "scenario_id": "ghost_vendor",
       "passed": true,
-      "latency_ms": 4.45,
+      "latency_ms": 22.68,
+      "tags": [
+        "vendor",
+        "onboarding",
+        "entity_graph"
+      ],
       "failed_checks": [],
       "check_scores": {
         "response_contract_validation": 1.0,
@@ -121,7 +148,11 @@
     {
       "scenario_id": "employee_vendor_overlap",
       "passed": true,
-      "latency_ms": 3.79,
+      "latency_ms": 6.76,
+      "tags": [
+        "vendor",
+        "entity_graph"
+      ],
       "failed_checks": [],
       "check_scores": {
         "response_contract_validation": 1.0,
@@ -135,7 +166,12 @@
     {
       "scenario_id": "shared_bank_account_multiple_vendors",
       "passed": true,
-      "latency_ms": 3.72,
+      "latency_ms": 6.01,
+      "tags": [
+        "vendor",
+        "entity_graph",
+        "payments"
+      ],
       "failed_checks": [],
       "check_scores": {
         "response_contract_validation": 1.0,
@@ -149,7 +185,11 @@
     {
       "scenario_id": "vendor_paid_before_onboarding",
       "passed": true,
-      "latency_ms": 3.76,
+      "latency_ms": 5.11,
+      "tags": [
+        "vendor",
+        "onboarding"
+      ],
       "failed_checks": [],
       "check_scores": {
         "response_contract_validation": 1.0,
@@ -163,7 +203,12 @@
     {
       "scenario_id": "duplicate_vendor_name_variation",
       "passed": true,
-      "latency_ms": 5.17,
+      "latency_ms": 4.75,
+      "tags": [
+        "vendor",
+        "duplicate",
+        "entity_graph"
+      ],
       "failed_checks": [],
       "check_scores": {
         "response_contract_validation": 1.0,
@@ -177,7 +222,11 @@
     {
       "scenario_id": "unusual_refund_activity",
       "passed": true,
-      "latency_ms": 4.92,
+      "latency_ms": 6.69,
+      "tags": [
+        "vendor",
+        "payments"
+      ],
       "failed_checks": [],
       "check_scores": {
         "response_contract_validation": 1.0,
@@ -191,7 +240,10 @@
     {
       "scenario_id": "payroll_anomaly",
       "passed": true,
-      "latency_ms": 4.22,
+      "latency_ms": 4.92,
+      "tags": [
+        "payroll"
+      ],
       "failed_checks": [],
       "check_scores": {
         "response_contract_validation": 1.0,
@@ -205,7 +257,12 @@
     {
       "scenario_id": "weekend_after_hours_payment",
       "passed": true,
-      "latency_ms": 4.01,
+      "latency_ms": 5.36,
+      "tags": [
+        "after_hours",
+        "payments",
+        "vendor"
+      ],
       "failed_checks": [],
       "check_scores": {
         "response_contract_validation": 1.0,
@@ -219,7 +276,12 @@
     {
       "scenario_id": "approval_threshold_splitting",
       "passed": true,
-      "latency_ms": 4.68,
+      "latency_ms": 5.17,
+      "tags": [
+        "vendor",
+        "threshold",
+        "payments"
+      ],
       "failed_checks": [],
       "check_scores": {
         "response_contract_validation": 1.0,
@@ -233,7 +295,12 @@
     {
       "scenario_id": "high_risk_vendor_concentration_over_time",
       "passed": true,
-      "latency_ms": 4.48,
+      "latency_ms": 5.44,
+      "tags": [
+        "vendor",
+        "payments",
+        "entity_graph"
+      ],
       "failed_checks": [],
       "check_scores": {
         "response_contract_validation": 1.0,
@@ -258,5 +325,29 @@
     "Add latency benchmarks against the real model provider to establish production SLOs.",
     "Introduce mutation testing: perturb fixtures to verify evaluators catch regressions.",
     "Add a trend report comparing multiple eval runs over time to surface score drift."
-  ]
+  ],
+  "prompts_used": [
+    {
+      "prompt_name": "router",
+      "prompt_version": "v1",
+      "prompt_hash": "e2c19212b0226bffb3e86df320ab9b174d647b35436b125f05a85d7b8c35b683"
+    },
+    {
+      "prompt_name": "fraud_analyzer_summary",
+      "prompt_version": "v1",
+      "prompt_hash": "77ef4951d1c49f1f1d5b3331f005fe5c6cb5e23821cb27703151a256b28943ca"
+    },
+    {
+      "prompt_name": "explanation",
+      "prompt_version": "v1",
+      "prompt_hash": "b30b9cab1cbc66136ab566e008c1c849622135bb9cc69143f2591f7e1c7e3ff4"
+    },
+    {
+      "prompt_name": "action_gate",
+      "prompt_version": "v1",
+      "prompt_hash": "b8e211894bc184eaad913b79eed483d3cf765d0ffd5d91af9c9b6a56c7d6a880"
+    }
+  ],
+  "active_filters": {},
+  "skipped_scenario_count": 0
 }

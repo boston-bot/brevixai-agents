@@ -3,7 +3,7 @@ from __future__ import annotations
 from operator import add
 from typing import Annotated, Any, Literal, TypedDict
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class AgentFinding(BaseModel):
@@ -28,6 +28,29 @@ class AgentRunRequest(BaseModel):
     conversation_id: str | None = None
     message: str = Field(min_length=1, max_length=4000)
     page_context: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def accept_legacy_content_message(cls, value: Any) -> Any:
+        if isinstance(value, dict) and "message" not in value and "content" in value:
+            return {**value, "message": value["content"]}
+        return value
+
+    @field_validator("agent_run_id", "company_id", "user_id", "conversation_id", mode="before")
+    @classmethod
+    def coerce_numeric_ids(cls, value: Any) -> Any:
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, int):
+            return str(value)
+        return value
+
+    @field_validator("page_context", mode="before")
+    @classmethod
+    def default_page_context(cls, value: Any) -> Any:
+        return {} if value is None or value == [] else value
 
 
 class AgentStep(BaseModel):

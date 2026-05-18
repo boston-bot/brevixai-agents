@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import logging
+import re
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from langgraph.graph import END, START, StateGraph
@@ -11,6 +13,8 @@ from app.observability import instrument_node
 from app.prompts import load_prompt
 from app.providers import ModelProvider, get_provider
 from app.tools.laravel import LaravelToolClient, LaravelToolError
+
+logger = logging.getLogger("brevix.agent.graph")
 
 SENSITIVE_ACTION_TYPES = {
     "create_alert",
@@ -40,7 +44,13 @@ def build_graph(
         message = state["user_message"].lower()
         intent = "unknown_or_unsupported"
 
-        if any(
+        if any(term in message for term in ("financial health", "overview", "dashboard", "current health")):
+            intent = "dashboard_health"
+        elif any(term in message for term in ("reconciliation", "unmatched", "mismatch")):
+            intent = "reconciliation_review"
+        elif is_transaction_lookup(message):
+            intent = "transaction_lookup"
+        elif any(
             term in message
             for term in (
                 "fraud", "suspicious", "vendor", "risk", "alert", "anomaly",
@@ -48,8 +58,6 @@ def build_graph(
             )
         ):
             intent = "fraud_pattern_search"
-        elif any(term in message for term in ("reconciliation", "unmatched", "mismatch")):
-            intent = "reconciliation_review"
 
         return {
             "intent": intent,
@@ -63,10 +71,19 @@ def build_graph(
         }
 
     async def context_loader_node(state: BrevixAgentState) -> dict[str, Any]:
+        transaction_filters = (
+            transaction_filters_from_message(state["user_message"])
+            if state.get("intent") == "transaction_lookup"
+            else None
+        )
+        dashboard_context = state.get("intent") == "dashboard_health"
+
         try:
             context = await tool_client.company_context(
                 state["company_id"],
                 state["user_id"],
+                dashboard_context=dashboard_context,
+                transaction_filters=transaction_filters,
                 trace_id=state.get("agent_run_id"),
                 trace_metadata={
                     "intent": state.get("intent"),
@@ -99,13 +116,45 @@ def build_graph(
             }
 
     async def fraud_analyzer_node(state: BrevixAgentState) -> dict[str, Any]:
+        if state.get("intent") == "dashboard_health":
+            findings = dashboard_findings_from_context(state.get("company_context", {}))
+            return {
+                "findings": [finding.model_dump() for finding in findings],
+                "steps": [
+                    step(
+                        "fraud_analyzer",
+                        output_payload={
+                            "skipped": True,
+                            "reason": "dashboard_health_intent",
+                            "finding_count": len(findings),
+                        },
+                    )
+                ],
+            }
+
+        if state.get("intent") == "transaction_lookup":
+            findings = transaction_findings_from_context(state.get("company_context", {}))
+            return {
+                "findings": [finding.model_dump() for finding in findings],
+                "steps": [
+                    step(
+                        "fraud_analyzer",
+                        output_payload={
+                            "skipped": True,
+                            "reason": "transaction_lookup_intent",
+                            "finding_count": len(findings),
+                        },
+                    )
+                ],
+            }
+
         if state.get("intent") not in {"fraud_pattern_search", "reconciliation_review"}:
             return {
                 "findings": [],
                 "steps": [
                     step(
                         "fraud_analyzer",
-                        output_payload={"skipped": True, "reason": "unsupported_intent"},
+                        output_payload={"skipped": True, "reason": f"{state.get('intent')}_intent"},
                     )
                 ],
             }
@@ -287,6 +336,21 @@ def build_graph(
                     )
                 )
 
+        # Retrieve aggregate risk summary
+        aggregate_risk_data = None
+        try:
+            aggregate_risk_data = await tool_client.aggregate_risk_summary(
+                state["company_id"],
+                state["user_id"],
+                trace_id=state.get("agent_run_id"),
+                trace_metadata={
+                    "intent": state.get("intent"),
+                    "request_source": state.get("page_context", {}).get("source"),
+                }
+            )
+        except Exception as exc:
+            logger.warning("Failed to retrieve aggregate risk summary: %s", exc)
+
         # Merge findings
         all_findings = []
         for f in findings:
@@ -348,6 +412,18 @@ def build_graph(
                     }
                 )
             )
+        if aggregate_risk_data:
+            steps_list.append(
+                step(
+                    "aggregate_risk_summary",
+                    step_type="tool_call",
+                    input_payload={"tool": "aggregate_risk_summary"},
+                    output_payload={
+                        "overall_risk_score": aggregate_risk_data.get("overall_risk_score"),
+                        "overall_risk_level": aggregate_risk_data.get("overall_risk_level"),
+                    }
+                )
+            )
 
         tool_results = {"risk_summary": risk_summary}
         if vendor_risk_data:
@@ -356,6 +432,8 @@ def build_graph(
             tool_results["reconciliation_risk"] = reconciliation_risk_data
         if entity_relationship_risk_data:
             tool_results["entity_relationship_risk"] = entity_relationship_risk_data
+        if aggregate_risk_data:
+            tool_results["aggregate_risk_summary"] = aggregate_risk_data
 
         return {
             "tool_results": tool_results,
@@ -482,13 +560,63 @@ def selected_period(page_context: dict[str, Any]) -> str | None:
     return str(period) if period else None
 
 
+def is_transaction_lookup(message: str) -> bool:
+    transaction_terms = ("transaction", "transactions", "ledger", "activity")
+    lookup_terms = ("what", "show", "list", "pull", "recent", "last", "latest", "history")
+    if not any(term in message for term in transaction_terms):
+        return False
+
+    risk_terms = ("fraud", "suspicious", "risk", "alert", "anomaly", "duplicate", "split", "threshold")
+    if any(term in message for term in risk_terms):
+        return False
+
+    return any(term in message for term in lookup_terms)
+
+
+def transaction_filters_from_message(message: str) -> dict[str, Any]:
+    normalized = message.lower()
+    filters: dict[str, Any] = {"limit": 10}
+
+    days_match = re.search(r"\blast\s+(\d{1,3})\s+days?\b", normalized)
+    if days_match:
+        days = max(1, min(int(days_match.group(1)), 90))
+        today = datetime.now(timezone.utc).date()
+        filters["date_from"] = (today - timedelta(days=days - 1)).isoformat()
+        filters["date_to"] = today.isoformat()
+
+    count_match = re.search(r"\blast\s+(\d{1,2})\s+transactions?\b", normalized)
+    if count_match:
+        filters["limit"] = max(1, min(int(count_match.group(1)), 20))
+
+    return filters
+
+
 def minimized_context(context: dict[str, Any]) -> dict[str, Any]:
-    return {
+    payload = {
         "company_id": context.get("company_id"),
         "industry": context.get("industry"),
         "available_data_sources": context.get("available_data_sources", []),
         "user_role": context.get("user_role"),
     }
+    transaction_summary = context.get("transaction_summary")
+    if isinstance(transaction_summary, dict):
+        payload["transaction_summary"] = {
+            "total": transaction_summary.get("total"),
+            "returned_count": transaction_summary.get("returned_count"),
+            "date_from": transaction_summary.get("date_from"),
+            "date_to": transaction_summary.get("date_to"),
+        }
+    dashboard_summary = context.get("dashboard_summary")
+    if isinstance(dashboard_summary, dict):
+        payload["dashboard_summary"] = {
+            "risk_score": dashboard_summary.get("risk_score"),
+            "total_transactions": dashboard_summary.get("total_transactions"),
+            "flagged_alerts": dashboard_summary.get("flagged_alerts"),
+            "vendors_monitored": dashboard_summary.get("vendors_monitored"),
+            "amount_reviewed": dashboard_summary.get("amount_reviewed"),
+        }
+
+    return payload
 
 
 def findings_from_risk_summary(risk_summary: dict[str, Any]) -> list[AgentFinding]:
@@ -506,6 +634,77 @@ def findings_from_risk_summary(risk_summary: dict[str, Any]) -> list[AgentFindin
         )
 
     return findings
+
+
+def dashboard_findings_from_context(company_context: dict[str, Any]) -> list[AgentFinding]:
+    dashboard_summary = company_context.get("dashboard_summary") if isinstance(company_context, dict) else None
+    if not isinstance(dashboard_summary, dict):
+        return []
+
+    risk_score = int(dashboard_summary.get("risk_score") or 0)
+    total_transactions = int(dashboard_summary.get("total_transactions") or 0)
+    flagged_alerts = int(dashboard_summary.get("flagged_alerts") or 0)
+    vendors_monitored = int(dashboard_summary.get("vendors_monitored") or 0)
+    amount_reviewed = float(dashboard_summary.get("amount_reviewed") or 0)
+
+    return [
+        AgentFinding(
+            title="Financial health summary",
+            severity=normalize_severity(severity_from_risk_score(risk_score)),
+            confidence=1.0,
+            summary=(
+                f"Dashboard health is {risk_score}/100 across {total_transactions} transactions, "
+                f"{flagged_alerts} open alerts, and {vendors_monitored} monitored vendors."
+            ),
+            evidence=[
+                {"type": "dashboard_metric", "label": f"Risk score: {risk_score}/100"},
+                {"type": "dashboard_metric", "label": f"Transactions reviewed: {total_transactions}"},
+                {"type": "dashboard_metric", "label": f"Open alerts: {flagged_alerts}"},
+                {"type": "dashboard_metric", "label": f"Vendors monitored: {vendors_monitored}"},
+                {"type": "dashboard_metric", "label": f"Activity reviewed: ${amount_reviewed:,.2f}"},
+            ],
+        )
+    ]
+
+
+def transaction_findings_from_context(company_context: dict[str, Any]) -> list[AgentFinding]:
+    transaction_summary = company_context.get("transaction_summary") if isinstance(company_context, dict) else None
+    if not isinstance(transaction_summary, dict):
+        return []
+
+    total = int(transaction_summary.get("total") or 0)
+    returned_count = int(transaction_summary.get("returned_count") or 0)
+    date_from = transaction_summary.get("date_from")
+    date_to = transaction_summary.get("date_to")
+
+    evidence = [
+        {"type": "transaction_summary", "label": f"Transactions matched: {total}"},
+        {"type": "transaction_summary", "label": f"Rows returned: {returned_count}"},
+    ]
+    if date_from and date_to:
+        evidence.append({"type": "transaction_summary", "label": f"Date range: {date_from} to {date_to}"})
+
+    return [
+        AgentFinding(
+            title="Transaction lookup summary",
+            severity="info",
+            confidence=1.0,
+            summary=f"Returned {returned_count} of {total} matching transactions from the ledger.",
+            evidence=evidence,
+        )
+    ]
+
+
+def severity_from_risk_score(score: int) -> str:
+    if score >= 90:
+        return "critical"
+    if score >= 70:
+        return "high"
+    if score >= 40:
+        return "medium"
+    if score > 0:
+        return "low"
+    return "info"
 
 
 def normalize_severity(severity: str) -> str:
@@ -531,17 +730,20 @@ def confidence_from_risk_score(score: int) -> float:
 
 def _build_context(state: BrevixAgentState) -> dict[str, Any]:
     risk_summary = state.get("tool_results", {}).get("risk_summary", {})
+    company_context = state.get("company_context", {})
     return {
         "intent": state.get("intent"),
         "errors": state.get("errors", []),
         "findings": state.get("findings", []),
         "risk_score": risk_summary.get("risk_score", 0),
         "risk_level": risk_summary.get("risk_level", "low"),
+        "transaction_summary": company_context.get("transaction_summary") if isinstance(company_context, dict) else None,
+        "dashboard_summary": company_context.get("dashboard_summary") if isinstance(company_context, dict) else None,
     }
 
 
 def suggested_actions(state: BrevixAgentState) -> list[RecommendedAction]:
-    if state.get("errors") or state.get("intent") == "unknown_or_unsupported":
+    if state.get("errors") or state.get("intent") in {"unknown_or_unsupported", "transaction_lookup", "dashboard_health"}:
         return []
 
     findings = state.get("findings", [])

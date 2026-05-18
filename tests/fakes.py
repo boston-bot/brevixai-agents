@@ -4,21 +4,69 @@ from __future__ import annotations
 class FakeLaravelToolClient:
     def __init__(self) -> None:
         self.risk_summary_calls: list[dict] = []
+        self.company_context_calls: list[dict] = []
 
     async def company_context(
         self,
         company_id: str,
         user_id: str,
+        dashboard_context: bool = False,
+        transaction_filters: dict | None = None,
         trace_id: str | None = None,
         trace_metadata: dict | None = None,
     ) -> dict:
-        return {
+        self.company_context_calls.append({
+            "company_id": company_id,
+            "user_id": user_id,
+            "dashboard_context": dashboard_context,
+            "transaction_filters": transaction_filters,
+        })
+
+        context = {
             "company_id": company_id,
             "company_name": "Brevix Test Co",
             "industry": "Retail",
             "available_data_sources": ["file_upload"],
             "user_role": "owner",
         }
+        if transaction_filters is not None:
+            context["transaction_summary"] = {
+                "date_from": transaction_filters.get("date_from"),
+                "date_to": transaction_filters.get("date_to"),
+                "total": 2,
+                "returned_count": 2,
+                "transactions": [
+                    {
+                        "id": "txn-1",
+                        "date": "2026-05-18",
+                        "vendor": "Acme Supplies",
+                        "amount": 125.5,
+                        "type": "expense",
+                        "category": "Office Supplies",
+                        "status": "completed",
+                    },
+                    {
+                        "id": "txn-2",
+                        "date": "2026-05-17",
+                        "vendor": "Northstar Consulting",
+                        "amount": 2500.0,
+                        "type": "expense",
+                        "category": "Consulting",
+                        "status": "flagged",
+                    },
+                ],
+            }
+
+        if dashboard_context:
+            context["dashboard_summary"] = {
+                "risk_score": 42,
+                "total_transactions": 128,
+                "flagged_alerts": 3,
+                "vendors_monitored": 18,
+                "amount_reviewed": 125000.75,
+            }
+
+        return context
 
     async def risk_summary(
         self,
@@ -57,6 +105,8 @@ class FixtureLaravelToolClient:
         self,
         company_id: str,
         user_id: str,
+        dashboard_context: bool = False,
+        transaction_filters: dict | None = None,
         trace_id: str | None = None,
         trace_metadata: dict | None = None,
     ) -> dict:

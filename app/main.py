@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import logging
 import time
 
-from fastapi import Depends, FastAPI, Header, HTTPException, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from langsmith.run_helpers import tracing_context
 
 from app.config import Settings, get_settings
@@ -10,6 +13,8 @@ from app.graph import build_graph
 from app.models import AgentRunRequest, AgentRunResponse
 from app.observability import base_trace_metadata, summarize_usage
 from app.tools.laravel import LaravelToolClient
+
+logger = logging.getLogger("brevix.agent.api")
 
 
 def create_app() -> FastAPI:
@@ -26,6 +31,34 @@ def create_app() -> FastAPI:
         version="0.1.0",
         description="Phase 1 LangGraph orchestration service for deterministic Brevix Laravel tools.",
     )
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(request: Request, exc: RequestValidationError):
+        body_keys: list[str] = []
+        try:
+            body = await request.json()
+            if isinstance(body, dict):
+                body_keys = sorted(str(key) for key in body.keys())
+        except Exception:
+            body_keys = []
+
+        errors = [
+            {
+                "loc": error.get("loc"),
+                "type": error.get("type"),
+                "msg": error.get("msg"),
+            }
+            for error in exc.errors()
+        ]
+        logger.warning(
+            "agent.request.validation_failed path=%s method=%s body_keys=%s errors=%s",
+            request.url.path,
+            request.method,
+            body_keys,
+            errors,
+            extra={"path": request.url.path, "method": request.method, "body_keys": body_keys, "errors": errors},
+        )
+        return await request_validation_exception_handler(request, exc)
 
     @app.get("/health")
     async def health() -> dict[str, str]:

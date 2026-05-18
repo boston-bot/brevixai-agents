@@ -114,11 +114,17 @@ def sanitize_tool_outputs(outputs: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(outputs, dict):
         return {"payload_type": type(outputs).__name__}
 
+    transaction_summary = outputs.get("transaction_summary")
+    dashboard_summary = outputs.get("dashboard_summary")
+
     return {
         "payload_keys": sorted(outputs.keys()),
         "risk_score": outputs.get("risk_score"),
         "risk_level": outputs.get("risk_level"),
         "top_driver_count": len(outputs.get("top_drivers", [])) if isinstance(outputs.get("top_drivers"), list) else None,
+        "transaction_total": transaction_summary.get("total") if isinstance(transaction_summary, dict) else None,
+        "transaction_returned_count": transaction_summary.get("returned_count") if isinstance(transaction_summary, dict) else None,
+        "dashboard_risk_score": dashboard_summary.get("risk_score") if isinstance(dashboard_summary, dict) else None,
     }
 
 

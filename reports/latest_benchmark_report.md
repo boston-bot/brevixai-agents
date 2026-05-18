@@ -1,6 +1,6 @@
 # Brevix AI Benchmark Report
 
-Generated: 2026-05-17T19:59:43.653131+00:00
+Generated: 2026-05-18T01:52:35.548583+00:00
 
 ## Summary
 
@@ -14,37 +14,46 @@ Generated: 2026-05-17T19:59:43.653131+00:00
 | Evidence Completeness (avg) | 100.0% |
 | False Positive Clean Rate | 100.0% |
 | Hallucination Failures | 0 |
-| Average Latency | 4.7 ms |
+| Average Latency | 8.5 ms |
+
+## Prompt Versions
+
+| Prompt | Version | Hash (short) |
+|--------|---------|--------------|
+| router | v1 | `e2c19212` |
+| fraud_analyzer_summary | v1 | `77ef4951` |
+| explanation | v1 | `b30b9cab` |
+| action_gate | v1 | `b8e21189` |
 
 ## Scenario Breakdown
 
-| Scenario | Status | Latency (ms) | Failed Checks |
-|----------|--------|--------------|---------------|
-| duplicate_invoice | PASS | 9.85 | — |
-| split_payments_under_threshold | PASS | 4.76 | — |
-| vendor_concentration | PASS | 3.8 | — |
-| round_dollar_payments | PASS | 4.87 | — |
-| reconciliation_mismatch | PASS | 4.09 | — |
-| ghost_vendor | PASS | 4.45 | — |
-| employee_vendor_overlap | PASS | 3.79 | — |
-| shared_bank_account_multiple_vendors | PASS | 3.72 | — |
-| vendor_paid_before_onboarding | PASS | 3.76 | — |
-| duplicate_vendor_name_variation | PASS | 5.17 | — |
-| unusual_refund_activity | PASS | 4.92 | — |
-| payroll_anomaly | PASS | 4.22 | — |
-| weekend_after_hours_payment | PASS | 4.01 | — |
-| approval_threshold_splitting | PASS | 4.68 | — |
-| high_risk_vendor_concentration_over_time | PASS | 4.48 | — |
+| Scenario | Status | Latency (ms) | Tags | Failed Checks |
+|----------|--------|--------------|------|---------------|
+| duplicate_invoice | PASS | 7.78 | vendor, duplicate, payments | — |
+| split_payments_under_threshold | PASS | 4.86 | vendor, threshold, payments | — |
+| vendor_concentration | PASS | 6.3 | vendor, payments | — |
+| round_dollar_payments | PASS | 8.01 | vendor, payments | — |
+| reconciliation_mismatch | PASS | 27.42 | reconciliation, payments | — |
+| ghost_vendor | PASS | 22.68 | vendor, onboarding, entity_graph | — |
+| employee_vendor_overlap | PASS | 6.76 | vendor, entity_graph | — |
+| shared_bank_account_multiple_vendors | PASS | 6.01 | vendor, entity_graph, payments | — |
+| vendor_paid_before_onboarding | PASS | 5.11 | vendor, onboarding | — |
+| duplicate_vendor_name_variation | PASS | 4.75 | vendor, duplicate, entity_graph | — |
+| unusual_refund_activity | PASS | 6.69 | vendor, payments | — |
+| payroll_anomaly | PASS | 4.92 | payroll | — |
+| weekend_after_hours_payment | PASS | 5.36 | after_hours, payments, vendor | — |
+| approval_threshold_splitting | PASS | 5.17 | vendor, threshold, payments | — |
+| high_risk_vendor_concentration_over_time | PASS | 5.44 | vendor, payments, entity_graph | — |
 
 ## Slowest Scenarios
 
 | Scenario | Latency (ms) |
 |----------|--------------|
-| duplicate_invoice | 9.85 |
-| duplicate_vendor_name_variation | 5.17 |
-| unusual_refund_activity | 4.92 |
-| round_dollar_payments | 4.87 |
-| split_payments_under_threshold | 4.76 |
+| reconciliation_mismatch | 27.42 |
+| ghost_vendor | 22.68 |
+| round_dollar_payments | 8.01 |
+| duplicate_invoice | 7.78 |
+| employee_vendor_overlap | 6.76 |
 
 ## Failed Checks
 

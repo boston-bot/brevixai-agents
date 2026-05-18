@@ -135,6 +135,60 @@ async def test_deterministic_provider_with_unsupported_intent() -> None:
     assert "does not prove fraud" not in response.text
 
 
+@pytest.mark.asyncio
+async def test_deterministic_provider_with_transaction_lookup() -> None:
+    provider = DeterministicProvider()
+    context = {
+        "intent": "transaction_lookup",
+        "errors": [],
+        "transaction_summary": {
+            "date_from": "2026-05-14",
+            "date_to": "2026-05-18",
+            "total": 1,
+            "returned_count": 1,
+            "transactions": [
+                {
+                    "date": "2026-05-17",
+                    "vendor": "Acme Supplies",
+                    "amount": 125.5,
+                    "status": "completed",
+                }
+            ],
+        },
+    }
+
+    response = await provider.generate("prompt", context)
+
+    assert "I found 1 transaction from 2026-05-14 to 2026-05-18" in response.text
+    assert "Acme Supplies" in response.text
+    assert "$125.50" in response.text
+    assert "No alerts or cases were created." in response.text
+
+
+@pytest.mark.asyncio
+async def test_deterministic_provider_with_dashboard_health() -> None:
+    provider = DeterministicProvider()
+    context = {
+        "intent": "dashboard_health",
+        "errors": [],
+        "dashboard_summary": {
+            "risk_score": 42,
+            "total_transactions": 128,
+            "flagged_alerts": 3,
+            "vendors_monitored": 18,
+            "amount_reviewed": 125000.75,
+        },
+    }
+
+    response = await provider.generate("prompt", context)
+
+    assert "Your current financial health score is 42/100" in response.text
+    assert "128 transactions" in response.text
+    assert "3 open alerts" in response.text
+    assert "$125,000.75" in response.text
+    assert "No alerts or cases were created." in response.text
+
+
 # ---------------------------------------------------------------------------
 # ProviderResponse
 # ---------------------------------------------------------------------------
