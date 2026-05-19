@@ -24,6 +24,7 @@ def evaluate_response_contract(response: dict[str, Any], _dataset_item: dict[str
     required_types: dict[str, type | tuple[type, ...]] = {
         "message": str,
         "findings": list,
+        "investigative_synthesis": dict,
         "recommended_actions": list,
         "steps": list,
         "errors": list,
@@ -155,12 +156,7 @@ def evaluate_hallucination_detection(response: dict[str, Any], dataset_item: dic
       2. No prohibited accusatory claims in the final message.
     Evidence completeness is a separate concern handled by evaluate_evidence_completeness.
     """
-    allowed_evidence_ids = {
-        str(item.get("id"))
-        for driver in dataset_item.get("tool_fixture", {}).get("top_drivers", [])
-        for item in driver.get("evidence", [])
-        if isinstance(item, dict) and item.get("id")
-    }
+    allowed_evidence_ids = _fixture_evidence_ids(dataset_item.get("tool_fixture", {}))
     actual_evidence_ids = {
         str(item.get("id"))
         for item in _flat_evidence(response)
@@ -223,6 +219,128 @@ def evaluate_false_positive_rate(response: dict[str, Any], dataset_item: dict[st
 
 
 # ---------------------------------------------------------------------------
+# Investigation synthesis quality
+# ---------------------------------------------------------------------------
+
+def evaluate_correlated_finding_accuracy(response: dict[str, Any], dataset_item: dict[str, Any]) -> EvaluationCheck:
+    expected = _expected_synthesis(dataset_item)
+    expected_patterns = [str(p) for p in expected.get("expected_correlated_patterns", [])]
+    forbidden_patterns = [str(p) for p in expected.get("forbidden_correlated_patterns", [])]
+    actual_patterns = _synthesis_patterns(response)
+
+    matched = [pattern for pattern in expected_patterns if pattern in actual_patterns]
+    missing = [pattern for pattern in expected_patterns if pattern not in actual_patterns]
+    forbidden_hits = [pattern for pattern in forbidden_patterns if pattern in actual_patterns]
+
+    if not expected_patterns and not forbidden_patterns:
+        passed = True
+        score = 1.0
+    else:
+        passed = not missing and not forbidden_hits
+        expected_score = len(matched) / len(expected_patterns) if expected_patterns else 1.0
+        penalty = len(forbidden_hits) / len(forbidden_patterns) if forbidden_patterns else 0.0
+        score = max(0.0, expected_score - penalty)
+
+    return EvaluationCheck(
+        name="correlated_finding_accuracy",
+        passed=passed,
+        details=f"matched={matched}, missing={missing}, forbidden_hits={forbidden_hits}, actual={actual_patterns}",
+        score=score,
+    )
+
+
+def evaluate_unsupported_correlation_detection(response: dict[str, Any], dataset_item: dict[str, Any]) -> EvaluationCheck:
+    expected = _expected_synthesis(dataset_item)
+    guardrails = [
+        str(pattern)
+        for pattern in (
+            expected.get("unsupported_correlation_patterns", [])
+            or dataset_item.get("unsupported_correlation_guardrails", [])
+        )
+    ]
+    actual_patterns = _synthesis_patterns(response)
+    triggered = [pattern for pattern in guardrails if pattern in actual_patterns]
+
+    requires_suppression_note = bool(expected.get("expect_suppression_conflict"))
+    conflict_types = _synthesis_conflict_types(response)
+    has_suppression_note = "unsupported_correlation_suppressed" in conflict_types
+
+    passed = not triggered and (not requires_suppression_note or has_suppression_note)
+    score = 1.0 if passed else 0.0
+
+    return EvaluationCheck(
+        name="unsupported_correlation_detection",
+        passed=passed,
+        details=(
+            f"guardrails={guardrails}, triggered={triggered}, "
+            f"has_suppression_note={has_suppression_note}"
+        ),
+        score=score,
+    )
+
+
+def evaluate_synthesis_evidence_linkage(response: dict[str, Any], _dataset_item: dict[str, Any]) -> EvaluationCheck:
+    synthesis = _synthesis(response)
+    correlated = [item for item in synthesis.get("correlated_findings", []) if isinstance(item, dict)]
+    if not correlated:
+        return EvaluationCheck(
+            name="synthesis_evidence_linkage",
+            passed=True,
+            details="no_correlated_findings",
+            score=1.0,
+        )
+
+    complete = 0
+    failures: list[str] = []
+    for finding in correlated:
+        pattern = str(finding.get("pattern", "unknown"))
+        domains = {str(domain) for domain in finding.get("domains", [])}
+        evidence = [item for item in finding.get("evidence", []) if isinstance(item, dict)]
+        evidence_domains = {str(item.get("domain")) for item in evidence if item.get("domain")}
+        if evidence and domains.issubset(evidence_domains):
+            complete += 1
+        else:
+            failures.append(pattern)
+
+    has_summary = bool(synthesis.get("evidence_summary"))
+    passed = complete == len(correlated) and has_summary
+    score = complete / len(correlated)
+    if not has_summary:
+        score = min(score, 0.5)
+
+    return EvaluationCheck(
+        name="synthesis_evidence_linkage",
+        passed=passed,
+        details=f"complete={complete}/{len(correlated)}, missing_or_incomplete={failures}, has_summary={has_summary}",
+        score=score,
+    )
+
+
+def evaluate_conflicting_signal_handling(response: dict[str, Any], dataset_item: dict[str, Any]) -> EvaluationCheck:
+    expected = _expected_synthesis(dataset_item)
+    expected_conflicts = [str(item) for item in expected.get("expected_conflicting_signal_types", [])]
+    if not expected_conflicts:
+        return EvaluationCheck(
+            name="conflicting_signal_handling",
+            passed=True,
+            details="no_expected_conflicts",
+            score=1.0,
+        )
+
+    actual_conflicts = _synthesis_conflict_types(response)
+    matched = [item for item in expected_conflicts if item in actual_conflicts]
+    missing = [item for item in expected_conflicts if item not in actual_conflicts]
+    passed = not missing
+
+    return EvaluationCheck(
+        name="conflicting_signal_handling",
+        passed=passed,
+        details=f"matched={matched}, missing={missing}, actual={actual_conflicts}",
+        score=len(matched) / len(expected_conflicts),
+    )
+
+
+# ---------------------------------------------------------------------------
 # Composite runner
 # ---------------------------------------------------------------------------
 
@@ -234,6 +352,10 @@ def run_deterministic_evaluators(response: dict[str, Any], dataset_item: dict[st
         evaluate_evidence_completeness(response, dataset_item),
         evaluate_hallucination_detection(response, dataset_item),
         evaluate_false_positive_rate(response, dataset_item),
+        evaluate_correlated_finding_accuracy(response, dataset_item),
+        evaluate_unsupported_correlation_detection(response, dataset_item),
+        evaluate_synthesis_evidence_linkage(response, dataset_item),
+        evaluate_conflicting_signal_handling(response, dataset_item),
     ]
 
 
@@ -257,3 +379,44 @@ def _flat_evidence(response: dict[str, Any]) -> list[dict[str, Any]]:
         for item in finding.get("evidence", [])
         if isinstance(item, dict)
     ]
+
+
+def _synthesis(response: dict[str, Any]) -> dict[str, Any]:
+    synthesis = response.get("investigative_synthesis")
+    return synthesis if isinstance(synthesis, dict) else {}
+
+
+def _synthesis_patterns(response: dict[str, Any]) -> list[str]:
+    synthesis = _synthesis(response)
+    return [
+        str(item.get("pattern"))
+        for item in synthesis.get("correlated_findings", [])
+        if isinstance(item, dict) and item.get("pattern")
+    ]
+
+
+def _synthesis_conflict_types(response: dict[str, Any]) -> list[str]:
+    synthesis = _synthesis(response)
+    return [
+        str(item.get("type"))
+        for item in synthesis.get("conflicting_signals", [])
+        if isinstance(item, dict) and item.get("type")
+    ]
+
+
+def _expected_synthesis(dataset_item: dict[str, Any]) -> dict[str, Any]:
+    expected = dataset_item.get("expected_synthesis", {})
+    return expected if isinstance(expected, dict) else {}
+
+
+def _fixture_evidence_ids(value: Any) -> set[str]:
+    ids: set[str] = set()
+    if isinstance(value, dict):
+        if value.get("id"):
+            ids.add(str(value["id"]))
+        for nested in value.values():
+            ids.update(_fixture_evidence_ids(nested))
+    elif isinstance(value, list):
+        for item in value:
+            ids.update(_fixture_evidence_ids(item))
+    return ids

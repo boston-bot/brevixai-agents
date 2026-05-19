@@ -33,6 +33,7 @@ def _explanation_from_context(context: dict[str, Any]) -> str:
     risk_score = context.get("risk_score", 0)
     risk_level = context.get("risk_level", "low")
     findings = context.get("findings") or []
+    synthesis = context.get("investigative_synthesis") if isinstance(context.get("investigative_synthesis"), dict) else {}
 
     if errors:
         return "I could not complete the risk review right now. No alerts or cases were created."
@@ -59,6 +60,18 @@ def _explanation_from_context(context: dict[str, Any]) -> str:
     first = findings[0]
     count = len(findings)
     plural = "s" if count != 1 else ""
+    if synthesis and synthesis.get("correlated_findings"):
+        priority = synthesis.get("investigation_priority", "medium")
+        focus = synthesis.get("recommended_investigation_focus") or []
+        focus_text = f" Investigation focus: {focus[0]}" if focus else ""
+        return (
+            f"Brevix found {count} pattern{plural} worth reviewing. "
+            f"The current risk score is {risk_score}/100 ({risk_level}), and investigative synthesis priority is {priority}. "
+            f"The strongest signal is: {first.get('title')}.{focus_text} "
+            "This may indicate an accounting risk, but it does not prove fraud. "
+            "No alerts or cases were created."
+        )
+
     return (
         f"Brevix found {count} pattern{plural} worth reviewing. "
         f"The current risk score is {risk_score}/100 ({risk_level}). "

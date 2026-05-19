@@ -280,16 +280,16 @@ def _known_gaps() -> list[str]:
     return [
         "No LLM-based evaluators — all checks are deterministic; nuanced reasoning quality is unmeasured.",
         "Latency benchmarks use the deterministic model provider; real LLM latency will differ significantly.",
-        "Dataset covers 16 scenarios; edge cases like multi-fraud overlaps are not yet represented.",
-        "No cross-scenario confusion testing (a scenario triggering a different scenario's pattern).",
-        "Evidence ID validation relies on tool fixture; does not test evidence retrieval accuracy end-to-end.",
+        "Synthesis benchmarks use synthetic deterministic fixtures rather than live Laravel evidence retrieval.",
+        "Cross-scenario confusion testing is limited to guardrail terms and unsupported-correlation fixtures.",
+        "Evidence ID validation relies on tool fixtures and does not verify source-system persistence.",
     ]
 
 
 def _next_improvements() -> list[str]:
     return [
         "Add LLM-as-judge evaluation for response reasoning quality and explanation clarity.",
-        "Expand dataset to cover compound fraud patterns (e.g., duplicate + split threshold).",
+        "Expand synthesis fixtures with more conflicting-domain and partial-evidence cases.",
         "Add latency benchmarks against the real model provider to establish production SLOs.",
         "Introduce mutation testing: perturb fixtures to verify evaluators catch regressions.",
         "Add a trend report comparing multiple eval runs over time to surface score drift.",

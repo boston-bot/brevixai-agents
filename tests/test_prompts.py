@@ -20,10 +20,11 @@ def test_load_prompt_returns_metadata() -> None:
     assert len(tpl.prompt_hash) == 64  # sha256 hex
 
 
-def test_load_prompt_all_four_templates() -> None:
+def test_load_prompt_all_active_templates() -> None:
     for name, version in [
         ("router", "v1"),
         ("fraud_analyzer_summary", "v1"),
+        ("investigation_synthesis", "v1"),
         ("explanation", "v1"),
         ("action_gate", "v1"),
     ]:
@@ -99,8 +100,11 @@ def test_prompt_hash_is_stable() -> None:
 
 
 def test_prompt_hash_differs_across_templates() -> None:
-    hashes = {load_prompt(n, "v1").prompt_hash for n in ["router", "fraud_analyzer_summary", "explanation", "action_gate"]}
-    assert len(hashes) == 4  # all four are distinct
+    hashes = {
+        load_prompt(n, "v1").prompt_hash
+        for n in ["router", "fraud_analyzer_summary", "investigation_synthesis", "explanation", "action_gate"]
+    }
+    assert len(hashes) == 5
 
 
 def test_metadata_dict_contains_required_keys() -> None:
@@ -130,6 +134,7 @@ async def test_graph_response_contract_unchanged() -> None:
     assert len(result["final_response"]) > 0
     assert "intent" in result
     assert "findings" in result
+    assert "investigative_synthesis" in result
     assert "recommended_actions" in result
 
 
@@ -180,6 +185,23 @@ async def test_action_gate_step_includes_prompt_metadata() -> None:
 
     payload = gate_step.get("output_payload") or {}
     assert payload.get("prompt_name") == "action_gate"
+    assert payload.get("prompt_version") == "v1"
+    assert payload.get("prompt_hash")
+
+
+@pytest.mark.asyncio
+async def test_investigation_synthesis_step_includes_prompt_metadata() -> None:
+    graph = build_graph(FakeLaravelToolClient())
+    result = await graph.ainvoke(base_state("Check for suspicious vendors."))
+
+    synthesis_step = next(
+        (s for s in result["steps"] if s.get("step_name") == "investigation_synthesis"),
+        None,
+    )
+    assert synthesis_step is not None
+
+    payload = synthesis_step.get("output_payload") or {}
+    assert payload.get("prompt_name") == "investigation_synthesis"
     assert payload.get("prompt_version") == "v1"
     assert payload.get("prompt_hash")
 

@@ -1,18 +1,20 @@
 {
-  "generated_at": "2026-05-17T21:15:09.180850+00:00",
-  "total_scenarios": 15,
+  "generated_at": "2026-05-19T00:42:56.696794+00:00",
+  "total_scenarios": 21,
   "by_category": {
-    "accounting": 1,
-    "accounts_payable": 8,
+    "accounting": 2,
+    "accounts_payable": 9,
     "payroll": 1,
-    "vendor_management": 5
+    "vendor_management": 9
   },
   "by_risk_type": {
     "conflict_of_interest": 1,
     "control_bypass": 1,
     "duplicate_invoice": 1,
     "duplicate_vendor": 1,
+    "false_correlation_suppression": 1,
     "ghost_vendor": 1,
+    "multi_domain_synthesis": 5,
     "payroll_fraud": 1,
     "reconciliation_error": 1,
     "refund_fraud": 1,
@@ -22,31 +24,30 @@
     "vendor_concentration": 2
   },
   "by_severity": {
-    "critical": 3,
-    "high": 10,
-    "medium": 2
+    "critical": 4,
+    "high": 14,
+    "medium": 3
   },
   "by_tag": {
     "after_hours": 1,
-    "duplicate": 2,
-    "entity_graph": 5,
-    "onboarding": 2,
-    "payments": 10,
+    "duplicate": 3,
+    "entity_graph": 8,
+    "false_positive_guardrail": 1,
+    "multi_domain": 6,
+    "onboarding": 3,
+    "payments": 14,
     "payroll": 1,
-    "reconciliation": 1,
-    "threshold": 2,
-    "vendor": 13
+    "reconciliation": 3,
+    "synthesis": 6,
+    "threshold": 3,
+    "vendor": 18
   },
-  "missing_recommended_tags": [
-    "false_positive_guardrail"
-  ],
+  "missing_recommended_tags": [],
   "duplicate_scenario_ids": [],
   "missing_evidence_patterns": [],
   "missing_false_positive_guardrails": [],
   "recommended_gaps": [
-    "Tag `false_positive_guardrail` has 0 scenarios \u2014 add at least one scenario that exercises this pattern.",
     "Severity `low` has no coverage \u2014 consider adding a scenario at this severity level.",
-    "Category `accounting` has only 1 scenario \u2014 thin coverage increases regression risk.",
     "Category `payroll` has only 1 scenario \u2014 thin coverage increases regression risk."
   ]
 }

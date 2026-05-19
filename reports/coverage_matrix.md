@@ -1,30 +1,31 @@
 # Brevix AI Benchmark Coverage Matrix
 
-Generated: 2026-05-17T21:15:09.180850+00:00
+Generated: 2026-05-19T00:42:56.696794+00:00
 
 ## Summary
 
 | Metric | Count |
 |--------|-------|
-| Total scenarios | 15 |
+| Total scenarios | 21 |
 | Categories | 4 |
-| Risk types | 12 |
+| Risk types | 14 |
 | Severity levels | 3 |
-| Unique tags | 9 |
+| Unique tags | 12 |
 
 ## Category Coverage
 
 | Category | Scenarios |
 |----------|-----------|
-| accounts_payable | 8 |
-| vendor_management | 5 |
-| accounting | 1 |
+| accounts_payable | 9 |
+| vendor_management | 9 |
+| accounting | 2 |
 | payroll | 1 |
 
 ## Risk Type Coverage
 
 | Risk Type | Scenarios |
 |-----------|-----------|
+| multi_domain_synthesis | 5 |
 | threshold_evasion | 2 |
 | unusual_payment_pattern | 2 |
 | vendor_concentration | 2 |
@@ -32,6 +33,7 @@ Generated: 2026-05-17T21:15:09.180850+00:00
 | control_bypass | 1 |
 | duplicate_invoice | 1 |
 | duplicate_vendor | 1 |
+| false_correlation_suppression | 1 |
 | ghost_vendor | 1 |
 | payroll_fraud | 1 |
 | reconciliation_error | 1 |
@@ -42,23 +44,26 @@ Generated: 2026-05-17T21:15:09.180850+00:00
 
 | Severity | Scenarios |
 |----------|-----------|
-| high | 10 |
-| critical | 3 |
-| medium | 2 |
+| high | 14 |
+| critical | 4 |
+| medium | 3 |
 
 ## Tag Coverage
 
 | Tag | Scenarios |
 |-----|-----------|
-| vendor | 13 |
-| payments | 10 |
-| entity_graph | 5 |
-| duplicate | 2 |
-| onboarding | 2 |
-| threshold | 2 |
+| vendor | 18 |
+| payments | 14 |
+| entity_graph | 8 |
+| multi_domain | 6 |
+| synthesis | 6 |
+| duplicate | 3 |
+| onboarding | 3 |
+| reconciliation | 3 |
+| threshold | 3 |
 | after_hours | 1 |
+| false_positive_guardrail | 1 |
 | payroll | 1 |
-| reconciliation | 1 |
 
 ## Data Quality Checks
 
@@ -67,11 +72,9 @@ Generated: 2026-05-17T21:15:09.180850+00:00
 | Duplicate scenario IDs | PASS | None found |
 | Missing evidence patterns | PASS | None found |
 | Missing false-positive guardrails | PASS | None found |
-| Missing recommended tags | FAIL | `false_positive_guardrail` |
+| Missing recommended tags | PASS | All recommended tags covered |
 
 ## Recommended Gaps to Fill Next
 
-- Tag `false_positive_guardrail` has 0 scenarios — add at least one scenario that exercises this pattern.
 - Severity `low` has no coverage — consider adding a scenario at this severity level.
-- Category `accounting` has only 1 scenario — thin coverage increases regression risk.
 - Category `payroll` has only 1 scenario — thin coverage increases regression risk.

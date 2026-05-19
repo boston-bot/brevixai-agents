@@ -21,6 +21,17 @@ class RecommendedAction(BaseModel):
     payload: dict[str, Any] = Field(default_factory=dict)
 
 
+class InvestigationSynthesis(BaseModel):
+    investigative_summary: str = ""
+    correlated_findings: list[dict[str, Any]] = Field(default_factory=list)
+    reinforcing_signals: list[dict[str, Any]] = Field(default_factory=list)
+    conflicting_signals: list[dict[str, Any]] = Field(default_factory=list)
+    investigation_priority: Literal["low", "medium", "high", "critical"] = "low"
+    recommended_investigation_focus: list[str] = Field(default_factory=list)
+    supporting_domains: list[str] = Field(default_factory=list)
+    evidence_summary: list[dict[str, Any]] = Field(default_factory=list)
+
+
 class AgentRunRequest(BaseModel):
     agent_run_id: str | None = None
     company_id: str
@@ -69,6 +80,7 @@ class AgentRunResponse(BaseModel):
     intent: str | None = None
     message: str
     findings: list[AgentFinding] = Field(default_factory=list)
+    investigative_synthesis: InvestigationSynthesis = Field(default_factory=InvestigationSynthesis)
     recommended_actions: list[RecommendedAction] = Field(default_factory=list)
     steps: list[AgentStep] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)
@@ -88,6 +100,7 @@ class BrevixAgentState(TypedDict, total=False):
     company_context: dict[str, Any]
     tool_results: dict[str, Any]
     findings: list[dict[str, Any]]
+    investigative_synthesis: dict[str, Any]
     recommended_actions: list[dict[str, Any]]
     final_response: str | None
     errors: list[str]

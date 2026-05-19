@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-05-18T01:52:35.548583+00:00",
-  "total_scenarios": 15,
-  "total_passed": 15,
+  "generated_at": "2026-05-19T00:43:50.275087+00:00",
+  "total_scenarios": 21,
+  "total_passed": 21,
   "total_failed": 0,
   "pass_rate": 1.0,
   "failed_scenario_ids": [],
@@ -10,34 +10,34 @@
   "evidence_completeness_avg": 1.0,
   "false_positive_pass_rate": 1.0,
   "hallucination_failure_count": 0,
-  "average_latency_ms": 8.48,
+  "average_latency_ms": 5.07,
   "slowest_scenarios": [
     {
-      "scenario_id": "reconciliation_mismatch",
-      "latency_ms": 27.42
-    },
-    {
-      "scenario_id": "ghost_vendor",
-      "latency_ms": 22.68
-    },
-    {
-      "scenario_id": "round_dollar_payments",
-      "latency_ms": 8.01
-    },
-    {
       "scenario_id": "duplicate_invoice",
-      "latency_ms": 7.78
+      "latency_ms": 7.38
     },
     {
-      "scenario_id": "employee_vendor_overlap",
-      "latency_ms": 6.76
+      "scenario_id": "phase4_multiple_medium_risk_elevation",
+      "latency_ms": 5.68
+    },
+    {
+      "scenario_id": "phase4_rapid_onboarding_round_dollar_synthesis",
+      "latency_ms": 5.34
+    },
+    {
+      "scenario_id": "vendor_paid_before_onboarding",
+      "latency_ms": 5.24
+    },
+    {
+      "scenario_id": "phase4_vendor_entity_overlap_synthesis",
+      "latency_ms": 5.21
     }
   ],
   "scenario_breakdown": [
     {
       "scenario_id": "duplicate_invoice",
       "passed": true,
-      "latency_ms": 7.78,
+      "latency_ms": 7.38,
       "tags": [
         "vendor",
         "duplicate",
@@ -50,13 +50,17 @@
         "severity_correctness": 1.0,
         "evidence_completeness": 1.0,
         "hallucination_detection": 1.0,
-        "false_positive_rate": 1.0
+        "false_positive_rate": 1.0,
+        "correlated_finding_accuracy": 1.0,
+        "unsupported_correlation_detection": 1.0,
+        "synthesis_evidence_linkage": 1.0,
+        "conflicting_signal_handling": 1.0
       }
     },
     {
       "scenario_id": "split_payments_under_threshold",
       "passed": true,
-      "latency_ms": 4.86,
+      "latency_ms": 5.01,
       "tags": [
         "vendor",
         "threshold",
@@ -69,13 +73,17 @@
         "severity_correctness": 1.0,
         "evidence_completeness": 1.0,
         "hallucination_detection": 1.0,
-        "false_positive_rate": 1.0
+        "false_positive_rate": 1.0,
+        "correlated_finding_accuracy": 1.0,
+        "unsupported_correlation_detection": 1.0,
+        "synthesis_evidence_linkage": 1.0,
+        "conflicting_signal_handling": 1.0
       }
     },
     {
       "scenario_id": "vendor_concentration",
       "passed": true,
-      "latency_ms": 6.3,
+      "latency_ms": 4.51,
       "tags": [
         "vendor",
         "payments"
@@ -87,13 +95,17 @@
         "severity_correctness": 1.0,
         "evidence_completeness": 1.0,
         "hallucination_detection": 1.0,
-        "false_positive_rate": 1.0
+        "false_positive_rate": 1.0,
+        "correlated_finding_accuracy": 1.0,
+        "unsupported_correlation_detection": 1.0,
+        "synthesis_evidence_linkage": 1.0,
+        "conflicting_signal_handling": 1.0
       }
     },
     {
       "scenario_id": "round_dollar_payments",
       "passed": true,
-      "latency_ms": 8.01,
+      "latency_ms": 5.11,
       "tags": [
         "vendor",
         "payments"
@@ -105,13 +117,17 @@
         "severity_correctness": 1.0,
         "evidence_completeness": 1.0,
         "hallucination_detection": 1.0,
-        "false_positive_rate": 1.0
+        "false_positive_rate": 1.0,
+        "correlated_finding_accuracy": 1.0,
+        "unsupported_correlation_detection": 1.0,
+        "synthesis_evidence_linkage": 1.0,
+        "conflicting_signal_handling": 1.0
       }
     },
     {
       "scenario_id": "reconciliation_mismatch",
       "passed": true,
-      "latency_ms": 27.42,
+      "latency_ms": 4.64,
       "tags": [
         "reconciliation",
         "payments"
@@ -123,13 +139,17 @@
         "severity_correctness": 1.0,
         "evidence_completeness": 1.0,
         "hallucination_detection": 1.0,
-        "false_positive_rate": 1.0
+        "false_positive_rate": 1.0,
+        "correlated_finding_accuracy": 1.0,
+        "unsupported_correlation_detection": 1.0,
+        "synthesis_evidence_linkage": 1.0,
+        "conflicting_signal_handling": 1.0
       }
     },
     {
       "scenario_id": "ghost_vendor",
       "passed": true,
-      "latency_ms": 22.68,
+      "latency_ms": 4.79,
       "tags": [
         "vendor",
         "onboarding",
@@ -142,13 +162,17 @@
         "severity_correctness": 1.0,
         "evidence_completeness": 1.0,
         "hallucination_detection": 1.0,
-        "false_positive_rate": 1.0
+        "false_positive_rate": 1.0,
+        "correlated_finding_accuracy": 1.0,
+        "unsupported_correlation_detection": 1.0,
+        "synthesis_evidence_linkage": 1.0,
+        "conflicting_signal_handling": 1.0
       }
     },
     {
       "scenario_id": "employee_vendor_overlap",
       "passed": true,
-      "latency_ms": 6.76,
+      "latency_ms": 4.85,
       "tags": [
         "vendor",
         "entity_graph"
@@ -160,13 +184,17 @@
         "severity_correctness": 1.0,
         "evidence_completeness": 1.0,
         "hallucination_detection": 1.0,
-        "false_positive_rate": 1.0
+        "false_positive_rate": 1.0,
+        "correlated_finding_accuracy": 1.0,
+        "unsupported_correlation_detection": 1.0,
+        "synthesis_evidence_linkage": 1.0,
+        "conflicting_signal_handling": 1.0
       }
     },
     {
       "scenario_id": "shared_bank_account_multiple_vendors",
       "passed": true,
-      "latency_ms": 6.01,
+      "latency_ms": 4.87,
       "tags": [
         "vendor",
         "entity_graph",
@@ -179,13 +207,17 @@
         "severity_correctness": 1.0,
         "evidence_completeness": 1.0,
         "hallucination_detection": 1.0,
-        "false_positive_rate": 1.0
+        "false_positive_rate": 1.0,
+        "correlated_finding_accuracy": 1.0,
+        "unsupported_correlation_detection": 1.0,
+        "synthesis_evidence_linkage": 1.0,
+        "conflicting_signal_handling": 1.0
       }
     },
     {
       "scenario_id": "vendor_paid_before_onboarding",
       "passed": true,
-      "latency_ms": 5.11,
+      "latency_ms": 5.24,
       "tags": [
         "vendor",
         "onboarding"
@@ -197,13 +229,17 @@
         "severity_correctness": 1.0,
         "evidence_completeness": 1.0,
         "hallucination_detection": 1.0,
-        "false_positive_rate": 1.0
+        "false_positive_rate": 1.0,
+        "correlated_finding_accuracy": 1.0,
+        "unsupported_correlation_detection": 1.0,
+        "synthesis_evidence_linkage": 1.0,
+        "conflicting_signal_handling": 1.0
       }
     },
     {
       "scenario_id": "duplicate_vendor_name_variation",
       "passed": true,
-      "latency_ms": 4.75,
+      "latency_ms": 5.01,
       "tags": [
         "vendor",
         "duplicate",
@@ -216,13 +252,17 @@
         "severity_correctness": 1.0,
         "evidence_completeness": 1.0,
         "hallucination_detection": 1.0,
-        "false_positive_rate": 1.0
+        "false_positive_rate": 1.0,
+        "correlated_finding_accuracy": 1.0,
+        "unsupported_correlation_detection": 1.0,
+        "synthesis_evidence_linkage": 1.0,
+        "conflicting_signal_handling": 1.0
       }
     },
     {
       "scenario_id": "unusual_refund_activity",
       "passed": true,
-      "latency_ms": 6.69,
+      "latency_ms": 4.91,
       "tags": [
         "vendor",
         "payments"
@@ -234,13 +274,17 @@
         "severity_correctness": 1.0,
         "evidence_completeness": 1.0,
         "hallucination_detection": 1.0,
-        "false_positive_rate": 1.0
+        "false_positive_rate": 1.0,
+        "correlated_finding_accuracy": 1.0,
+        "unsupported_correlation_detection": 1.0,
+        "synthesis_evidence_linkage": 1.0,
+        "conflicting_signal_handling": 1.0
       }
     },
     {
       "scenario_id": "payroll_anomaly",
       "passed": true,
-      "latency_ms": 4.92,
+      "latency_ms": 5.08,
       "tags": [
         "payroll"
       ],
@@ -251,13 +295,17 @@
         "severity_correctness": 1.0,
         "evidence_completeness": 1.0,
         "hallucination_detection": 1.0,
-        "false_positive_rate": 1.0
+        "false_positive_rate": 1.0,
+        "correlated_finding_accuracy": 1.0,
+        "unsupported_correlation_detection": 1.0,
+        "synthesis_evidence_linkage": 1.0,
+        "conflicting_signal_handling": 1.0
       }
     },
     {
       "scenario_id": "weekend_after_hours_payment",
       "passed": true,
-      "latency_ms": 5.36,
+      "latency_ms": 4.73,
       "tags": [
         "after_hours",
         "payments",
@@ -270,13 +318,17 @@
         "severity_correctness": 1.0,
         "evidence_completeness": 1.0,
         "hallucination_detection": 1.0,
-        "false_positive_rate": 1.0
+        "false_positive_rate": 1.0,
+        "correlated_finding_accuracy": 1.0,
+        "unsupported_correlation_detection": 1.0,
+        "synthesis_evidence_linkage": 1.0,
+        "conflicting_signal_handling": 1.0
       }
     },
     {
       "scenario_id": "approval_threshold_splitting",
       "passed": true,
-      "latency_ms": 5.17,
+      "latency_ms": 5.04,
       "tags": [
         "vendor",
         "threshold",
@@ -289,13 +341,17 @@
         "severity_correctness": 1.0,
         "evidence_completeness": 1.0,
         "hallucination_detection": 1.0,
-        "false_positive_rate": 1.0
+        "false_positive_rate": 1.0,
+        "correlated_finding_accuracy": 1.0,
+        "unsupported_correlation_detection": 1.0,
+        "synthesis_evidence_linkage": 1.0,
+        "conflicting_signal_handling": 1.0
       }
     },
     {
       "scenario_id": "high_risk_vendor_concentration_over_time",
       "passed": true,
-      "latency_ms": 5.44,
+      "latency_ms": 4.68,
       "tags": [
         "vendor",
         "payments",
@@ -308,20 +364,174 @@
         "severity_correctness": 1.0,
         "evidence_completeness": 1.0,
         "hallucination_detection": 1.0,
-        "false_positive_rate": 1.0
+        "false_positive_rate": 1.0,
+        "correlated_finding_accuracy": 1.0,
+        "unsupported_correlation_detection": 1.0,
+        "synthesis_evidence_linkage": 1.0,
+        "conflicting_signal_handling": 1.0
+      }
+    },
+    {
+      "scenario_id": "phase4_vendor_entity_overlap_synthesis",
+      "passed": true,
+      "latency_ms": 5.21,
+      "tags": [
+        "vendor",
+        "entity_graph",
+        "multi_domain",
+        "synthesis"
+      ],
+      "failed_checks": [],
+      "check_scores": {
+        "response_contract_validation": 1.0,
+        "finding_correctness": 1.0,
+        "severity_correctness": 1.0,
+        "evidence_completeness": 1.0,
+        "hallucination_detection": 1.0,
+        "false_positive_rate": 1.0,
+        "correlated_finding_accuracy": 1.0,
+        "unsupported_correlation_detection": 1.0,
+        "synthesis_evidence_linkage": 1.0,
+        "conflicting_signal_handling": 1.0
+      }
+    },
+    {
+      "scenario_id": "phase4_reconciliation_threshold_synthesis",
+      "passed": true,
+      "latency_ms": 4.81,
+      "tags": [
+        "reconciliation",
+        "threshold",
+        "payments",
+        "multi_domain",
+        "synthesis"
+      ],
+      "failed_checks": [],
+      "check_scores": {
+        "response_contract_validation": 1.0,
+        "finding_correctness": 1.0,
+        "severity_correctness": 1.0,
+        "evidence_completeness": 1.0,
+        "hallucination_detection": 1.0,
+        "false_positive_rate": 1.0,
+        "correlated_finding_accuracy": 1.0,
+        "unsupported_correlation_detection": 1.0,
+        "synthesis_evidence_linkage": 1.0,
+        "conflicting_signal_handling": 1.0
+      }
+    },
+    {
+      "scenario_id": "phase4_rapid_onboarding_round_dollar_synthesis",
+      "passed": true,
+      "latency_ms": 5.34,
+      "tags": [
+        "vendor",
+        "onboarding",
+        "payments",
+        "multi_domain",
+        "synthesis"
+      ],
+      "failed_checks": [],
+      "check_scores": {
+        "response_contract_validation": 1.0,
+        "finding_correctness": 1.0,
+        "severity_correctness": 1.0,
+        "evidence_completeness": 1.0,
+        "hallucination_detection": 1.0,
+        "false_positive_rate": 1.0,
+        "correlated_finding_accuracy": 1.0,
+        "unsupported_correlation_detection": 1.0,
+        "synthesis_evidence_linkage": 1.0,
+        "conflicting_signal_handling": 1.0
+      }
+    },
+    {
+      "scenario_id": "phase4_duplicate_vendor_shared_account_synthesis",
+      "passed": true,
+      "latency_ms": 4.85,
+      "tags": [
+        "vendor",
+        "duplicate",
+        "entity_graph",
+        "payments",
+        "multi_domain",
+        "synthesis"
+      ],
+      "failed_checks": [],
+      "check_scores": {
+        "response_contract_validation": 1.0,
+        "finding_correctness": 1.0,
+        "severity_correctness": 1.0,
+        "evidence_completeness": 1.0,
+        "hallucination_detection": 1.0,
+        "false_positive_rate": 1.0,
+        "correlated_finding_accuracy": 1.0,
+        "unsupported_correlation_detection": 1.0,
+        "synthesis_evidence_linkage": 1.0,
+        "conflicting_signal_handling": 1.0
+      }
+    },
+    {
+      "scenario_id": "phase4_unsupported_correlation_suppression",
+      "passed": true,
+      "latency_ms": 4.7,
+      "tags": [
+        "vendor",
+        "entity_graph",
+        "false_positive_guardrail",
+        "multi_domain",
+        "synthesis"
+      ],
+      "failed_checks": [],
+      "check_scores": {
+        "response_contract_validation": 1.0,
+        "finding_correctness": 1.0,
+        "severity_correctness": 1.0,
+        "evidence_completeness": 1.0,
+        "hallucination_detection": 1.0,
+        "false_positive_rate": 1.0,
+        "correlated_finding_accuracy": 1.0,
+        "unsupported_correlation_detection": 1.0,
+        "synthesis_evidence_linkage": 1.0,
+        "conflicting_signal_handling": 1.0
+      }
+    },
+    {
+      "scenario_id": "phase4_multiple_medium_risk_elevation",
+      "passed": true,
+      "latency_ms": 5.68,
+      "tags": [
+        "vendor",
+        "reconciliation",
+        "payments",
+        "multi_domain",
+        "synthesis"
+      ],
+      "failed_checks": [],
+      "check_scores": {
+        "response_contract_validation": 1.0,
+        "finding_correctness": 1.0,
+        "severity_correctness": 1.0,
+        "evidence_completeness": 1.0,
+        "hallucination_detection": 1.0,
+        "false_positive_rate": 1.0,
+        "correlated_finding_accuracy": 1.0,
+        "unsupported_correlation_detection": 1.0,
+        "synthesis_evidence_linkage": 1.0,
+        "conflicting_signal_handling": 1.0
       }
     }
   ],
   "known_gaps": [
     "No LLM-based evaluators \u2014 all checks are deterministic; nuanced reasoning quality is unmeasured.",
     "Latency benchmarks use the deterministic model provider; real LLM latency will differ significantly.",
-    "Dataset covers 16 scenarios; edge cases like multi-fraud overlaps are not yet represented.",
-    "No cross-scenario confusion testing (a scenario triggering a different scenario's pattern).",
-    "Evidence ID validation relies on tool fixture; does not test evidence retrieval accuracy end-to-end."
+    "Synthesis benchmarks use synthetic deterministic fixtures rather than live Laravel evidence retrieval.",
+    "Cross-scenario confusion testing is limited to guardrail terms and unsupported-correlation fixtures.",
+    "Evidence ID validation relies on tool fixtures and does not verify source-system persistence."
   ],
   "next_improvements": [
     "Add LLM-as-judge evaluation for response reasoning quality and explanation clarity.",
-    "Expand dataset to cover compound fraud patterns (e.g., duplicate + split threshold).",
+    "Expand synthesis fixtures with more conflicting-domain and partial-evidence cases.",
     "Add latency benchmarks against the real model provider to establish production SLOs.",
     "Introduce mutation testing: perturb fixtures to verify evaluators catch regressions.",
     "Add a trend report comparing multiple eval runs over time to surface score drift."
@@ -330,12 +540,17 @@
     {
       "prompt_name": "router",
       "prompt_version": "v1",
-      "prompt_hash": "e2c19212b0226bffb3e86df320ab9b174d647b35436b125f05a85d7b8c35b683"
+      "prompt_hash": "846a128c98a3c5d1118dd05270941a8bbe6488b87c1ccf7729d17df0d2f63b78"
     },
     {
       "prompt_name": "fraud_analyzer_summary",
       "prompt_version": "v1",
       "prompt_hash": "77ef4951d1c49f1f1d5b3331f005fe5c6cb5e23821cb27703151a256b28943ca"
+    },
+    {
+      "prompt_name": "investigation_synthesis",
+      "prompt_version": "v1",
+      "prompt_hash": "8fd0ee655849651d8cfa9de4130d0d203f76c09d7c8012e961e996b629105cc0"
     },
     {
       "prompt_name": "explanation",

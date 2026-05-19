@@ -33,6 +33,7 @@ def _normalize(result: dict) -> dict:
         "intent": result.get("intent"),
         "message": result.get("final_response") or "",
         "findings": result.get("findings", []),
+        "investigative_synthesis": result.get("investigative_synthesis", {}),
         "recommended_actions": result.get("recommended_actions", []),
         "steps": result.get("steps", []),
         "errors": result.get("errors", []),

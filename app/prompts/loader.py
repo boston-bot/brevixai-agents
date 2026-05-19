@@ -94,6 +94,7 @@ def _strip_frontmatter(text: str) -> str:
 PROMPT_REGISTRY: list[tuple[str, str]] = [
     ("router", "v1"),
     ("fraud_analyzer_summary", "v1"),
+    ("investigation_synthesis", "v1"),
     ("explanation", "v1"),
     ("action_gate", "v1"),
 ]

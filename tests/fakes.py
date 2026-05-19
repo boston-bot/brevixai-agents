@@ -5,6 +5,10 @@ class FakeLaravelToolClient:
     def __init__(self) -> None:
         self.risk_summary_calls: list[dict] = []
         self.company_context_calls: list[dict] = []
+        self.vendor_risk_calls: list[dict] = []
+        self.reconciliation_risk_calls: list[dict] = []
+        self.entity_relationship_risk_calls: list[dict] = []
+        self.aggregate_risk_summary_calls: list[dict] = []
 
     async def company_context(
         self,
@@ -93,6 +97,47 @@ class FakeLaravelToolClient:
             ],
         }
 
+    async def vendor_risk(
+        self,
+        company_id: str,
+        user_id: str,
+        vendor: str | None = None,
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        self.vendor_risk_calls.append({"company_id": company_id, "user_id": user_id, "vendor": vendor})
+        return {}
+
+    async def reconciliation_risk(
+        self,
+        company_id: str,
+        user_id: str,
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        self.reconciliation_risk_calls.append({"company_id": company_id, "user_id": user_id})
+        return {}
+
+    async def entity_relationship_risk(
+        self,
+        company_id: str,
+        user_id: str,
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        self.entity_relationship_risk_calls.append({"company_id": company_id, "user_id": user_id})
+        return {}
+
+    async def aggregate_risk_summary(
+        self,
+        company_id: str,
+        user_id: str,
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        self.aggregate_risk_summary_calls.append({"company_id": company_id, "user_id": user_id})
+        return {}
+
 
 class FixtureLaravelToolClient:
     """Fake tool client that returns a caller-supplied risk fixture for evaluation runs."""
@@ -127,7 +172,49 @@ class FixtureLaravelToolClient:
         trace_metadata: dict | None = None,
     ) -> dict:
         self.risk_summary_calls.append({"company_id": company_id, "user_id": user_id, "period": period})
-        return {"company_id": company_id, **self.risk_fixture}
+        fixture = self.risk_fixture.get("risk_summary", self.risk_fixture)
+        return {"company_id": company_id, **fixture}
+
+    async def vendor_risk(
+        self,
+        company_id: str,
+        user_id: str,
+        vendor: str | None = None,
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        fixture = self.risk_fixture.get("vendor_risk", {})
+        return {"company_id": company_id, **fixture} if isinstance(fixture, dict) else {}
+
+    async def reconciliation_risk(
+        self,
+        company_id: str,
+        user_id: str,
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        fixture = self.risk_fixture.get("reconciliation_risk", {})
+        return {"company_id": company_id, **fixture} if isinstance(fixture, dict) else {}
+
+    async def entity_relationship_risk(
+        self,
+        company_id: str,
+        user_id: str,
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        fixture = self.risk_fixture.get("entity_relationship_risk", {})
+        return {"company_id": company_id, **fixture} if isinstance(fixture, dict) else {}
+
+    async def aggregate_risk_summary(
+        self,
+        company_id: str,
+        user_id: str,
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        fixture = self.risk_fixture.get("aggregate_risk_summary", {})
+        return {"company_id": company_id, **fixture} if isinstance(fixture, dict) else {}
 
 
 def base_state(message: str = "Are there any suspicious vendors this month?") -> dict:
@@ -139,6 +226,7 @@ def base_state(message: str = "Are there any suspicious vendors this month?") ->
         "page_context": {"selected_period": "2026-05", "source": "test"},
         "tool_results": {},
         "findings": [],
+        "investigative_synthesis": {},
         "recommended_actions": [],
         "errors": [],
         "steps": [],

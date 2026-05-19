@@ -67,6 +67,7 @@ START
   -> router
   -> context_loader
   -> fraud_analyzer
+  -> investigation_synthesis
   -> explanation
   -> action_gate
   -> final_response
@@ -74,6 +75,7 @@ START
 ```
 
 The `fraud_analyzer` node calls deterministic Laravel tools. It does not run SQL and does not create alerts, cases, or other autonomous actions.
+The `investigation_synthesis` node consumes deterministic risk outputs only, identifies supported cross-domain relationships, and returns an evidence-linked synthesis for human review.
 
 ## Docker
 
@@ -98,6 +100,7 @@ All prompt templates are in [`app/prompts/`](app/prompts/). Each template is a v
 app/prompts/
 ├── router.v1.md
 ├── fraud_analyzer_summary.v1.md
+├── investigation_synthesis.v1.md
 ├── explanation.v1.md
 └── action_gate.v1.md
 ```
@@ -106,7 +109,7 @@ The loader lives at [`app/prompts/loader.py`](app/prompts/loader.py).
 
 ### How prompt versioning works
 
-Every prompt file is named `{name}.{version}.md`. The version is an integer (`v1`, `v2`, …). When graph nodes are initialized, all four templates are loaded from disk via `load_prompt(name, version)`. If any file is missing, the graph fails at startup — not silently at runtime.
+Every prompt file is named `{name}.{version}.md`. The version is an integer (`v1`, `v2`, …). When graph nodes are initialized, all active templates are loaded from disk via `load_prompt(name, version)`. If any file is missing, the graph fails at startup — not silently at runtime.
 
 Template variables use `{{double_brace}}` syntax and are interpolated at request time. The loader computes a SHA-256 hash of the raw file content (including frontmatter) and returns it as `prompt_hash`.
 
@@ -145,6 +148,11 @@ Each benchmark result in `reports/latest_benchmark_report.json` carries the `pro
     "prompt_name": "fraud_analyzer_summary",
     "prompt_version": "v1",
     "prompt_hash": "8b4e7f0a..."
+  },
+  {
+    "prompt_name": "investigation_synthesis",
+    "prompt_version": "v1",
+    "prompt_hash": "9d6c4b1a..."
   },
   {
     "prompt_name": "explanation",

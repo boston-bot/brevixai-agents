@@ -1,8 +1,8 @@
 # Brevix AI Benchmark Snapshot
 
 **Service Version:** 0.1.0
-**Generated:** 2026-05-17T19:59:43.653131+00:00
-**Scenarios run:** 15
+**Generated:** 2026-05-19T00:43:50.275087+00:00
+**Scenarios run:** 21
 
 ---
 
@@ -21,22 +21,22 @@
 | Evidence Completeness (avg) | 100.0% | ≥ 90% | PASS |
 | False Positive Clean Rate | 100.0% | ≥ 95% | PASS |
 | Hallucination Failures | 0 | ≤ 0 | PASS |
-| Average Latency | 4.7 ms | ≤ 500.0 ms | PASS |
+| Average Latency | 5.1 ms | ≤ 500.0 ms | PASS |
 
 ---
 
 ## Dataset Coverage
 
-**Total scenarios run:** 15
+**Total scenarios run:** 21
 
 **Categories covered:**
 
 | Category | Scenarios |
 |----------|-----------|
-| accounting | 1 |
-| accounts_payable | 8 |
+| accounting | 2 |
+| accounts_payable | 9 |
 | payroll | 1 |
-| vendor_management | 5 |
+| vendor_management | 9 |
 
 ---
 
@@ -44,11 +44,23 @@
 
 | Scenario | Latency (ms) |
 |----------|--------------| 
-| duplicate_invoice | 9.85 |
-| duplicate_vendor_name_variation | 5.17 |
-| unusual_refund_activity | 4.92 |
-| round_dollar_payments | 4.87 |
-| split_payments_under_threshold | 4.76 |
+| duplicate_invoice | 7.38 |
+| phase4_multiple_medium_risk_elevation | 5.68 |
+| phase4_rapid_onboarding_round_dollar_synthesis | 5.34 |
+| vendor_paid_before_onboarding | 5.24 |
+| phase4_vendor_entity_overlap_synthesis | 5.21 |
+
+---
+
+## Prompt Versions
+
+| Prompt | Version | Hash (short) |
+|--------|---------|--------------|
+| router | v1 | `846a128c` |
+| fraud_analyzer_summary | v1 | `77ef4951` |
+| investigation_synthesis | v1 | `8fd0ee65` |
+| explanation | v1 | `b30b9cab` |
+| action_gate | v1 | `b8e21189` |
 
 ---
 
@@ -56,6 +68,6 @@
 
 - No LLM-based evaluators — all checks are deterministic; nuanced reasoning quality is unmeasured.
 - Latency benchmarks use the deterministic model provider; real LLM latency will differ significantly.
-- Dataset covers 16 scenarios; edge cases like multi-fraud overlaps are not yet represented.
-- No cross-scenario confusion testing (a scenario triggering a different scenario's pattern).
-- Evidence ID validation relies on tool fixture; does not test evidence retrieval accuracy end-to-end.
+- Synthesis benchmarks use synthetic deterministic fixtures rather than live Laravel evidence retrieval.
+- Cross-scenario confusion testing is limited to guardrail terms and unsupported-correlation fixtures.
+- Evidence ID validation relies on tool fixtures and does not verify source-system persistence.

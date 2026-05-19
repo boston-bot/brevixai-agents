@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from langgraph.graph import END, START, StateGraph
 
 from app.config import Settings, get_settings
+from app.investigation_synthesis import synthesize_investigation
 from app.models import AgentFinding, BrevixAgentState, RecommendedAction
 from app.observability import instrument_node
 from app.prompts import load_prompt
@@ -37,6 +39,7 @@ def build_graph(
     # Load prompt templates once at graph-build time — fail early if any are missing.
     _router_prompt = load_prompt("router", "v1")
     _fraud_analyzer_prompt = load_prompt("fraud_analyzer_summary", "v1")
+    _investigation_synthesis_prompt = load_prompt("investigation_synthesis", "v1")
     _explanation_prompt = load_prompt("explanation", "v1")
     _action_gate_prompt = load_prompt("action_gate", "v1")
 
@@ -434,11 +437,50 @@ def build_graph(
             tool_results["entity_relationship_risk"] = entity_relationship_risk_data
         if aggregate_risk_data:
             tool_results["aggregate_risk_summary"] = aggregate_risk_data
+            if aggregate_risk_data.get("alert_recommendations"):
+                tool_results["alert_recommendations"] = aggregate_risk_data.get("alert_recommendations")
+            if aggregate_risk_data.get("case_recommendations"):
+                tool_results["case_recommendations"] = aggregate_risk_data.get("case_recommendations")
 
         return {
             "tool_results": tool_results,
             "findings": all_findings,
             "steps": steps_list,
+        }
+
+    async def investigation_synthesis_node(state: BrevixAgentState) -> dict[str, Any]:
+        start = time.perf_counter()
+        tool_results = state.get("tool_results", {})
+        synthesis = synthesize_investigation(tool_results, state.get("findings", []))
+        synthesis_latency_ms = round((time.perf_counter() - start) * 1000, 2)
+
+        _investigation_synthesis_prompt.render({
+            "source_domains": ", ".join(synthesis.supporting_domains) or "none",
+            "deterministic_input_summary": synthesis_input_summary(tool_results),
+        })
+
+        return {
+            "investigative_synthesis": synthesis.model_dump(),
+            "steps": [
+                step(
+                    "investigation_synthesis",
+                    output_payload={
+                        "source_domains_used": synthesis.supporting_domains,
+                        "investigation_priority": synthesis.investigation_priority,
+                        "correlated_finding_count": len(synthesis.correlated_findings),
+                        "reinforcing_signal_count": len(synthesis.reinforcing_signals),
+                        "conflicting_signal_count": len(synthesis.conflicting_signals),
+                        "evidence_summary_count": len(synthesis.evidence_summary),
+                        "synthesis_latency_ms": synthesis_latency_ms,
+                        "provider_name": resolved_provider.provider_name,
+                        "model_name": resolved_provider.model_name,
+                        "provider_latency_ms": 0.0,
+                        "tokens_input": 0,
+                        "tokens_output": 0,
+                        **_investigation_synthesis_prompt.metadata,
+                    },
+                )
+            ],
         }
 
     async def explanation_node(state: BrevixAgentState) -> dict[str, Any]:
@@ -519,13 +561,18 @@ def build_graph(
     builder.add_node("router", instrument_node("router", router_node, resolved_settings))
     builder.add_node("context_loader", instrument_node("context_loader", context_loader_node, resolved_settings))
     builder.add_node("fraud_analyzer", instrument_node("fraud_analyzer", fraud_analyzer_node, resolved_settings))
+    builder.add_node(
+        "investigation_synthesis",
+        instrument_node("investigation_synthesis", investigation_synthesis_node, resolved_settings),
+    )
     builder.add_node("explanation", instrument_node("explanation", explanation_node, resolved_settings))
     builder.add_node("action_gate", instrument_node("action_gate", action_gate_node, resolved_settings))
     builder.add_node("final_response", instrument_node("final_response", final_response_node, resolved_settings))
     builder.add_edge(START, "router")
     builder.add_edge("router", "context_loader")
     builder.add_edge("context_loader", "fraud_analyzer")
-    builder.add_edge("fraud_analyzer", "explanation")
+    builder.add_edge("fraud_analyzer", "investigation_synthesis")
+    builder.add_edge("investigation_synthesis", "explanation")
     builder.add_edge("explanation", "action_gate")
     builder.add_edge("action_gate", "final_response")
     builder.add_edge("final_response", END)
@@ -617,6 +664,22 @@ def minimized_context(context: dict[str, Any]) -> dict[str, Any]:
         }
 
     return payload
+
+
+def synthesis_input_summary(tool_results: dict[str, Any]) -> str:
+    if not tool_results:
+        return "No deterministic risk outputs were available."
+
+    summaries: list[str] = []
+    for domain, payload in tool_results.items():
+        if isinstance(payload, dict):
+            keys = ", ".join(sorted(str(key) for key in payload.keys())[:8])
+            summaries.append(f"{domain}: keys [{keys}]")
+        elif isinstance(payload, list):
+            summaries.append(f"{domain}: {len(payload)} item(s)")
+        else:
+            summaries.append(f"{domain}: {type(payload).__name__}")
+    return "; ".join(summaries)
 
 
 def findings_from_risk_summary(risk_summary: dict[str, Any]) -> list[AgentFinding]:
@@ -735,6 +798,7 @@ def _build_context(state: BrevixAgentState) -> dict[str, Any]:
         "intent": state.get("intent"),
         "errors": state.get("errors", []),
         "findings": state.get("findings", []),
+        "investigative_synthesis": state.get("investigative_synthesis", {}),
         "risk_score": risk_summary.get("risk_score", 0),
         "risk_level": risk_summary.get("risk_level", "low"),
         "transaction_summary": company_context.get("transaction_summary") if isinstance(company_context, dict) else None,

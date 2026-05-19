@@ -20,6 +20,7 @@ async def test_graph_routes_fraud_request_through_deterministic_risk_tool() -> N
         "router",
         "context_loader",
         "fraud_analyzer",
+        "investigation_synthesis",
         "explanation",
         "action_gate",
         "final_response",

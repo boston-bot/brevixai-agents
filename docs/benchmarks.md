@@ -44,7 +44,7 @@ Each entry represents a single evaluation scenario. Structurally, each scenario 
 2. **Execution Inputs**: Simulated user input prompt and company state context.
 3. **Database Seed State**: Seed data (companies, vendors, employees, transactions) that the deterministic backend serves when the agent makes tool calls.
 4. **Tool Fixtures**: Expected backend responses for the specialist nodes.
-5. **Evaluation Contract**: Explicit expectations (e.g. expected findings, severity, evidence, recommendations, and false-positive guardrail phrases).
+5. **Evaluation Contract**: Explicit expectations (e.g. expected findings, severity, evidence, recommendations, false-positive guardrail phrases, and optional investigation-synthesis expectations).
 
 ---
 
@@ -78,6 +78,27 @@ Every scenario JSON object must include exactly the following 12 fields:
 | `expected_evidence_patterns` | list of dicts | Structure check ensuring appropriate evidence records are linked. |
 | `expected_recommended_action` | string | Proposed next step the agent should recommend (e.g., `review_findings`). |
 | `false_positive_guardrails` | list of strings | Non-empty list of terms characteristic of other fraud patterns that must NOT be mentioned. |
+
+Optional Phase 4 synthesis fields can be added under `expected_synthesis`:
+
+| Field | Type | Description |
+|---|---|---|
+| `expected_correlated_patterns` | list of strings | Correlation patterns that must appear in `investigative_synthesis.correlated_findings`. |
+| `forbidden_correlated_patterns` | list of strings | Correlation patterns that must not appear. |
+| `unsupported_correlation_patterns` | list of strings | Patterns used to test false-correlation suppression. |
+| `expect_suppression_conflict` | boolean | Requires an `unsupported_correlation_suppressed` conflicting signal. |
+| `expected_conflicting_signal_types` | list of strings | Conflicting signal types expected in synthesis output. |
+
+Phase 4 scenarios should use nested `tool_fixture` keys for each deterministic domain, for example `risk_summary`, `vendor_risk`, `reconciliation_risk`, `entity_relationship_risk`, and `aggregate_risk_summary`.
+
+Phase 4 deterministic evaluators add synthesis-specific checks:
+
+- `correlated_finding_accuracy`
+- `unsupported_correlation_detection`
+- `synthesis_evidence_linkage`
+- `conflicting_signal_handling`
+
+These run alongside the existing response-contract, finding, severity, evidence, hallucination, and false-positive checks.
 
 ---
 
