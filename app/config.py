@@ -23,6 +23,13 @@ class Settings(BaseSettings):
     model_name: str = Field(default="deterministic-risk-v1", alias="BREVIX_AGENT_MODEL_NAME")
     model_timeout_seconds: float = Field(default=30.0, alias="BREVIX_AGENT_MODEL_TIMEOUT_SECONDS")
 
+    allowed_origins: str = Field(default="", alias="ORCHESTRATOR_ALLOWED_ORIGINS")
+    approval_required_tools: str = Field(
+        default="draft_case,draft_email,send_email,flag_transaction,finalize_case,update_case",
+        alias="ORCHESTRATOR_APPROVAL_REQUIRED_TOOLS",
+    )
+    checkpointer: str = Field(default="", alias="ORCHESTRATOR_CHECKPOINTER")
+
     @property
     def langsmith_enabled(self) -> bool:
         return self.langchain_tracing_v2 and bool(self.langchain_api_key)
@@ -30,6 +37,18 @@ class Settings(BaseSettings):
     @property
     def feature_flag_list(self) -> list[str]:
         return [flag.strip() for flag in self.feature_flags.split(",") if flag.strip()]
+
+    @property
+    def allowed_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
+
+    @property
+    def approval_required_tools_list(self) -> list[str]:
+        return [t.strip() for t in self.approval_required_tools.split(",") if t.strip()]
+
+    @property
+    def is_production(self) -> bool:
+        return self.app_env.lower() in {"production", "prod"}
 
 
 @lru_cache

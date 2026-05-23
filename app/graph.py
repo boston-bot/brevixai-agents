@@ -25,6 +25,13 @@ SENSITIVE_ACTION_TYPES = {
     "mark_alert_resolved",
     "suppress_alerts",
     "send_report",
+    # Communication and case-mutating tools that require human approval before execution.
+    "draft_case",
+    "draft_email",
+    "send_email",
+    "flag_transaction",
+    "finalize_case",
+    "update_case",
 }
 
 

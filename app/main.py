@@ -6,6 +6,7 @@ import time
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from langsmith.run_helpers import tracing_context
 
 from app.config import Settings, get_settings
@@ -15,6 +16,24 @@ from app.observability import base_trace_metadata, summarize_usage
 from app.tools.laravel import LaravelToolClient
 
 logger = logging.getLogger("brevix.agent.api")
+
+
+def _cors_origins(settings: Settings) -> list[str]:
+    """Return the allowed CORS origins for the given settings.
+
+    In production (APP_ENV=production|prod), raises RuntimeError when
+    ORCHESTRATOR_ALLOWED_ORIGINS is not explicitly set — wildcard CORS is
+    never permitted in production.  In all other environments, falls back
+    to ["*"] so local development works without configuration.
+    """
+    if settings.allowed_origins_list:
+        return settings.allowed_origins_list
+    if settings.is_production:
+        raise RuntimeError(
+            "ORCHESTRATOR_ALLOWED_ORIGINS must be explicitly set in production. "
+            "Refusing to start with a wildcard CORS policy."
+        )
+    return ["*"]
 
 
 def create_app() -> FastAPI:
@@ -30,6 +49,14 @@ def create_app() -> FastAPI:
         title="Brevix AI Agent Service",
         version="0.1.0",
         description="Phase 1 LangGraph orchestration service for deterministic Brevix Laravel tools.",
+    )
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_cors_origins(settings),
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
     @app.exception_handler(RequestValidationError)
