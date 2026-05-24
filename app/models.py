@@ -61,6 +61,13 @@ class RecommendedAction(BaseModel):
     payload: dict[str, Any] = Field(default_factory=dict)
 
 
+class DegradedTool(BaseModel):
+    tool: str
+    error_class: str
+    message: str
+    affected_confidence: bool = True
+
+
 class InvestigationSynthesis(BaseModel):
     investigative_summary: str = ""
     correlated_findings: list[dict[str, Any]] = Field(default_factory=list)
@@ -141,6 +148,7 @@ class AgentRunResponse(BaseModel):
     investigative_synthesis: InvestigationSynthesis = Field(default_factory=InvestigationSynthesis)
     recommended_actions: list[RecommendedAction] = Field(default_factory=list)
     steps: list[AgentStep] = Field(default_factory=list)
+    degraded_tools: list[DegradedTool] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)
     model_provider: str | None = None
     model_name: str | None = None
@@ -161,6 +169,7 @@ class BrevixAgentState(TypedDict, total=False):
     investigative_synthesis: dict[str, Any]
     recommended_actions: list[dict[str, Any]]
     final_response: str | None
+    degraded_tools: Annotated[list[dict[str, Any]], add]
     errors: list[str]
     steps: Annotated[list[dict[str, Any]], add]
     usage: dict[str, Any]

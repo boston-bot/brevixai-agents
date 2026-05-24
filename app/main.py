@@ -126,6 +126,7 @@ def create_app() -> FastAPI:
             "findings": [],
             "investigative_synthesis": {},
             "recommended_actions": [],
+            "degraded_tools": [],
             "errors": [],
             "steps": [],
         }
@@ -157,6 +158,7 @@ def create_app() -> FastAPI:
             investigative_synthesis=result.get("investigative_synthesis", {}),
             recommended_actions=result.get("recommended_actions", []),
             steps=result.get("steps", []),
+            degraded_tools=result.get("degraded_tools", []),
             errors=result.get("errors", []),
             model_provider=settings.model_provider,
             model_name=settings.model_name,
