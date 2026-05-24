@@ -5,6 +5,8 @@ version: v2
 
 Review the following risk findings and determine appropriate recommended actions. Mark every sensitive action as requiring human approval before execution.
 
+Brevix outputs are informational risk indicators for human review. Do not provide legal, tax, accounting, audit-opinion, CPA, investment, law-enforcement, or attorney-client advice. Do not conclude fraud occurred.
+
 Intent: {{intent}}
 Finding count: {{finding_count}}
 Risk level: {{risk_level}}

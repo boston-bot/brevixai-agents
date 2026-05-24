@@ -203,6 +203,8 @@ def build_graph(
         # Determine if a specific vendor was queried or mentioned
         vendor_findings = []
         vendor_risk_data = None
+        degraded_tools = []
+        failed_tool_steps = []
         vendor_name_query = state.get("page_context", {}).get("vendor_name") or state.get("page_context", {}).get("vendor")
         
         if not vendor_name_query:
@@ -235,6 +237,8 @@ def build_graph(
             )
         except Exception as exc:
             logger.warning("Failed to retrieve vendor risk: %s", exc)
+            degraded_tools.append(degraded_tool("vendor_risk", exc))
+            failed_tool_steps.append(failed_tool_step("vendor_risk_analysis", "vendor_risk", exc))
 
         if vendor_risk_data:
             if "vendors" in vendor_risk_data:
@@ -290,6 +294,8 @@ def build_graph(
             )
         except Exception as exc:
             logger.warning("Failed to retrieve reconciliation risk: %s", exc)
+            degraded_tools.append(degraded_tool("reconciliation_risk", exc))
+            failed_tool_steps.append(failed_tool_step("reconciliation_risk_analysis", "reconciliation_risk", exc))
 
         if reconciliation_risk_data:
             recon_score = reconciliation_risk_data.get("reconciliation_risk_score", 0)
@@ -326,6 +332,8 @@ def build_graph(
             )
         except Exception as exc:
             logger.warning("Failed to retrieve entity relationship risk: %s", exc)
+            degraded_tools.append(degraded_tool("entity_relationship_risk", exc))
+            failed_tool_steps.append(failed_tool_step("entity_relationship_risk_analysis", "entity_relationship_risk", exc))
 
         if entity_relationship_risk_data:
             entity_score = entity_relationship_risk_data.get("entity_relationship_risk_score", 0)
@@ -362,6 +370,8 @@ def build_graph(
             )
         except Exception as exc:
             logger.warning("Failed to retrieve aggregate risk summary: %s", exc)
+            degraded_tools.append(degraded_tool("aggregate_risk_summary", exc))
+            failed_tool_steps.append(failed_tool_step("aggregate_risk_summary", "aggregate_risk_summary", exc))
 
         # Merge findings
         all_findings = []
@@ -388,6 +398,7 @@ def build_graph(
                 },
             )
         ]
+        steps_list.extend(failed_tool_steps)
         if vendor_risk_data:
             steps_list.append(
                 step(
@@ -454,6 +465,7 @@ def build_graph(
         return {
             "tool_results": tool_results,
             "findings": all_findings,
+            "degraded_tools": degraded_tools,
             "steps": steps_list,
         }
 
@@ -633,6 +645,30 @@ def step(
         "completed_at": timestamp if status == "completed" else None,
         "error_message": error_message,
     }
+
+
+def degraded_tool(tool: str, exc: Exception) -> dict[str, Any]:
+    return {
+        "tool": tool,
+        "error_class": exc.__class__.__name__,
+        "message": str(exc) or "Optional deterministic tool was unavailable.",
+        "affected_confidence": True,
+    }
+
+
+def failed_tool_step(step_name: str, tool: str, exc: Exception) -> dict[str, Any]:
+    return step(
+        step_name,
+        step_type="tool_call",
+        input_payload={"tool": tool},
+        output_payload={
+            "tool": tool,
+            "error_class": exc.__class__.__name__,
+            "affected_confidence": True,
+        },
+        status="failed",
+        error_message=str(exc),
+    )
 
 
 def selected_period(page_context: dict[str, Any]) -> str | None:

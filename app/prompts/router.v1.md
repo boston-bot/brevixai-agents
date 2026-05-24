@@ -7,7 +7,7 @@ Classify the following user message into one intent category.
 
 Available intents:
 - fraud_pattern_search: message concerns fraud, suspicious activity, vendor risk, payment anomalies, invoice irregularities, duplicate payments, threshold breaches, transaction splits, or vendor concentration.
-- reconciliation_review: message concerns reconciliation, unmatched transactions, or accounting mismatches.
+- reconciliation_review: message concerns reconciliation, unmatched transactions, or ledger mismatches.
 - transaction_lookup: message asks to list or summarize ordinary transactions, ledger activity, or recent transaction history without a fraud/risk qualifier.
 - dashboard_health: message asks for financial health, current overview, dashboard status, or overall company health.
 - unknown_or_unsupported: message does not match a supported intent.

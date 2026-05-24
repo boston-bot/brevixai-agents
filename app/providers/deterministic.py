@@ -68,7 +68,7 @@ def _explanation_from_context(context: dict[str, Any]) -> str:
             f"Brevix found {count} pattern{plural} worth reviewing. "
             f"The current risk score is {risk_score}/100 ({risk_level}), and investigative synthesis priority is {priority}. "
             f"The strongest signal is: {first.get('title')}.{focus_text} "
-            "This may indicate an accounting risk, but it does not prove fraud. "
+            "This may indicate a financial risk, but it does not prove fraud. "
             "No alerts or cases were created."
         )
 
@@ -76,7 +76,7 @@ def _explanation_from_context(context: dict[str, Any]) -> str:
         f"Brevix found {count} pattern{plural} worth reviewing. "
         f"The current risk score is {risk_score}/100 ({risk_level}). "
         f"The strongest signal is: {first.get('title')}. "
-        "This may indicate an accounting risk, but it does not prove fraud. "
+        "This may indicate a financial risk, but it does not prove fraud. "
         "No alerts or cases were created."
     )
 
