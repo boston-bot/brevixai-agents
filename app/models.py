@@ -3,7 +3,47 @@ from __future__ import annotations
 from operator import add
 from typing import Annotated, Any, Literal, TypedDict
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+
+def _extract_message_text(value: Any) -> str | None:
+    if isinstance(value, str):
+        return value
+
+    if isinstance(value, list):
+        parts: list[str] = []
+        for item in value:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict):
+                text = item.get("text")
+                if isinstance(text, str) and item.get("type") in {None, "text", "input_text", "output_text"}:
+                    parts.append(text)
+        text = "\n".join(part.strip() for part in parts if part.strip())
+        return text or None
+
+    return None
+
+
+def _extract_message_from_messages(messages: Any) -> str | None:
+    if not isinstance(messages, list):
+        return None
+
+    fallback: str | None = None
+    user_message: str | None = None
+    for message in messages:
+        if not isinstance(message, dict):
+            continue
+
+        text = _extract_message_text(message.get("content"))
+        if not text:
+            continue
+
+        fallback = text
+        if message.get("role") == "user":
+            user_message = text
+
+    return user_message or fallback
 
 
 class AgentFinding(BaseModel):
@@ -21,6 +61,17 @@ class RecommendedAction(BaseModel):
     payload: dict[str, Any] = Field(default_factory=dict)
 
 
+class InvestigationSynthesis(BaseModel):
+    investigative_summary: str = ""
+    correlated_findings: list[dict[str, Any]] = Field(default_factory=list)
+    reinforcing_signals: list[dict[str, Any]] = Field(default_factory=list)
+    conflicting_signals: list[dict[str, Any]] = Field(default_factory=list)
+    investigation_priority: Literal["low", "medium", "high", "critical"] = "low"
+    recommended_investigation_focus: list[str] = Field(default_factory=list)
+    supporting_domains: list[str] = Field(default_factory=list)
+    evidence_summary: list[dict[str, Any]] = Field(default_factory=list)
+
+
 class AgentRunRequest(BaseModel):
     agent_run_id: str | None = None
     company_id: str
@@ -28,6 +79,47 @@ class AgentRunRequest(BaseModel):
     conversation_id: str | None = None
     message: str = Field(min_length=1, max_length=4000)
     page_context: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def accept_legacy_content_message(cls, value: Any) -> Any:
+        if not isinstance(value, dict) or "message" in value:
+            return value
+
+        for key in ("content", "input"):
+            extracted = _extract_message_text(value.get(key)) or _extract_message_from_messages(value.get(key))
+            if extracted is not None:
+                return {**value, "message": extracted}
+
+        extracted = _extract_message_from_messages(value.get("messages"))
+        if extracted is not None:
+            return {**value, "message": extracted}
+
+        return value
+
+    @field_validator("message", mode="after")
+    @classmethod
+    def strip_and_require_message_text(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("message must contain non-whitespace text")
+        return stripped
+
+    @field_validator("agent_run_id", "company_id", "user_id", "conversation_id", mode="before")
+    @classmethod
+    def coerce_numeric_ids(cls, value: Any) -> Any:
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, int):
+            return str(value)
+        return value
+
+    @field_validator("page_context", mode="before")
+    @classmethod
+    def default_page_context(cls, value: Any) -> Any:
+        return {} if value is None or value == [] else value
 
 
 class AgentStep(BaseModel):
@@ -42,9 +134,11 @@ class AgentStep(BaseModel):
 
 
 class AgentRunResponse(BaseModel):
+    trace_id: str | None = None
     intent: str | None = None
     message: str
     findings: list[AgentFinding] = Field(default_factory=list)
+    investigative_synthesis: InvestigationSynthesis = Field(default_factory=InvestigationSynthesis)
     recommended_actions: list[RecommendedAction] = Field(default_factory=list)
     steps: list[AgentStep] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)
@@ -64,7 +158,9 @@ class BrevixAgentState(TypedDict, total=False):
     company_context: dict[str, Any]
     tool_results: dict[str, Any]
     findings: list[dict[str, Any]]
+    investigative_synthesis: dict[str, Any]
     recommended_actions: list[dict[str, Any]]
     final_response: str | None
     errors: list[str]
     steps: Annotated[list[dict[str, Any]], add]
+    usage: dict[str, Any]

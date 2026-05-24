@@ -1,0 +1,2230 @@
+[
+  {
+    "id": "duplicate_invoice",
+    "category": "accounts_payable",
+    "risk_type": "duplicate_invoice",
+    "tags": [
+      "vendor",
+      "duplicate",
+      "payments"
+    ],
+    "input_prompt": "Review this month for duplicate invoice risk.",
+    "seeded_scenario_id": "phase2_duplicate_invoice",
+    "page_context": {
+      "selected_period": "2026-05",
+      "source": "evaluation",
+      "fraud_scenario_id": "phase2_duplicate_invoice"
+    },
+    "tool_fixture": {
+      "risk_score": 92,
+      "risk_level": "critical",
+      "top_drivers": [
+        {
+          "driver": "Duplicate invoice pattern",
+          "description": "Two invoices share the same vendor, amount, and invoice reference.",
+          "severity": "critical",
+          "evidence": [
+            {
+              "type": "transaction",
+              "id": "txn-dup-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-dup-002"
+            }
+          ]
+        }
+      ]
+    },
+    "expected_findings": [
+      "duplicate invoice"
+    ],
+    "expected_severity": "critical",
+    "expected_evidence_patterns": [
+      {
+        "type": "transaction",
+        "min_count": 2
+      },
+      {
+        "id_contains": "txn-dup"
+      }
+    ],
+    "expected_recommended_action": "review_findings",
+    "false_positive_guardrails": [
+      "employee-vendor overlap",
+      "shared bank account",
+      "payroll anomaly",
+      "ghost vendor",
+      "unusual refund"
+    ],
+    "scenario_id": "duplicate_invoice",
+    "severity": "critical",
+    "title": "Duplicate Invoice"
+  },
+  {
+    "id": "split_payments_under_threshold",
+    "category": "accounts_payable",
+    "risk_type": "threshold_evasion",
+    "tags": [
+      "vendor",
+      "threshold",
+      "payments"
+    ],
+    "input_prompt": "Look for split payments under approval thresholds.",
+    "seeded_scenario_id": "phase2_split_payments_under_threshold",
+    "page_context": {
+      "selected_period": "2026-05",
+      "source": "evaluation",
+      "fraud_scenario_id": "phase2_split_payments_under_threshold"
+    },
+    "tool_fixture": {
+      "risk_score": 86,
+      "risk_level": "high",
+      "top_drivers": [
+        {
+          "driver": "Split payments under threshold",
+          "description": "Multiple payments to the same vendor were posted just below the approval threshold.",
+          "severity": "high",
+          "evidence": [
+            {
+              "type": "transaction",
+              "id": "txn-split-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-split-002"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-split-003"
+            }
+          ]
+        }
+      ]
+    },
+    "expected_findings": [
+      "split payments",
+      "threshold"
+    ],
+    "expected_severity": "high",
+    "expected_evidence_patterns": [
+      {
+        "type": "transaction",
+        "min_count": 3
+      },
+      {
+        "id_contains": "txn-split"
+      }
+    ],
+    "expected_recommended_action": "review_findings",
+    "false_positive_guardrails": [
+      "employee-vendor overlap",
+      "payroll anomaly",
+      "shared bank account",
+      "ghost vendor",
+      "unusual refund"
+    ],
+    "scenario_id": "split_payments_under_threshold",
+    "severity": "high",
+    "title": "Split Payments Under Threshold"
+  },
+  {
+    "id": "vendor_concentration",
+    "category": "accounts_payable",
+    "risk_type": "vendor_concentration",
+    "tags": [
+      "vendor",
+      "payments"
+    ],
+    "input_prompt": "Check whether one vendor is concentrating too much spend.",
+    "seeded_scenario_id": "phase2_vendor_concentration",
+    "page_context": {
+      "selected_period": "2026-05",
+      "source": "evaluation",
+      "fraud_scenario_id": "phase2_vendor_concentration"
+    },
+    "tool_fixture": {
+      "risk_score": 78,
+      "risk_level": "high",
+      "top_drivers": [
+        {
+          "driver": "Vendor concentration",
+          "description": "One vendor represents an unusually high share of monthly spend.",
+          "severity": "high",
+          "evidence": [
+            {
+              "type": "vendor",
+              "id": "vendor-concentration-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-vendor-001"
+            }
+          ]
+        }
+      ]
+    },
+    "expected_findings": [
+      "vendor concentration"
+    ],
+    "expected_severity": "high",
+    "expected_evidence_patterns": [
+      {
+        "type": "vendor",
+        "min_count": 1
+      },
+      {
+        "id_contains": "vendor-concentration"
+      }
+    ],
+    "expected_recommended_action": "review_findings",
+    "false_positive_guardrails": [
+      "employee-vendor overlap",
+      "payroll anomaly",
+      "shared bank account",
+      "ghost vendor",
+      "unusual refund"
+    ],
+    "scenario_id": "vendor_concentration",
+    "severity": "high",
+    "title": "Vendor Concentration"
+  },
+  {
+    "id": "round_dollar_payments",
+    "category": "accounts_payable",
+    "risk_type": "unusual_payment_pattern",
+    "tags": [
+      "vendor",
+      "payments"
+    ],
+    "input_prompt": "Find round-dollar payment patterns that may need review.",
+    "seeded_scenario_id": "phase2_round_dollar_payments",
+    "page_context": {
+      "selected_period": "2026-05",
+      "source": "evaluation",
+      "fraud_scenario_id": "phase2_round_dollar_payments"
+    },
+    "tool_fixture": {
+      "risk_score": 64,
+      "risk_level": "medium",
+      "top_drivers": [
+        {
+          "driver": "Round-dollar payments",
+          "description": "Several large payments were posted as exact round-dollar amounts.",
+          "severity": "medium",
+          "evidence": [
+            {
+              "type": "transaction",
+              "id": "txn-round-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-round-002"
+            }
+          ]
+        }
+      ]
+    },
+    "expected_findings": [
+      "round-dollar payments"
+    ],
+    "expected_severity": "medium",
+    "expected_evidence_patterns": [
+      {
+        "type": "transaction",
+        "min_count": 2
+      },
+      {
+        "id_contains": "txn-round"
+      }
+    ],
+    "expected_recommended_action": "review_findings",
+    "false_positive_guardrails": [
+      "employee-vendor overlap",
+      "payroll anomaly",
+      "shared bank account",
+      "ghost vendor",
+      "unusual refund"
+    ],
+    "scenario_id": "round_dollar_payments",
+    "severity": "medium",
+    "title": "Round Dollar Payments"
+  },
+  {
+    "id": "reconciliation_mismatch",
+    "category": "accounting",
+    "risk_type": "reconciliation_error",
+    "tags": [
+      "reconciliation",
+      "payments"
+    ],
+    "input_prompt": "Review reconciliation mismatches for possible risk.",
+    "seeded_scenario_id": "phase2_reconciliation_mismatch",
+    "page_context": {
+      "selected_period": "2026-05",
+      "source": "evaluation",
+      "fraud_scenario_id": "phase2_reconciliation_mismatch"
+    },
+    "tool_fixture": {
+      "risk_score": 73,
+      "risk_level": "high",
+      "top_drivers": [
+        {
+          "driver": "Reconciliation mismatch",
+          "description": "Bank and ledger records do not match for a reviewed payment.",
+          "severity": "high",
+          "evidence": [
+            {
+              "type": "reconciliation_discrepancy",
+              "id": "recon-mismatch-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-recon-001"
+            }
+          ]
+        }
+      ]
+    },
+    "expected_findings": [
+      "reconciliation mismatch"
+    ],
+    "expected_severity": "high",
+    "expected_evidence_patterns": [
+      {
+        "type": "reconciliation_discrepancy",
+        "min_count": 1
+      },
+      {
+        "id_contains": "recon-mismatch"
+      }
+    ],
+    "expected_recommended_action": "review_findings",
+    "false_positive_guardrails": [
+      "employee-vendor overlap",
+      "payroll anomaly",
+      "shared bank account",
+      "ghost vendor",
+      "unusual refund"
+    ],
+    "scenario_id": "reconciliation_mismatch",
+    "severity": "high",
+    "title": "Reconciliation Mismatch"
+  },
+  {
+    "id": "ghost_vendor",
+    "category": "vendor_management",
+    "risk_type": "ghost_vendor",
+    "tags": [
+      "vendor",
+      "onboarding",
+      "entity_graph"
+    ],
+    "input_prompt": "Check for ghost vendor fraud risk this month.",
+    "seeded_scenario_id": "phase21_ghost_vendor",
+    "seeded_company": {
+      "company_id": "eval-company",
+      "name": "Brevix Eval Co",
+      "industry": "Professional Services",
+      "employee_count": 85,
+      "monthly_ap_volume_usd": 180000
+    },
+    "seeded_vendors": [
+      {
+        "vendor_id": "ghost-vendor-001",
+        "name": "Apex Consulting LLC",
+        "address": "PO Box 4421, Chicago, IL",
+        "tax_id": null,
+        "bank_account_id": "bank-ghost-001",
+        "registration_status": "unverified",
+        "onboarding_complete": false
+      }
+    ],
+    "seeded_transactions": [
+      {
+        "id": "txn-ghost-001",
+        "vendor_id": "ghost-vendor-001",
+        "amount_usd": 12500.0,
+        "date": "2026-05-08",
+        "approved_by": "user-ap-clerk-01"
+      },
+      {
+        "id": "txn-ghost-002",
+        "vendor_id": "ghost-vendor-001",
+        "amount_usd": 12500.0,
+        "date": "2026-05-15",
+        "approved_by": "user-ap-clerk-01"
+      }
+    ],
+    "page_context": {
+      "selected_period": "2026-05",
+      "source": "evaluation",
+      "fraud_scenario_id": "phase21_ghost_vendor"
+    },
+    "tool_fixture": {
+      "risk_score": 89,
+      "risk_level": "high",
+      "top_drivers": [
+        {
+          "driver": "Ghost vendor detected",
+          "description": "A vendor with no verifiable business registration or physical address received two payments totalling $25,000. The vendor has no tax ID on file and onboarding was never completed.",
+          "severity": "high",
+          "evidence": [
+            {
+              "type": "vendor",
+              "id": "ghost-vendor-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-ghost-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-ghost-002"
+            }
+          ]
+        }
+      ]
+    },
+    "expected_findings": [
+      "ghost vendor"
+    ],
+    "expected_severity": "high",
+    "expected_evidence_patterns": [
+      {
+        "type": "vendor",
+        "min_count": 1
+      },
+      {
+        "type": "transaction",
+        "min_count": 2
+      },
+      {
+        "id_contains": "ghost-vendor"
+      }
+    ],
+    "expected_recommended_action": "review_findings",
+    "false_positive_guardrails": [
+      "employee-vendor overlap",
+      "shared bank account",
+      "payroll anomaly",
+      "duplicate vendor name",
+      "unusual refund",
+      "after-hours payment",
+      "threshold splitting"
+    ],
+    "scenario_id": "ghost_vendor",
+    "severity": "high",
+    "title": "Ghost Vendor"
+  },
+  {
+    "id": "employee_vendor_overlap",
+    "category": "vendor_management",
+    "risk_type": "conflict_of_interest",
+    "tags": [
+      "vendor",
+      "entity_graph"
+    ],
+    "input_prompt": "Are any employees also registered as vendors? Check for fraud risk.",
+    "seeded_scenario_id": "phase21_employee_vendor_overlap",
+    "seeded_company": {
+      "company_id": "eval-company",
+      "name": "Brevix Eval Co",
+      "industry": "Healthcare",
+      "employee_count": 220,
+      "monthly_ap_volume_usd": 420000
+    },
+    "seeded_vendors": [
+      {
+        "vendor_id": "overlap-vendor-001",
+        "name": "J. Smith Consulting Services",
+        "tax_id": "XXX-XX-5512",
+        "bank_account_id": "bank-overlap-001",
+        "registration_status": "active",
+        "onboarding_complete": true
+      }
+    ],
+    "seeded_employees": [
+      {
+        "employee_id": "emp-overlap-001",
+        "name": "Jessica Smith",
+        "tax_id": "XXX-XX-5512",
+        "department": "Accounts Payable",
+        "title": "AP Specialist"
+      }
+    ],
+    "seeded_transactions": [
+      {
+        "id": "txn-overlap-001",
+        "vendor_id": "overlap-vendor-001",
+        "amount_usd": 8400.0,
+        "date": "2026-05-05",
+        "approved_by": "emp-overlap-001"
+      },
+      {
+        "id": "txn-overlap-002",
+        "vendor_id": "overlap-vendor-001",
+        "amount_usd": 8400.0,
+        "date": "2026-05-19",
+        "approved_by": "emp-overlap-001"
+      }
+    ],
+    "page_context": {
+      "selected_period": "2026-05",
+      "source": "evaluation",
+      "fraud_scenario_id": "phase21_employee_vendor_overlap"
+    },
+    "tool_fixture": {
+      "risk_score": 94,
+      "risk_level": "critical",
+      "top_drivers": [
+        {
+          "driver": "Employee-vendor overlap detected",
+          "description": "An Accounts Payable employee shares a tax ID with an active vendor and has self-approved both vendor payments this period totalling $16,800.",
+          "severity": "critical",
+          "evidence": [
+            {
+              "type": "vendor",
+              "id": "overlap-vendor-001"
+            },
+            {
+              "type": "employee_record",
+              "id": "emp-overlap-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-overlap-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-overlap-002"
+            }
+          ]
+        }
+      ]
+    },
+    "expected_findings": [
+      "employee-vendor overlap"
+    ],
+    "expected_severity": "critical",
+    "expected_evidence_patterns": [
+      {
+        "type": "vendor",
+        "min_count": 1
+      },
+      {
+        "type": "employee_record",
+        "min_count": 1
+      },
+      {
+        "type": "transaction",
+        "min_count": 2
+      },
+      {
+        "id_contains": "overlap"
+      }
+    ],
+    "expected_recommended_action": "review_findings",
+    "false_positive_guardrails": [
+      "ghost vendor",
+      "shared bank account",
+      "payroll anomaly",
+      "unusual refund",
+      "after-hours payment",
+      "threshold splitting"
+    ],
+    "scenario_id": "employee_vendor_overlap",
+    "severity": "critical",
+    "title": "Employee Vendor Overlap"
+  },
+  {
+    "id": "shared_bank_account_multiple_vendors",
+    "category": "vendor_management",
+    "risk_type": "shell_entity",
+    "tags": [
+      "vendor",
+      "entity_graph",
+      "payments"
+    ],
+    "input_prompt": "Find vendors sharing the same bank account - possible fraud risk.",
+    "seeded_scenario_id": "phase21_shared_bank_account",
+    "seeded_company": {
+      "company_id": "eval-company",
+      "name": "Brevix Eval Co",
+      "industry": "Construction",
+      "employee_count": 310,
+      "monthly_ap_volume_usd": 1100000
+    },
+    "seeded_vendors": [
+      {
+        "vendor_id": "shared-bank-vendor-001",
+        "name": "Delta Supply Co",
+        "bank_account_id": "bank-shared-999",
+        "registration_status": "active",
+        "onboarding_complete": true
+      },
+      {
+        "vendor_id": "shared-bank-vendor-002",
+        "name": "Omega Materials LLC",
+        "bank_account_id": "bank-shared-999",
+        "registration_status": "active",
+        "onboarding_complete": true
+      }
+    ],
+    "seeded_transactions": [
+      {
+        "id": "txn-sharedbank-001",
+        "vendor_id": "shared-bank-vendor-001",
+        "amount_usd": 47000.0,
+        "date": "2026-05-06"
+      },
+      {
+        "id": "txn-sharedbank-002",
+        "vendor_id": "shared-bank-vendor-002",
+        "amount_usd": 38500.0,
+        "date": "2026-05-13"
+      }
+    ],
+    "page_context": {
+      "selected_period": "2026-05",
+      "source": "evaluation",
+      "fraud_scenario_id": "phase21_shared_bank_account"
+    },
+    "tool_fixture": {
+      "risk_score": 88,
+      "risk_level": "high",
+      "top_drivers": [
+        {
+          "driver": "Shared bank account used by multiple vendors",
+          "description": "Two vendors with different legal names and registrations route payments to the same bank account, totalling $85,500 this period. This pattern is consistent with shell company or controlled-entity fraud.",
+          "severity": "high",
+          "evidence": [
+            {
+              "type": "bank_account",
+              "id": "shared-bank-999"
+            },
+            {
+              "type": "vendor",
+              "id": "shared-bank-vendor-001"
+            },
+            {
+              "type": "vendor",
+              "id": "shared-bank-vendor-002"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-sharedbank-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-sharedbank-002"
+            }
+          ]
+        }
+      ]
+    },
+    "expected_findings": [
+      "shared bank account",
+      "multiple vendors"
+    ],
+    "expected_severity": "high",
+    "expected_evidence_patterns": [
+      {
+        "type": "bank_account",
+        "min_count": 1
+      },
+      {
+        "type": "vendor",
+        "min_count": 2
+      },
+      {
+        "type": "transaction",
+        "min_count": 2
+      },
+      {
+        "id_contains": "shared-bank"
+      }
+    ],
+    "expected_recommended_action": "review_findings",
+    "false_positive_guardrails": [
+      "ghost vendor",
+      "employee-vendor overlap",
+      "payroll anomaly",
+      "unusual refund",
+      "after-hours payment",
+      "threshold splitting"
+    ],
+    "scenario_id": "shared_bank_account_multiple_vendors",
+    "severity": "high",
+    "title": "Shared Bank Account Multiple Vendors"
+  },
+  {
+    "id": "vendor_paid_before_onboarding",
+    "category": "vendor_management",
+    "risk_type": "control_bypass",
+    "tags": [
+      "vendor",
+      "onboarding"
+    ],
+    "input_prompt": "Were any vendors paid before their onboarding was completed? Fraud risk review.",
+    "seeded_scenario_id": "phase21_vendor_paid_before_onboarding",
+    "seeded_company": {
+      "company_id": "eval-company",
+      "name": "Brevix Eval Co",
+      "industry": "Retail",
+      "employee_count": 140,
+      "monthly_ap_volume_usd": 310000
+    },
+    "seeded_vendors": [
+      {
+        "vendor_id": "preonboard-vendor-001",
+        "name": "Sunrise Tech Partners",
+        "registration_status": "pending",
+        "onboarding_complete": false,
+        "onboarding_started": "2026-05-10",
+        "onboarding_completed_at": null
+      }
+    ],
+    "seeded_transactions": [
+      {
+        "id": "txn-preonboard-001",
+        "vendor_id": "preonboard-vendor-001",
+        "amount_usd": 22000.0,
+        "date": "2026-05-03"
+      }
+    ],
+    "page_context": {
+      "selected_period": "2026-05",
+      "source": "evaluation",
+      "fraud_scenario_id": "phase21_vendor_paid_before_onboarding"
+    },
+    "tool_fixture": {
+      "risk_score": 82,
+      "risk_level": "high",
+      "top_drivers": [
+        {
+          "driver": "Vendor paid before onboarding completion",
+          "description": "A payment of $22,000 was issued to a vendor whose onboarding process had not been started at the time of payment, bypassing vendor validation controls.",
+          "severity": "high",
+          "evidence": [
+            {
+              "type": "vendor_onboarding",
+              "id": "preonboard-vendor-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-preonboard-001"
+            }
+          ]
+        }
+      ]
+    },
+    "expected_findings": [
+      "before onboarding"
+    ],
+    "expected_severity": "high",
+    "expected_evidence_patterns": [
+      {
+        "type": "vendor_onboarding",
+        "min_count": 1
+      },
+      {
+        "type": "transaction",
+        "min_count": 1
+      },
+      {
+        "id_contains": "preonboard"
+      }
+    ],
+    "expected_recommended_action": "review_findings",
+    "false_positive_guardrails": [
+      "ghost vendor",
+      "employee-vendor overlap",
+      "shared bank account",
+      "payroll anomaly",
+      "unusual refund",
+      "after-hours payment",
+      "threshold splitting"
+    ],
+    "scenario_id": "vendor_paid_before_onboarding",
+    "severity": "high",
+    "title": "Vendor Paid Before Onboarding"
+  },
+  {
+    "id": "duplicate_vendor_name_variation",
+    "category": "vendor_management",
+    "risk_type": "duplicate_vendor",
+    "tags": [
+      "vendor",
+      "duplicate",
+      "entity_graph"
+    ],
+    "input_prompt": "Look for duplicate vendor name variations that may indicate fraud risk.",
+    "seeded_scenario_id": "phase21_duplicate_vendor_name",
+    "seeded_company": {
+      "company_id": "eval-company",
+      "name": "Brevix Eval Co",
+      "industry": "Manufacturing",
+      "employee_count": 480,
+      "monthly_ap_volume_usd": 2100000
+    },
+    "seeded_vendors": [
+      {
+        "vendor_id": "dup-vendor-001",
+        "name": "Acme Industrial Corp",
+        "tax_id": "12-3456789",
+        "bank_account_id": "bank-acme-001",
+        "registration_status": "active",
+        "onboarding_complete": true
+      },
+      {
+        "vendor_id": "dup-vendor-002",
+        "name": "Acme Industrial Corp.",
+        "tax_id": "98-7654321",
+        "bank_account_id": "bank-acme-002",
+        "registration_status": "active",
+        "onboarding_complete": true
+      }
+    ],
+    "seeded_transactions": [
+      {
+        "id": "txn-dupname-001",
+        "vendor_id": "dup-vendor-001",
+        "amount_usd": 15000.0,
+        "date": "2026-05-07"
+      },
+      {
+        "id": "txn-dupname-002",
+        "vendor_id": "dup-vendor-002",
+        "amount_usd": 15000.0,
+        "date": "2026-05-07"
+      }
+    ],
+    "page_context": {
+      "selected_period": "2026-05",
+      "source": "evaluation",
+      "fraud_scenario_id": "phase21_duplicate_vendor_name"
+    },
+    "tool_fixture": {
+      "risk_score": 85,
+      "risk_level": "high",
+      "top_drivers": [
+        {
+          "driver": "Duplicate vendor with name variation",
+          "description": "Two vendor records with nearly identical names, different tax IDs, and different bank accounts received identical payment amounts on the same date. This pattern is consistent with duplicate-vendor fraud.",
+          "severity": "high",
+          "evidence": [
+            {
+              "type": "vendor",
+              "id": "dup-vendor-001"
+            },
+            {
+              "type": "vendor",
+              "id": "dup-vendor-002"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-dupname-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-dupname-002"
+            }
+          ]
+        }
+      ]
+    },
+    "expected_findings": [
+      "duplicate vendor",
+      "name variation"
+    ],
+    "expected_severity": "high",
+    "expected_evidence_patterns": [
+      {
+        "type": "vendor",
+        "min_count": 2
+      },
+      {
+        "type": "transaction",
+        "min_count": 2
+      },
+      {
+        "id_contains": "dup-vendor"
+      }
+    ],
+    "expected_recommended_action": "review_findings",
+    "false_positive_guardrails": [
+      "ghost vendor",
+      "employee-vendor overlap",
+      "shared bank account",
+      "payroll anomaly",
+      "unusual refund",
+      "after-hours payment",
+      "threshold splitting"
+    ],
+    "scenario_id": "duplicate_vendor_name_variation",
+    "severity": "high",
+    "title": "Duplicate Vendor Name Variation"
+  },
+  {
+    "id": "unusual_refund_activity",
+    "category": "accounts_payable",
+    "risk_type": "refund_fraud",
+    "tags": [
+      "vendor",
+      "payments"
+    ],
+    "input_prompt": "Are there unusual refund patterns that may indicate fraud risk?",
+    "seeded_scenario_id": "phase21_unusual_refund",
+    "seeded_company": {
+      "company_id": "eval-company",
+      "name": "Brevix Eval Co",
+      "industry": "Wholesale",
+      "employee_count": 95,
+      "monthly_ap_volume_usd": 560000
+    },
+    "seeded_vendors": [
+      {
+        "vendor_id": "refund-vendor-001",
+        "name": "Pinnacle Distributors",
+        "bank_account_id": "bank-refund-001",
+        "registration_status": "active",
+        "onboarding_complete": true
+      }
+    ],
+    "seeded_transactions": [
+      {
+        "id": "txn-refund-original-001",
+        "vendor_id": "refund-vendor-001",
+        "amount_usd": 9800.0,
+        "date": "2026-04-20",
+        "type": "invoice_payment"
+      },
+      {
+        "id": "txn-refund-001",
+        "vendor_id": "refund-vendor-001",
+        "amount_usd": -14200.0,
+        "date": "2026-05-02",
+        "type": "refund",
+        "routed_to_account": "bank-personal-external"
+      },
+      {
+        "id": "txn-refund-002",
+        "vendor_id": "refund-vendor-001",
+        "amount_usd": -11000.0,
+        "date": "2026-05-11",
+        "type": "refund",
+        "routed_to_account": "bank-personal-external"
+      }
+    ],
+    "page_context": {
+      "selected_period": "2026-05",
+      "source": "evaluation",
+      "fraud_scenario_id": "phase21_unusual_refund"
+    },
+    "tool_fixture": {
+      "risk_score": 81,
+      "risk_level": "high",
+      "top_drivers": [
+        {
+          "driver": "Unusual refund activity detected",
+          "description": "Two refund credits exceed the original invoice amount and were routed to a bank account not on file for this vendor. Total refund exposure is $25,200.",
+          "severity": "high",
+          "evidence": [
+            {
+              "type": "transaction",
+              "id": "txn-refund-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-refund-002"
+            },
+            {
+              "type": "vendor",
+              "id": "refund-vendor-001"
+            }
+          ]
+        }
+      ]
+    },
+    "expected_findings": [
+      "unusual refund"
+    ],
+    "expected_severity": "high",
+    "expected_evidence_patterns": [
+      {
+        "type": "transaction",
+        "min_count": 2
+      },
+      {
+        "type": "vendor",
+        "min_count": 1
+      },
+      {
+        "id_contains": "txn-refund"
+      }
+    ],
+    "expected_recommended_action": "review_findings",
+    "false_positive_guardrails": [
+      "ghost vendor",
+      "employee-vendor overlap",
+      "shared bank account",
+      "payroll anomaly",
+      "duplicate vendor name",
+      "after-hours payment",
+      "threshold splitting"
+    ],
+    "scenario_id": "unusual_refund_activity",
+    "severity": "high",
+    "title": "Unusual Refund Activity"
+  },
+  {
+    "id": "payroll_anomaly",
+    "category": "payroll",
+    "risk_type": "payroll_fraud",
+    "tags": [
+      "payroll"
+    ],
+    "input_prompt": "Review payroll for anomalies and signs of fraud risk.",
+    "seeded_scenario_id": "phase21_payroll_anomaly",
+    "seeded_company": {
+      "company_id": "eval-company",
+      "name": "Brevix Eval Co",
+      "industry": "Staffing",
+      "employee_count": 175,
+      "monthly_ap_volume_usd": 820000
+    },
+    "seeded_employees": [
+      {
+        "employee_id": "emp-ghost-pay-001",
+        "name": "Robert Hayden",
+        "status": "terminated",
+        "termination_date": "2026-03-31",
+        "bank_account_id": "bank-ghost-pay-001"
+      }
+    ],
+    "seeded_transactions": [
+      {
+        "id": "txn-payroll-001",
+        "type": "payroll",
+        "employee_id": "emp-ghost-pay-001",
+        "amount_usd": 5800.0,
+        "date": "2026-05-01",
+        "pay_period": "2026-04"
+      },
+      {
+        "id": "txn-payroll-002",
+        "type": "payroll",
+        "employee_id": "emp-ghost-pay-001",
+        "amount_usd": 5800.0,
+        "date": "2026-05-15",
+        "pay_period": "2026-05"
+      }
+    ],
+    "page_context": {
+      "selected_period": "2026-05",
+      "source": "evaluation",
+      "fraud_scenario_id": "phase21_payroll_anomaly"
+    },
+    "tool_fixture": {
+      "risk_score": 87,
+      "risk_level": "high",
+      "top_drivers": [
+        {
+          "driver": "Payroll anomaly detected",
+          "description": "A terminated employee received two payroll disbursements totalling $11,600 after their termination date of 2026-03-31. Payments were routed to an external account added after termination.",
+          "severity": "high",
+          "evidence": [
+            {
+              "type": "payroll_record",
+              "id": "emp-ghost-pay-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-payroll-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-payroll-002"
+            }
+          ]
+        }
+      ]
+    },
+    "expected_findings": [
+      "payroll anomaly"
+    ],
+    "expected_severity": "high",
+    "expected_evidence_patterns": [
+      {
+        "type": "payroll_record",
+        "min_count": 1
+      },
+      {
+        "type": "transaction",
+        "min_count": 2
+      },
+      {
+        "id_contains": "payroll"
+      }
+    ],
+    "expected_recommended_action": "review_findings",
+    "false_positive_guardrails": [
+      "ghost vendor",
+      "employee-vendor overlap",
+      "shared bank account",
+      "unusual refund",
+      "duplicate vendor name",
+      "after-hours payment",
+      "threshold splitting"
+    ],
+    "scenario_id": "payroll_anomaly",
+    "severity": "high",
+    "title": "Payroll Anomaly"
+  },
+  {
+    "id": "weekend_after_hours_payment",
+    "category": "accounts_payable",
+    "risk_type": "unusual_payment_pattern",
+    "tags": [
+      "after_hours",
+      "payments",
+      "vendor"
+    ],
+    "input_prompt": "Are payments processed on weekends or after hours? Check for fraud risk.",
+    "seeded_scenario_id": "phase21_weekend_after_hours",
+    "seeded_company": {
+      "company_id": "eval-company",
+      "name": "Brevix Eval Co",
+      "industry": "Logistics",
+      "employee_count": 260,
+      "monthly_ap_volume_usd": 740000
+    },
+    "seeded_vendors": [
+      {
+        "vendor_id": "offhours-vendor-001",
+        "name": "Meridian Fleet Services",
+        "bank_account_id": "bank-offhours-001",
+        "registration_status": "active",
+        "onboarding_complete": true
+      }
+    ],
+    "seeded_transactions": [
+      {
+        "id": "txn-weekend-001",
+        "vendor_id": "offhours-vendor-001",
+        "amount_usd": 31000.0,
+        "date": "2026-05-03",
+        "processed_at": "2026-05-03T02:14:00Z",
+        "day_of_week": "Sunday"
+      },
+      {
+        "id": "txn-weekend-002",
+        "vendor_id": "offhours-vendor-001",
+        "amount_usd": 28500.0,
+        "date": "2026-05-10",
+        "processed_at": "2026-05-10T01:47:00Z",
+        "day_of_week": "Sunday"
+      }
+    ],
+    "page_context": {
+      "selected_period": "2026-05",
+      "source": "evaluation",
+      "fraud_scenario_id": "phase21_weekend_after_hours"
+    },
+    "tool_fixture": {
+      "risk_score": 72,
+      "risk_level": "medium",
+      "top_drivers": [
+        {
+          "driver": "Weekend and after-hours payment pattern",
+          "description": "Two large payments totalling $59,500 were processed on Sundays between 1-3 AM, outside of normal business hours and approval windows.",
+          "severity": "medium",
+          "evidence": [
+            {
+              "type": "transaction",
+              "id": "txn-weekend-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-weekend-002"
+            }
+          ]
+        }
+      ]
+    },
+    "expected_findings": [
+      "weekend",
+      "after-hours payment"
+    ],
+    "expected_severity": "medium",
+    "expected_evidence_patterns": [
+      {
+        "type": "transaction",
+        "min_count": 2
+      },
+      {
+        "id_contains": "txn-weekend"
+      }
+    ],
+    "expected_recommended_action": "review_findings",
+    "false_positive_guardrails": [
+      "ghost vendor",
+      "employee-vendor overlap",
+      "shared bank account",
+      "payroll anomaly",
+      "unusual refund",
+      "duplicate vendor name",
+      "threshold splitting"
+    ],
+    "scenario_id": "weekend_after_hours_payment",
+    "severity": "medium",
+    "title": "Weekend After Hours Payment"
+  },
+  {
+    "id": "approval_threshold_splitting",
+    "category": "accounts_payable",
+    "risk_type": "threshold_evasion",
+    "tags": [
+      "vendor",
+      "threshold",
+      "payments"
+    ],
+    "input_prompt": "Are any invoices being split to stay under approval thresholds? Fraud risk check.",
+    "seeded_scenario_id": "phase21_threshold_splitting",
+    "seeded_company": {
+      "company_id": "eval-company",
+      "name": "Brevix Eval Co",
+      "industry": "Technology",
+      "employee_count": 120,
+      "monthly_ap_volume_usd": 490000
+    },
+    "seeded_vendors": [
+      {
+        "vendor_id": "thresholdsplit-vendor-001",
+        "name": "Vertex Software Solutions",
+        "bank_account_id": "bank-thresholdsplit-001",
+        "registration_status": "active",
+        "onboarding_complete": true
+      }
+    ],
+    "seeded_transactions": [
+      {
+        "id": "txn-threshold-split-001",
+        "vendor_id": "thresholdsplit-vendor-001",
+        "amount_usd": 19800.0,
+        "date": "2026-05-04",
+        "purchase_order": "PO-2026-1141"
+      },
+      {
+        "id": "txn-threshold-split-002",
+        "vendor_id": "thresholdsplit-vendor-001",
+        "amount_usd": 19800.0,
+        "date": "2026-05-04",
+        "purchase_order": "PO-2026-1142"
+      },
+      {
+        "id": "txn-threshold-split-003",
+        "vendor_id": "thresholdsplit-vendor-001",
+        "amount_usd": 19800.0,
+        "date": "2026-05-04",
+        "purchase_order": "PO-2026-1143"
+      },
+      {
+        "id": "txn-threshold-split-004",
+        "vendor_id": "thresholdsplit-vendor-001",
+        "amount_usd": 19800.0,
+        "date": "2026-05-04",
+        "purchase_order": "PO-2026-1144"
+      },
+      {
+        "id": "txn-threshold-split-005",
+        "vendor_id": "thresholdsplit-vendor-001",
+        "amount_usd": 19800.0,
+        "date": "2026-05-04",
+        "purchase_order": "PO-2026-1145"
+      }
+    ],
+    "page_context": {
+      "selected_period": "2026-05",
+      "source": "evaluation",
+      "fraud_scenario_id": "phase21_threshold_splitting"
+    },
+    "tool_fixture": {
+      "risk_score": 91,
+      "risk_level": "critical",
+      "top_drivers": [
+        {
+          "driver": "Approval threshold splitting pattern",
+          "description": "Five invoices of $19,800 each were posted to the same vendor on the same date across separate purchase orders. The combined total of $99,000 requires CFO approval, but each individual invoice falls just below the $20,000 manager approval threshold.",
+          "severity": "critical",
+          "evidence": [
+            {
+              "type": "transaction",
+              "id": "txn-threshold-split-001"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-threshold-split-002"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-threshold-split-003"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-threshold-split-004"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-threshold-split-005"
+            }
+          ]
+        }
+      ]
+    },
+    "expected_findings": [
+      "approval",
+      "threshold splitting"
+    ],
+    "expected_severity": "critical",
+    "expected_evidence_patterns": [
+      {
+        "type": "transaction",
+        "min_count": 5
+      },
+      {
+        "id_contains": "threshold-split"
+      }
+    ],
+    "expected_recommended_action": "review_findings",
+    "false_positive_guardrails": [
+      "ghost vendor",
+      "employee-vendor overlap",
+      "shared bank account",
+      "payroll anomaly",
+      "unusual refund",
+      "duplicate vendor name",
+      "after-hours payment"
+    ],
+    "scenario_id": "approval_threshold_splitting",
+    "severity": "critical",
+    "title": "Approval Threshold Splitting"
+  },
+  {
+    "id": "high_risk_vendor_concentration_over_time",
+    "category": "accounts_payable",
+    "risk_type": "vendor_concentration",
+    "tags": [
+      "vendor",
+      "payments",
+      "entity_graph"
+    ],
+    "input_prompt": "Has vendor concentration risk been increasing over time? Review for fraud.",
+    "seeded_scenario_id": "phase21_concentration_over_time",
+    "seeded_company": {
+      "company_id": "eval-company",
+      "name": "Brevix Eval Co",
+      "industry": "Government Contracting",
+      "employee_count": 550,
+      "monthly_ap_volume_usd": 3800000
+    },
+    "seeded_vendors": [
+      {
+        "vendor_id": "concentration-trend-vendor-001",
+        "name": "Apex Prime Group",
+        "bank_account_id": "bank-concentration-trend-001",
+        "registration_status": "active",
+        "onboarding_complete": true
+      }
+    ],
+    "seeded_period_data": [
+      {
+        "period": "2026-03",
+        "vendor_id": "concentration-trend-vendor-001",
+        "spend_usd": 340000,
+        "pct_of_total": 0.09
+      },
+      {
+        "period": "2026-04",
+        "vendor_id": "concentration-trend-vendor-001",
+        "spend_usd": 1020000,
+        "pct_of_total": 0.27
+      },
+      {
+        "period": "2026-05",
+        "vendor_id": "concentration-trend-vendor-001",
+        "spend_usd": 2470000,
+        "pct_of_total": 0.65
+      }
+    ],
+    "seeded_transactions": [
+      {
+        "id": "txn-concentration-trend-001",
+        "vendor_id": "concentration-trend-vendor-001",
+        "amount_usd": 2470000.0,
+        "date": "2026-05-31",
+        "period": "2026-05"
+      }
+    ],
+    "page_context": {
+      "selected_period": "2026-05",
+      "source": "evaluation",
+      "fraud_scenario_id": "phase21_concentration_over_time"
+    },
+    "tool_fixture": {
+      "risk_score": 83,
+      "risk_level": "high",
+      "top_drivers": [
+        {
+          "driver": "High-risk vendor concentration over time",
+          "description": "A single vendor's share of total spend increased from 9% in March to 27% in April to 65% in May. This rapid concentration growth is an indicator of potential fraudulent diversion or kickback arrangements.",
+          "severity": "high",
+          "evidence": [
+            {
+              "type": "vendor",
+              "id": "concentration-trend-vendor-001"
+            },
+            {
+              "type": "period_comparison",
+              "id": "concentration-trend-2026-03-05"
+            },
+            {
+              "type": "transaction",
+              "id": "txn-concentration-trend-001"
+            }
+          ]
+        }
+      ]
+    },
+    "expected_findings": [
+      "vendor concentration",
+      "over time"
+    ],
+    "expected_severity": "high",
+    "expected_evidence_patterns": [
+      {
+        "type": "vendor",
+        "min_count": 1
+      },
+      {
+        "type": "period_comparison",
+        "min_count": 1
+      },
+      {
+        "type": "transaction",
+        "min_count": 1
+      },
+      {
+        "id_contains": "concentration-trend"
+      }
+    ],
+    "expected_recommended_action": "review_findings",
+    "false_positive_guardrails": [
+      "ghost vendor",
+      "employee-vendor overlap",
+      "shared bank account",
+      "payroll anomaly",
+      "unusual refund",
+      "after-hours payment",
+      "threshold splitting"
+    ],
+    "scenario_id": "high_risk_vendor_concentration_over_time",
+    "severity": "high",
+    "title": "High Risk Vendor Concentration Over Time"
+  },
+  {
+    "id": "phase4_vendor_entity_overlap_synthesis",
+    "category": "vendor_management",
+    "risk_type": "multi_domain_synthesis",
+    "tags": [
+      "vendor",
+      "entity_graph",
+      "multi_domain",
+      "synthesis"
+    ],
+    "input_prompt": "Synthesize vendor risk and entity relationships for possible conflict risk.",
+    "seeded_scenario_id": "phase4_vendor_entity_overlap_synthesis",
+    "page_context": {
+      "selected_period": "2026-05",
+      "source": "evaluation",
+      "fraud_scenario_id": "phase4_vendor_entity_overlap_synthesis"
+    },
+    "tool_fixture": {
+      "risk_summary": {
+        "risk_score": 88,
+        "risk_level": "high",
+        "top_drivers": [
+          {
+            "driver": "Employee-vendor overlap pattern",
+            "description": "Vendor-risk and entity-relationship services returned linked employee-vendor overlap evidence for the same vendor.",
+            "severity": "high",
+            "evidence": [
+              {
+                "type": "vendor",
+                "id": "phase4-overlap-vendor-001",
+                "vendor_id": "phase4-overlap-vendor-001"
+              },
+              {
+                "type": "employee_record",
+                "id": "phase4-overlap-employee-001",
+                "vendor_id": "phase4-overlap-vendor-001"
+              },
+              {
+                "type": "transaction",
+                "id": "phase4-overlap-txn-001",
+                "vendor_id": "phase4-overlap-vendor-001"
+              }
+            ]
+          }
+        ]
+      },
+      "vendor_risk": {
+        "vendor_name": "Harbor Advisory LLC",
+        "vendor_id": "phase4-overlap-vendor-001",
+        "vendor_risk_score": 84,
+        "risk_level": "high",
+        "triggered_rules": [
+          "high vendor risk",
+          "employee-vendor overlap"
+        ],
+        "supporting_evidence": [
+          {
+            "type": "vendor",
+            "id": "phase4-overlap-vendor-001",
+            "vendor_id": "phase4-overlap-vendor-001"
+          },
+          {
+            "type": "transaction",
+            "id": "phase4-overlap-txn-001",
+            "vendor_id": "phase4-overlap-vendor-001"
+          }
+        ],
+        "recommended_next_action": "Review vendor ownership and approvals."
+      },
+      "entity_relationship_risk": {
+        "entity_relationship_risk_score": 82,
+        "risk_level": "high",
+        "triggered_rules": [
+          "employee-vendor overlap"
+        ],
+        "supporting_evidence": [
+          {
+            "type": "vendor",
+            "id": "phase4-overlap-vendor-001",
+            "vendor_id": "phase4-overlap-vendor-001"
+          },
+          {
+            "type": "employee_record",
+            "id": "phase4-overlap-employee-001",
+            "vendor_id": "phase4-overlap-vendor-001"
+          }
+        ],
+        "related_entities": [
+          {
+            "type": "entity_relationship",
+            "id": "phase4-overlap-rel-001",
+            "vendor_id": "phase4-overlap-vendor-001"
+          }
+        ],
+        "recommended_next_action": "Validate relationship and approval chain."
+      },
+      "aggregate_risk_summary": {
+        "overall_risk_score": 86,
+        "overall_risk_level": "high",
+        "supporting_evidence": [
+          {
+            "type": "domain_score",
+            "id": "phase4-overlap-aggregate-001",
+            "score": 86
+          }
+        ]
+      }
+    },
+    "expected_findings": [
+      "employee-vendor overlap"
+    ],
+    "expected_severity": "high",
+    "expected_evidence_patterns": [
+      {
+        "type": "vendor",
+        "min_count": 1
+      },
+      {
+        "type": "employee_record",
+        "min_count": 1
+      },
+      {
+        "id_contains": "phase4-overlap"
+      }
+    ],
+    "expected_recommended_action": "review_findings",
+    "false_positive_guardrails": [
+      "threshold splitting",
+      "round-dollar payments",
+      "duplicate vendor",
+      "unusual refund",
+      "payroll anomaly"
+    ],
+    "expected_synthesis": {
+      "expected_correlated_patterns": [
+        "vendor_entity_overlap"
+      ],
+      "forbidden_correlated_patterns": [
+        "reconciliation_threshold_splitting"
+      ]
+    },
+    "scenario_id": "phase4_vendor_entity_overlap_synthesis",
+    "severity": "high",
+    "title": "Phase 4 Vendor Entity Overlap Synthesis"
+  },
+  {
+    "id": "phase4_reconciliation_threshold_synthesis",
+    "category": "accounting",
+    "risk_type": "multi_domain_synthesis",
+    "tags": [
+      "reconciliation",
+      "threshold",
+      "payments",
+      "multi_domain",
+      "synthesis"
+    ],
+    "input_prompt": "Synthesize reconciliation mismatches and threshold-splitting signals.",
+    "seeded_scenario_id": "phase4_reconciliation_threshold_synthesis",
+    "page_context": {
+      "selected_period": "2026-05",
+      "source": "evaluation",
+      "fraud_scenario_id": "phase4_reconciliation_threshold_synthesis"
+    },
+    "tool_fixture": {
+      "risk_summary": {
+        "risk_score": 92,
+        "risk_level": "critical",
+        "top_drivers": [
+          {
+            "driver": "Approval threshold splitting with reconciliation mismatch",
+            "description": "Threshold splitting and reconciliation mismatch evidence share the same vendor and payment batch.",
+            "severity": "critical",
+            "evidence": [
+              {
+                "type": "transaction",
+                "id": "phase4-threshold-txn-001",
+                "vendor_id": "phase4-threshold-vendor-001"
+              },
+              {
+                "type": "transaction",
+                "id": "phase4-threshold-txn-002",
+                "vendor_id": "phase4-threshold-vendor-001"
+              },
+              {
+                "type": "reconciliation_discrepancy",
+                "id": "phase4-threshold-recon-001",
+                "vendor_id": "phase4-threshold-vendor-001"
+              }
+            ]
+          }
+        ]
+      },
+      "reconciliation_risk": {
+        "reconciliation_risk_score": 86,
+        "risk_level": "high",
+        "triggered_rules": [
+          "reconciliation mismatch"
+        ],
+        "supporting_evidence": [
+          {
+            "type": "reconciliation_discrepancy",
+            "id": "phase4-threshold-recon-001",
+            "vendor_id": "phase4-threshold-vendor-001"
+          },
+          {
+            "type": "transaction",
+            "id": "phase4-threshold-txn-001",
+            "vendor_id": "phase4-threshold-vendor-001"
+          }
+        ],
+        "recommended_next_action": "Review unmatched bank and ledger records."
+      },
+      "aggregate_risk_summary": {
+        "overall_risk_score": 91,
+        "overall_risk_level": "critical",
+        "supporting_evidence": [
+          {
+            "type": "domain_score",
+            "id": "phase4-threshold-aggregate-001",
+            "score": 91
+          }
+        ]
+      }
+    },
+    "expected_findings": [
+      "threshold splitting",
+      "reconciliation mismatch"
+    ],
+    "expected_severity": "critical",
+    "expected_evidence_patterns": [
+      {
+        "type": "transaction",
+        "min_count": 2
+      },
+      {
+        "type": "reconciliation_discrepancy",
+        "min_count": 1
+      },
+      {
+        "id_contains": "phase4-threshold"
+      }
+    ],
+    "expected_recommended_action": "review_findings",
+    "false_positive_guardrails": [
+      "employee-vendor overlap",
+      "shared bank account",
+      "rapid onboarding",
+      "round-dollar payments",
+      "unusual refund"
+    ],
+    "expected_synthesis": {
+      "expected_correlated_patterns": [
+        "reconciliation_threshold_splitting"
+      ],
+      "forbidden_correlated_patterns": [
+        "vendor_entity_overlap"
+      ]
+    },
+    "scenario_id": "phase4_reconciliation_threshold_synthesis",
+    "severity": "critical",
+    "title": "Phase 4 Reconciliation Threshold Synthesis"
+  },
+  {
+    "id": "phase4_rapid_onboarding_round_dollar_synthesis",
+    "category": "vendor_management",
+    "risk_type": "multi_domain_synthesis",
+    "tags": [
+      "vendor",
+      "onboarding",
+      "payments",
+      "multi_domain",
+      "synthesis"
+    ],
+    "input_prompt": "Synthesize rapid vendor onboarding and round-dollar payment risk.",
+    "seeded_scenario_id": "phase4_rapid_onboarding_round_dollar_synthesis",
+    "page_context": {
+      "selected_period": "2026-05",
+      "source": "evaluation",
+      "fraud_scenario_id": "phase4_rapid_onboarding_round_dollar_synthesis"
+    },
+    "tool_fixture": {
+      "risk_summary": {
+        "risk_score": 79,
+        "risk_level": "high",
+        "top_drivers": [
+          {
+            "driver": "Round-dollar payments after rapid onboarding",
+            "description": "A recently onboarded vendor received several exact round-dollar payments.",
+            "severity": "high",
+            "evidence": [
+              {
+                "type": "vendor_onboarding",
+                "id": "phase4-onboard-vendor-001",
+                "vendor_id": "phase4-onboard-vendor-001"
+              },
+              {
+                "type": "transaction",
+                "id": "phase4-round-txn-001",
+                "vendor_id": "phase4-onboard-vendor-001"
+              },
+              {
+                "type": "transaction",
+                "id": "phase4-round-txn-002",
+                "vendor_id": "phase4-onboard-vendor-001"
+              }
+            ]
+          }
+        ]
+      },
+      "vendor_risk": {
+        "vendor_name": "Fresh Start Services",
+        "vendor_id": "phase4-onboard-vendor-001",
+        "vendor_risk_score": 77,
+        "risk_level": "high",
+        "triggered_rules": [
+          "rapid onboarding",
+          "new vendor paid before full validation"
+        ],
+        "supporting_evidence": [
+          {
+            "type": "vendor_onboarding",
+            "id": "phase4-onboard-vendor-001",
+            "vendor_id": "phase4-onboard-vendor-001"
+          },
+          {
+            "type": "transaction",
+            "id": "phase4-round-txn-001",
+            "vendor_id": "phase4-onboard-vendor-001"
+          }
+        ],
+        "recommended_next_action": "Validate onboarding records before payment review."
+      },
+      "aggregate_risk_summary": {
+        "overall_risk_score": 80,
+        "overall_risk_level": "high",
+        "supporting_evidence": [
+          {
+            "type": "domain_score",
+            "id": "phase4-onboard-aggregate-001",
+            "score": 80
+          }
+        ]
+      }
+    },
+    "expected_findings": [
+      "rapid onboarding",
+      "round-dollar payments"
+    ],
+    "expected_severity": "high",
+    "expected_evidence_patterns": [
+      {
+        "type": "vendor_onboarding",
+        "min_count": 1
+      },
+      {
+        "type": "transaction",
+        "min_count": 2
+      },
+      {
+        "id_contains": "phase4-round"
+      }
+    ],
+    "expected_recommended_action": "review_findings",
+    "false_positive_guardrails": [
+      "employee-vendor overlap",
+      "shared bank account",
+      "reconciliation mismatch",
+      "duplicate vendor",
+      "payroll anomaly"
+    ],
+    "expected_synthesis": {
+      "expected_correlated_patterns": [
+        "rapid_onboarding_round_dollar"
+      ],
+      "forbidden_correlated_patterns": [
+        "duplicate_vendor_shared_account"
+      ]
+    },
+    "scenario_id": "phase4_rapid_onboarding_round_dollar_synthesis",
+    "severity": "high",
+    "title": "Phase 4 Rapid Onboarding Round Dollar Synthesis"
+  },
+  {
+    "id": "phase4_duplicate_vendor_shared_account_synthesis",
+    "category": "vendor_management",
+    "risk_type": "multi_domain_synthesis",
+    "tags": [
+      "vendor",
+      "duplicate",
+      "entity_graph",
+      "payments",
+      "multi_domain",
+      "synthesis"
+    ],
+    "input_prompt": "Synthesize duplicate vendor and shared account indicators.",
+    "seeded_scenario_id": "phase4_duplicate_vendor_shared_account_synthesis",
+    "page_context": {
+      "selected_period": "2026-05",
+      "source": "evaluation",
+      "fraud_scenario_id": "phase4_duplicate_vendor_shared_account_synthesis"
+    },
+    "tool_fixture": {
+      "risk_summary": {
+        "risk_score": 87,
+        "risk_level": "high",
+        "top_drivers": [
+          {
+            "driver": "Duplicate vendor with shared bank account",
+            "description": "Duplicate vendor records route payments to the same account indicator.",
+            "severity": "high",
+            "evidence": [
+              {
+                "type": "vendor",
+                "id": "phase4-dup-vendor-001",
+                "vendor_id": "phase4-dup-vendor-001",
+                "bank_account_id": "phase4-shared-account-001"
+              },
+              {
+                "type": "vendor",
+                "id": "phase4-dup-vendor-002",
+                "vendor_id": "phase4-dup-vendor-002",
+                "bank_account_id": "phase4-shared-account-001"
+              },
+              {
+                "type": "bank_account",
+                "id": "phase4-shared-account-001",
+                "bank_account_id": "phase4-shared-account-001"
+              }
+            ]
+          }
+        ]
+      },
+      "vendor_risk": {
+        "vendor_name": "Cedar Parts Group",
+        "vendor_id": "phase4-dup-vendor-001",
+        "vendor_risk_score": 81,
+        "risk_level": "high",
+        "triggered_rules": [
+          "duplicate vendor name variation"
+        ],
+        "supporting_evidence": [
+          {
+            "type": "vendor",
+            "id": "phase4-dup-vendor-001",
+            "vendor_id": "phase4-dup-vendor-001",
+            "bank_account_id": "phase4-shared-account-001"
+          },
+          {
+            "type": "vendor",
+            "id": "phase4-dup-vendor-002",
+            "vendor_id": "phase4-dup-vendor-002",
+            "bank_account_id": "phase4-shared-account-001"
+          }
+        ],
+        "recommended_next_action": "Review duplicate vendor master records."
+      },
+      "entity_relationship_risk": {
+        "entity_relationship_risk_score": 83,
+        "risk_level": "high",
+        "triggered_rules": [
+          "shared bank account"
+        ],
+        "supporting_evidence": [
+          {
+            "type": "bank_account",
+            "id": "phase4-shared-account-001",
+            "bank_account_id": "phase4-shared-account-001"
+          },
+          {
+            "type": "vendor",
+            "id": "phase4-dup-vendor-001",
+            "vendor_id": "phase4-dup-vendor-001",
+            "bank_account_id": "phase4-shared-account-001"
+          }
+        ],
+        "related_entities": [
+          {
+            "type": "entity_relationship",
+            "id": "phase4-shared-rel-001",
+            "bank_account_id": "phase4-shared-account-001"
+          }
+        ],
+        "recommended_next_action": "Validate account ownership and vendor master changes."
+      },
+      "aggregate_risk_summary": {
+        "overall_risk_score": 85,
+        "overall_risk_level": "high",
+        "supporting_evidence": [
+          {
+            "type": "domain_score",
+            "id": "phase4-shared-aggregate-001",
+            "score": 85
+          }
+        ]
+      }
+    },
+    "expected_findings": [
+      "duplicate vendor",
+      "shared bank account"
+    ],
+    "expected_severity": "high",
+    "expected_evidence_patterns": [
+      {
+        "type": "vendor",
+        "min_count": 2
+      },
+      {
+        "type": "bank_account",
+        "min_count": 1
+      },
+      {
+        "id_contains": "phase4-shared"
+      }
+    ],
+    "expected_recommended_action": "review_findings",
+    "false_positive_guardrails": [
+      "employee-vendor overlap",
+      "reconciliation mismatch",
+      "rapid onboarding",
+      "round-dollar payments",
+      "payroll anomaly"
+    ],
+    "expected_synthesis": {
+      "expected_correlated_patterns": [
+        "duplicate_vendor_shared_account"
+      ],
+      "forbidden_correlated_patterns": [
+        "rapid_onboarding_round_dollar"
+      ]
+    },
+    "scenario_id": "phase4_duplicate_vendor_shared_account_synthesis",
+    "severity": "high",
+    "title": "Phase 4 Duplicate Vendor Shared Account Synthesis"
+  },
+  {
+    "id": "phase4_unsupported_correlation_suppression",
+    "category": "vendor_management",
+    "risk_type": "false_correlation_suppression",
+    "tags": [
+      "vendor",
+      "entity_graph",
+      "false_positive_guardrail",
+      "multi_domain",
+      "synthesis"
+    ],
+    "input_prompt": "Synthesize vendor and entity signals, but suppress unsupported correlations.",
+    "seeded_scenario_id": "phase4_unsupported_correlation_suppression",
+    "page_context": {
+      "selected_period": "2026-05",
+      "source": "evaluation",
+      "fraud_scenario_id": "phase4_unsupported_correlation_suppression"
+    },
+    "tool_fixture": {
+      "risk_summary": {
+        "risk_score": 76,
+        "risk_level": "high",
+        "top_drivers": [
+          {
+            "driver": "High vendor risk and separate employee-vendor overlap signals",
+            "description": "The deterministic services returned elevated vendor risk and employee-vendor overlap signals, but the evidence anchors are unrelated.",
+            "severity": "high",
+            "evidence": [
+              {
+                "type": "vendor",
+                "id": "phase4-unrelated-vendor-001",
+                "vendor_id": "phase4-unrelated-vendor-001"
+              },
+              {
+                "type": "employee_record",
+                "id": "phase4-unrelated-employee-002",
+                "employee_id": "phase4-unrelated-employee-002"
+              }
+            ]
+          }
+        ]
+      },
+      "vendor_risk": {
+        "vendor_name": "Northlake Installers",
+        "vendor_id": "phase4-unrelated-vendor-001",
+        "vendor_risk_score": 81,
+        "risk_level": "high",
+        "triggered_rules": [
+          "high vendor risk"
+        ],
+        "supporting_evidence": [
+          {
+            "type": "vendor",
+            "id": "phase4-unrelated-vendor-001",
+            "vendor_id": "phase4-unrelated-vendor-001"
+          }
+        ],
+        "recommended_next_action": "Review vendor risk independently."
+      },
+      "entity_relationship_risk": {
+        "entity_relationship_risk_score": 80,
+        "risk_level": "high",
+        "triggered_rules": [
+          "employee-vendor overlap"
+        ],
+        "supporting_evidence": [
+          {
+            "type": "employee_record",
+            "id": "phase4-unrelated-employee-002",
+            "employee_id": "phase4-unrelated-employee-002"
+          }
+        ],
+        "recommended_next_action": "Review entity overlap independently."
+      },
+      "aggregate_risk_summary": {
+        "overall_risk_score": 77,
+        "overall_risk_level": "high",
+        "supporting_evidence": [
+          {
+            "type": "domain_score",
+            "id": "phase4-unrelated-aggregate-001",
+            "score": 77
+          }
+        ]
+      }
+    },
+    "expected_findings": [
+      "vendor risk",
+      "employee-vendor overlap"
+    ],
+    "expected_severity": "high",
+    "expected_evidence_patterns": [
+      {
+        "type": "vendor",
+        "min_count": 1
+      },
+      {
+        "type": "employee_record",
+        "min_count": 1
+      },
+      {
+        "id_contains": "phase4-unrelated"
+      }
+    ],
+    "expected_recommended_action": "review_findings",
+    "false_positive_guardrails": [
+      "threshold splitting",
+      "shared bank account",
+      "round-dollar payments",
+      "duplicate vendor",
+      "payroll anomaly"
+    ],
+    "expected_synthesis": {
+      "forbidden_correlated_patterns": [
+        "vendor_entity_overlap"
+      ],
+      "unsupported_correlation_patterns": [
+        "vendor_entity_overlap"
+      ],
+      "expect_suppression_conflict": true,
+      "expected_conflicting_signal_types": [
+        "unsupported_correlation_suppressed"
+      ]
+    },
+    "scenario_id": "phase4_unsupported_correlation_suppression",
+    "severity": "high",
+    "title": "Phase 4 Unsupported Correlation Suppression"
+  },
+  {
+    "id": "phase4_multiple_medium_risk_elevation",
+    "category": "accounts_payable",
+    "risk_type": "multi_domain_synthesis",
+    "tags": [
+      "vendor",
+      "reconciliation",
+      "payments",
+      "multi_domain",
+      "synthesis"
+    ],
+    "input_prompt": "Synthesize multiple medium deterministic risk signals into an investigation priority.",
+    "seeded_scenario_id": "phase4_multiple_medium_risk_elevation",
+    "page_context": {
+      "selected_period": "2026-05",
+      "source": "evaluation",
+      "fraud_scenario_id": "phase4_multiple_medium_risk_elevation"
+    },
+    "tool_fixture": {
+      "risk_summary": {
+        "risk_score": 61,
+        "risk_level": "medium",
+        "top_drivers": [
+          {
+            "driver": "Multiple medium risk indicators",
+            "description": "Vendor review, reconciliation review, and payment review each returned medium deterministic concern without a stronger direct correlation.",
+            "severity": "medium",
+            "evidence": [
+              {
+                "type": "vendor",
+                "id": "phase4-medium-vendor-001",
+                "vendor_id": "phase4-medium-vendor-001"
+              },
+              {
+                "type": "transaction",
+                "id": "phase4-medium-txn-001",
+                "vendor_id": "phase4-medium-vendor-001"
+              },
+              {
+                "type": "reconciliation_discrepancy",
+                "id": "phase4-medium-recon-001"
+              }
+            ]
+          }
+        ]
+      },
+      "vendor_risk": {
+        "vendor_name": "Moderate Services LLC",
+        "vendor_id": "phase4-medium-vendor-001",
+        "vendor_risk_score": 55,
+        "risk_level": "medium",
+        "triggered_rules": [
+          "medium vendor risk"
+        ],
+        "supporting_evidence": [
+          {
+            "type": "vendor",
+            "id": "phase4-medium-vendor-001",
+            "vendor_id": "phase4-medium-vendor-001"
+          }
+        ],
+        "recommended_next_action": "Review vendor risk if other domains also remain elevated."
+      },
+      "reconciliation_risk": {
+        "reconciliation_risk_score": 54,
+        "risk_level": "medium",
+        "triggered_rules": [
+          "medium reconciliation review"
+        ],
+        "supporting_evidence": [
+          {
+            "type": "reconciliation_discrepancy",
+            "id": "phase4-medium-recon-001"
+          }
+        ],
+        "recommended_next_action": "Review reconciliation details."
+      },
+      "aggregate_risk_summary": {
+        "overall_risk_score": 63,
+        "overall_risk_level": "medium",
+        "supporting_evidence": [
+          {
+            "type": "domain_score",
+            "id": "phase4-medium-aggregate-001",
+            "score": 63
+          }
+        ]
+      }
+    },
+    "expected_findings": [
+      "multiple medium risk"
+    ],
+    "expected_severity": "medium",
+    "expected_evidence_patterns": [
+      {
+        "type": "vendor",
+        "min_count": 1
+      },
+      {
+        "type": "transaction",
+        "min_count": 1
+      },
+      {
+        "type": "reconciliation_discrepancy",
+        "min_count": 1
+      },
+      {
+        "id_contains": "phase4-medium"
+      }
+    ],
+    "expected_recommended_action": "review_findings",
+    "false_positive_guardrails": [
+      "employee-vendor overlap",
+      "shared bank account",
+      "threshold splitting",
+      "rapid onboarding",
+      "duplicate vendor"
+    ],
+    "expected_synthesis": {
+      "expected_correlated_patterns": [
+        "multiple_medium_risk_elevation"
+      ],
+      "forbidden_correlated_patterns": [
+        "vendor_entity_overlap",
+        "reconciliation_threshold_splitting",
+        "duplicate_vendor_shared_account"
+      ]
+    },
+    "scenario_id": "phase4_multiple_medium_risk_elevation",
+    "severity": "medium",
+    "title": "Phase 4 Multiple Medium Risk Elevation"
+  }
+]

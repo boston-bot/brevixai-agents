@@ -1,0 +1,162 @@
+[
+  {
+    "scenario_id": "duplicate_invoice",
+    "latency_ms": 6.26,
+    "passed": true,
+    "checks": [
+      {
+        "name": "response_contract_validation",
+        "passed": true,
+        "details": "missing=[], wrong_types=[]",
+        "score": 1.0
+      },
+      {
+        "name": "finding_correctness",
+        "passed": true,
+        "details": "matched=['duplicate invoice'], expected=['duplicate invoice']",
+        "score": 1.0
+      },
+      {
+        "name": "severity_correctness",
+        "passed": true,
+        "details": "expected=critical, actual=['critical']",
+        "score": 1.0
+      },
+      {
+        "name": "hallucination_detection",
+        "passed": true,
+        "details": "invented_evidence_ids=[], prohibited_claims=[], evidence_patterns_passed=True",
+        "score": 1.0
+      }
+    ],
+    "errors": []
+  },
+  {
+    "scenario_id": "split_payments_under_threshold",
+    "latency_ms": 4.66,
+    "passed": true,
+    "checks": [
+      {
+        "name": "response_contract_validation",
+        "passed": true,
+        "details": "missing=[], wrong_types=[]",
+        "score": 1.0
+      },
+      {
+        "name": "finding_correctness",
+        "passed": true,
+        "details": "matched=['split payments', 'threshold'], expected=['split payments', 'threshold']",
+        "score": 1.0
+      },
+      {
+        "name": "severity_correctness",
+        "passed": true,
+        "details": "expected=high, actual=['high']",
+        "score": 1.0
+      },
+      {
+        "name": "hallucination_detection",
+        "passed": true,
+        "details": "invented_evidence_ids=[], prohibited_claims=[], evidence_patterns_passed=True",
+        "score": 1.0
+      }
+    ],
+    "errors": []
+  },
+  {
+    "scenario_id": "vendor_concentration",
+    "latency_ms": 4.63,
+    "passed": true,
+    "checks": [
+      {
+        "name": "response_contract_validation",
+        "passed": true,
+        "details": "missing=[], wrong_types=[]",
+        "score": 1.0
+      },
+      {
+        "name": "finding_correctness",
+        "passed": true,
+        "details": "matched=['vendor concentration'], expected=['vendor concentration']",
+        "score": 1.0
+      },
+      {
+        "name": "severity_correctness",
+        "passed": true,
+        "details": "expected=high, actual=['high']",
+        "score": 1.0
+      },
+      {
+        "name": "hallucination_detection",
+        "passed": true,
+        "details": "invented_evidence_ids=[], prohibited_claims=[], evidence_patterns_passed=True",
+        "score": 1.0
+      }
+    ],
+    "errors": []
+  },
+  {
+    "scenario_id": "round_dollar_payments",
+    "latency_ms": 3.82,
+    "passed": true,
+    "checks": [
+      {
+        "name": "response_contract_validation",
+        "passed": true,
+        "details": "missing=[], wrong_types=[]",
+        "score": 1.0
+      },
+      {
+        "name": "finding_correctness",
+        "passed": true,
+        "details": "matched=['round-dollar payments'], expected=['round-dollar payments']",
+        "score": 1.0
+      },
+      {
+        "name": "severity_correctness",
+        "passed": true,
+        "details": "expected=medium, actual=['medium']",
+        "score": 1.0
+      },
+      {
+        "name": "hallucination_detection",
+        "passed": true,
+        "details": "invented_evidence_ids=[], prohibited_claims=[], evidence_patterns_passed=True",
+        "score": 1.0
+      }
+    ],
+    "errors": []
+  },
+  {
+    "scenario_id": "reconciliation_mismatch",
+    "latency_ms": 4.44,
+    "passed": true,
+    "checks": [
+      {
+        "name": "response_contract_validation",
+        "passed": true,
+        "details": "missing=[], wrong_types=[]",
+        "score": 1.0
+      },
+      {
+        "name": "finding_correctness",
+        "passed": true,
+        "details": "matched=['reconciliation mismatch'], expected=['reconciliation mismatch']",
+        "score": 1.0
+      },
+      {
+        "name": "severity_correctness",
+        "passed": true,
+        "details": "expected=high, actual=['high']",
+        "score": 1.0
+      },
+      {
+        "name": "hallucination_detection",
+        "passed": true,
+        "details": "invented_evidence_ids=[], prohibited_claims=[], evidence_patterns_passed=True",
+        "score": 1.0
+      }
+    ],
+    "errors": []
+  }
+]

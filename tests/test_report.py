@@ -1,0 +1,653 @@
+"""Tests for benchmark report generation and failure diagnostics."""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from evaluators.report import (
+    BenchmarkReport,
+    generate_report,
+    report_to_json,
+    report_to_markdown,
+)
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+_PASSING_CHECK = {
+    "name": "response_contract_validation",
+    "passed": True,
+    "details": "missing=[], wrong_types=[]",
+    "score": 1.0,
+}
+
+
+def _make_checks(
+    *,
+    severity_passed: bool = True,
+    evidence_score: float = 1.0,
+    fp_score: float = 1.0,
+    hallucination_passed: bool = True,
+) -> list[dict]:
+    return [
+        {"name": "response_contract_validation", "passed": True, "details": "", "score": 1.0},
+        {"name": "finding_correctness", "passed": True, "details": "", "score": 1.0},
+        {
+            "name": "severity_correctness",
+            "passed": severity_passed,
+            "details": "",
+            "score": 1.0 if severity_passed else 0.0,
+        },
+        {
+            "name": "evidence_completeness",
+            "passed": evidence_score == 1.0,
+            "details": "",
+            "score": evidence_score,
+        },
+        {
+            "name": "hallucination_detection",
+            "passed": hallucination_passed,
+            "details": "",
+            "score": 1.0 if hallucination_passed else 0.0,
+        },
+        {
+            "name": "false_positive_rate",
+            "passed": fp_score == 1.0,
+            "details": "",
+            "score": fp_score,
+        },
+    ]
+
+
+def _make_result(
+    scenario_id: str,
+    *,
+    passed: bool = True,
+    latency_ms: float = 5.0,
+    checks: list[dict] | None = None,
+) -> dict:
+    return {
+        "scenario_id": scenario_id,
+        "latency_ms": latency_ms,
+        "passed": passed,
+        "checks": checks if checks is not None else _make_checks(),
+        "errors": [],
+    }
+
+
+# ---------------------------------------------------------------------------
+# generate_report summary
+# ---------------------------------------------------------------------------
+
+def test_generate_report_counts_all_pass() -> None:
+    results = [_make_result("a"), _make_result("b"), _make_result("c")]
+    report = generate_report(results)
+
+    assert report.total_scenarios == 3
+    assert report.total_passed == 3
+    assert report.total_failed == 0
+    assert report.pass_rate == 1.0
+    assert report.failed_scenario_ids == []
+
+
+def test_generate_report_counts_partial_fail() -> None:
+    results = [
+        _make_result("pass_1"),
+        _make_result(
+            "fail_1",
+            passed=False,
+            checks=_make_checks(severity_passed=False),
+        ),
+        _make_result("pass_2"),
+    ]
+    report = generate_report(results)
+
+    assert report.total_scenarios == 3
+    assert report.total_passed == 2
+    assert report.total_failed == 1
+    assert report.pass_rate == pytest.approx(2 / 3, rel=1e-4)
+    assert report.failed_scenario_ids == ["fail_1"]
+
+
+def test_severity_accuracy_average() -> None:
+    results = [
+        _make_result("a", checks=_make_checks(severity_passed=True)),
+        _make_result("b", passed=False, checks=_make_checks(severity_passed=False)),
+    ]
+    report = generate_report(results)
+    assert report.severity_accuracy == pytest.approx(0.5)
+
+
+def test_evidence_completeness_average() -> None:
+    results = [
+        _make_result("a", checks=_make_checks(evidence_score=1.0)),
+        _make_result("b", checks=_make_checks(evidence_score=0.5)),
+    ]
+    report = generate_report(results)
+    assert report.evidence_completeness_avg == pytest.approx(0.75)
+
+
+def test_hallucination_failure_count() -> None:
+    results = [
+        _make_result("a", checks=_make_checks(hallucination_passed=False), passed=False),
+        _make_result("b", checks=_make_checks(hallucination_passed=False), passed=False),
+        _make_result("c"),
+    ]
+    report = generate_report(results)
+    assert report.hallucination_failure_count == 2
+
+
+def test_false_positive_pass_rate() -> None:
+    results = [
+        _make_result("a", checks=_make_checks(fp_score=1.0)),
+        _make_result("b", checks=_make_checks(fp_score=0.5), passed=False),
+    ]
+    report = generate_report(results)
+    assert report.false_positive_pass_rate == pytest.approx(0.75)
+
+
+def test_average_latency() -> None:
+    results = [
+        _make_result("a", latency_ms=4.0),
+        _make_result("b", latency_ms=6.0),
+    ]
+    report = generate_report(results)
+    assert report.average_latency_ms == pytest.approx(5.0)
+
+
+def test_slowest_scenarios_capped_at_five() -> None:
+    results = [_make_result(f"s{i}", latency_ms=float(i)) for i in range(10)]
+    report = generate_report(results)
+    assert len(report.slowest_scenarios) == 5
+    latencies = [s["latency_ms"] for s in report.slowest_scenarios]
+    assert latencies == sorted(latencies, reverse=True)
+
+
+def test_failed_evaluator_names_are_unique_and_sorted() -> None:
+    results = [
+        _make_result(
+            "a",
+            passed=False,
+            checks=_make_checks(severity_passed=False, hallucination_passed=False),
+        ),
+        _make_result(
+            "b",
+            passed=False,
+            checks=_make_checks(severity_passed=False),
+        ),
+    ]
+    report = generate_report(results)
+    assert report.failed_evaluator_names == sorted(report.failed_evaluator_names)
+    assert len(report.failed_evaluator_names) == len(set(report.failed_evaluator_names))
+    assert "severity_correctness" in report.failed_evaluator_names
+    assert "hallucination_detection" in report.failed_evaluator_names
+
+
+# ---------------------------------------------------------------------------
+# Empty result handling
+# ---------------------------------------------------------------------------
+
+def test_empty_results_returns_zero_report() -> None:
+    report = generate_report([])
+
+    assert report.total_scenarios == 0
+    assert report.total_passed == 0
+    assert report.total_failed == 0
+    assert report.pass_rate == 0.0
+    assert report.severity_accuracy == 0.0
+    assert report.evidence_completeness_avg == 0.0
+    assert report.false_positive_pass_rate == 0.0
+    assert report.hallucination_failure_count == 0
+    assert report.average_latency_ms == 0.0
+    assert report.failed_scenario_ids == []
+    assert report.scenario_breakdown == []
+    assert report.slowest_scenarios == []
+    assert isinstance(report.known_gaps, list)
+    assert isinstance(report.next_improvements, list)
+
+
+# ---------------------------------------------------------------------------
+# JSON report structure
+# ---------------------------------------------------------------------------
+
+def test_json_report_has_required_top_level_keys() -> None:
+    report = generate_report([_make_result("x")])
+    data = json.loads(report_to_json(report))
+
+    required_keys = {
+        "generated_at",
+        "total_scenarios",
+        "total_passed",
+        "total_failed",
+        "pass_rate",
+        "failed_scenario_ids",
+        "failed_evaluator_names",
+        "severity_accuracy",
+        "evidence_completeness_avg",
+        "false_positive_pass_rate",
+        "hallucination_failure_count",
+        "average_latency_ms",
+        "slowest_scenarios",
+        "scenario_breakdown",
+        "known_gaps",
+        "next_improvements",
+    }
+    assert required_keys <= data.keys()
+
+
+def test_json_report_scenario_breakdown_has_no_sensitive_fields() -> None:
+    report = generate_report([_make_result("x")])
+    data = json.loads(report_to_json(report))
+
+    sensitive = {"input_prompt", "tool_fixture", "page_context", "seeded_scenario_id"}
+    for scenario in data["scenario_breakdown"]:
+        assert not sensitive & scenario.keys(), (
+            f"Sensitive field found in scenario_breakdown: {sensitive & scenario.keys()}"
+        )
+
+
+def test_json_report_is_valid_json_for_empty_results() -> None:
+    report = generate_report([])
+    raw = report_to_json(report)
+    parsed = json.loads(raw)
+    assert parsed["total_scenarios"] == 0
+
+
+def test_json_report_scenario_breakdown_structure() -> None:
+    results = [
+        _make_result("pass_a"),
+        _make_result("fail_b", passed=False, checks=_make_checks(severity_passed=False)),
+    ]
+    report = generate_report(results)
+    data = json.loads(report_to_json(report))
+
+    for entry in data["scenario_breakdown"]:
+        assert "scenario_id" in entry
+        assert "passed" in entry
+        assert "latency_ms" in entry
+        assert "failed_checks" in entry
+        assert "check_scores" in entry
+
+
+# ---------------------------------------------------------------------------
+# Markdown report structure
+# ---------------------------------------------------------------------------
+
+def test_markdown_has_required_sections() -> None:
+    report = generate_report([_make_result("x")])
+    md = report_to_markdown(report)
+
+    assert "# Brevix AI Benchmark Report" in md
+    assert "## Summary" in md
+    assert "## Scenario Breakdown" in md
+    assert "## Slowest Scenarios" in md
+    assert "## Failed Checks" in md
+    assert "## Known Gaps" in md
+    assert "## Next Recommended Improvements" in md
+
+
+def test_markdown_summary_table_has_expected_rows() -> None:
+    report = generate_report([_make_result("x")])
+    md = report_to_markdown(report)
+
+    assert "Total Scenarios" in md
+    assert "Total Passed" in md
+    assert "Total Failed" in md
+    assert "Pass Rate" in md
+    assert "Severity Accuracy" in md
+    assert "Evidence Completeness" in md
+    assert "False Positive" in md
+    assert "Hallucination Failures" in md
+    assert "Average Latency" in md
+
+
+def test_markdown_all_pass_shows_no_failures_message() -> None:
+    report = generate_report([_make_result("a"), _make_result("b")])
+    md = report_to_markdown(report)
+    assert "All scenarios passed" in md
+
+
+def test_markdown_failed_checks_section_lists_failures() -> None:
+    results = [
+        _make_result(
+            "bad_scenario",
+            passed=False,
+            checks=_make_checks(severity_passed=False, hallucination_passed=False),
+        )
+    ]
+    report = generate_report(results)
+    md = report_to_markdown(report)
+
+    assert "bad_scenario" in md
+    assert "severity_correctness" in md
+    assert "hallucination_detection" in md
+
+
+def test_markdown_scenario_breakdown_table_contains_all_ids() -> None:
+    results = [_make_result(f"scenario_{i}") for i in range(4)]
+    report = generate_report(results)
+    md = report_to_markdown(report)
+
+    for i in range(4):
+        assert f"scenario_{i}" in md
+
+
+def test_markdown_has_known_gaps_content() -> None:
+    report = generate_report([_make_result("x")])
+    md = report_to_markdown(report)
+    assert "deterministic" in md.lower()
+
+
+def test_markdown_has_next_improvements_content() -> None:
+    report = generate_report([_make_result("x")])
+    md = report_to_markdown(report)
+    assert "LLM" in md
+
+
+# ---------------------------------------------------------------------------
+# Failed scenario diagnostics
+# ---------------------------------------------------------------------------
+
+def test_diagnostics_all_failed_check_names_captured() -> None:
+    checks = _make_checks(
+        severity_passed=False,
+        evidence_score=0.5,
+        fp_score=0.0,
+        hallucination_passed=False,
+    )
+    results = [_make_result("bad", passed=False, checks=checks)]
+    report = generate_report(results)
+
+    assert "severity_correctness" in report.failed_evaluator_names
+    assert "evidence_completeness" in report.failed_evaluator_names
+    assert "false_positive_rate" in report.failed_evaluator_names
+    assert "hallucination_detection" in report.failed_evaluator_names
+
+
+def test_diagnostics_check_scores_in_breakdown() -> None:
+    checks = _make_checks(evidence_score=0.75)
+    results = [_make_result("s", checks=checks)]
+    report = generate_report(results)
+    breakdown = report.scenario_breakdown[0]
+
+    assert breakdown["check_scores"]["evidence_completeness"] == pytest.approx(0.75)
+
+
+def test_diagnostics_multiple_failed_scenarios_all_listed() -> None:
+    results = [
+        _make_result(f"fail_{i}", passed=False, checks=_make_checks(severity_passed=False))
+        for i in range(3)
+    ]
+    report = generate_report(results)
+    assert sorted(report.failed_scenario_ids) == ["fail_0", "fail_1", "fail_2"]
+
+
+# ---------------------------------------------------------------------------
+# Prompt metadata in reports (Phase 2.7)
+# ---------------------------------------------------------------------------
+
+_SAMPLE_PROMPTS: list[dict] = [
+    {"prompt_name": "router", "prompt_version": "v1", "prompt_hash": "a" * 64},
+    {"prompt_name": "explanation", "prompt_version": "v1", "prompt_hash": "b" * 64},
+]
+
+
+def test_generate_report_includes_prompt_metadata() -> None:
+    report = generate_report([_make_result("x")], prompts_used=_SAMPLE_PROMPTS)
+    assert report.prompts_used == _SAMPLE_PROMPTS
+
+
+def test_generate_report_empty_results_includes_prompt_metadata() -> None:
+    report = generate_report([], prompts_used=_SAMPLE_PROMPTS)
+    assert report.prompts_used == _SAMPLE_PROMPTS
+
+
+def test_generate_report_explicit_empty_prompts_list() -> None:
+    report = generate_report([_make_result("x")], prompts_used=[])
+    assert report.prompts_used == []
+
+
+def test_json_report_includes_prompts_used_key() -> None:
+    report = generate_report([_make_result("x")], prompts_used=_SAMPLE_PROMPTS)
+    data = json.loads(report_to_json(report))
+    assert "prompts_used" in data
+    assert isinstance(data["prompts_used"], list)
+
+
+def test_json_report_prompts_used_has_required_fields() -> None:
+    report = generate_report([_make_result("x")], prompts_used=_SAMPLE_PROMPTS)
+    data = json.loads(report_to_json(report))
+    for entry in data["prompts_used"]:
+        assert "prompt_name" in entry
+        assert "prompt_version" in entry
+        assert "prompt_hash" in entry
+
+
+def test_json_report_prompts_used_values_match_input() -> None:
+    report = generate_report([_make_result("x")], prompts_used=_SAMPLE_PROMPTS)
+    data = json.loads(report_to_json(report))
+    names = {e["prompt_name"] for e in data["prompts_used"]}
+    assert "router" in names
+    assert "explanation" in names
+
+
+def test_json_report_prompts_used_empty_when_not_provided() -> None:
+    report = generate_report([_make_result("x")], prompts_used=[])
+    data = json.loads(report_to_json(report))
+    assert data["prompts_used"] == []
+
+
+def test_markdown_includes_prompt_versions_section() -> None:
+    report = generate_report([_make_result("x")], prompts_used=_SAMPLE_PROMPTS)
+    md = report_to_markdown(report)
+    assert "## Prompt Versions" in md
+
+
+def test_markdown_prompt_versions_table_has_all_names() -> None:
+    report = generate_report([_make_result("x")], prompts_used=_SAMPLE_PROMPTS)
+    md = report_to_markdown(report)
+    assert "router" in md
+    assert "explanation" in md
+
+
+def test_markdown_prompt_versions_shows_short_hash() -> None:
+    report = generate_report([_make_result("x")], prompts_used=_SAMPLE_PROMPTS)
+    md = report_to_markdown(report)
+    # Short hash is first 8 chars of the 64-char hash
+    assert "aaaaaaaa" in md
+    assert "bbbbbbbb" in md
+
+
+def test_markdown_no_prompt_versions_section_when_empty() -> None:
+    report = generate_report([_make_result("x")], prompts_used=[])
+    md = report_to_markdown(report)
+    assert "## Prompt Versions" not in md
+
+
+def test_old_report_without_prompts_used_deserialises_safely() -> None:
+    """Reports written before Phase 2.7 (no prompts_used key) must load without error."""
+    from dataclasses import asdict
+    from scripts.quality_gate import load_report_from_json
+
+    report = generate_report([_make_result("x")], prompts_used=_SAMPLE_PROMPTS)
+    data = asdict(report)
+    del data["prompts_used"]  # simulate a pre-2.7 report
+
+    import json as _json
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as f:
+        _json.dump(data, f)
+        tmp = Path(f.name)
+
+    loaded = load_report_from_json(tmp)
+    assert loaded.prompts_used == []
+    tmp.unlink()
+
+
+def test_benchmark_pass_fail_unaffected_by_prompt_metadata() -> None:
+    """Pass/fail logic must not change when prompts_used is populated."""
+    results_a = [_make_result("x")]
+    results_b = [_make_result("x")]
+
+    report_a = generate_report(results_a, prompts_used=[])
+    report_b = generate_report(results_b, prompts_used=_SAMPLE_PROMPTS)
+
+    assert report_a.pass_rate == report_b.pass_rate
+    assert report_a.total_passed == report_b.total_passed
+    assert report_a.severity_accuracy == report_b.severity_accuracy
+
+
+# ---------------------------------------------------------------------------
+# active_filters and skipped_scenario_count in reports (Phase 2.9)
+# ---------------------------------------------------------------------------
+
+def test_generate_report_active_filters_default_empty() -> None:
+    report = generate_report([_make_result("x")])
+    assert report.active_filters == {}
+
+
+def test_generate_report_active_filters_stored() -> None:
+    filters = {"category": "accounts_payable", "tags": ["vendor"]}
+    report = generate_report([_make_result("x")], active_filters=filters)
+    assert report.active_filters == filters
+
+
+def test_generate_report_skipped_scenario_count_stored() -> None:
+    report = generate_report([_make_result("x")], skipped_scenario_count=7)
+    assert report.skipped_scenario_count == 7
+
+
+def test_generate_report_skipped_default_zero() -> None:
+    report = generate_report([_make_result("x")])
+    assert report.skipped_scenario_count == 0
+
+
+def test_generate_report_empty_results_preserves_filters() -> None:
+    filters = {"severity": "high"}
+    report = generate_report([], active_filters=filters, skipped_scenario_count=10)
+    assert report.active_filters == filters
+    assert report.skipped_scenario_count == 10
+
+
+# ---------------------------------------------------------------------------
+# tags in scenario_breakdown (Phase 2.9)
+# ---------------------------------------------------------------------------
+
+def test_generate_report_breakdown_has_tags_field() -> None:
+    result = _make_result("s1")
+    tags_by_id = {"s1": ["vendor", "payments"]}
+    report = generate_report([result], tags_by_id=tags_by_id)
+    breakdown = report.scenario_breakdown[0]
+    assert "tags" in breakdown
+    assert breakdown["tags"] == ["vendor", "payments"]
+
+
+def test_generate_report_breakdown_tags_default_empty_when_not_provided() -> None:
+    report = generate_report([_make_result("s1")])
+    assert report.scenario_breakdown[0]["tags"] == []
+
+
+def test_generate_report_breakdown_unknown_id_gets_empty_tags() -> None:
+    tags_by_id = {"other_id": ["vendor"]}
+    report = generate_report([_make_result("s1")], tags_by_id=tags_by_id)
+    assert report.scenario_breakdown[0]["tags"] == []
+
+
+# ---------------------------------------------------------------------------
+# JSON report includes active_filters and skipped_scenario_count
+# ---------------------------------------------------------------------------
+
+def test_json_report_includes_active_filters() -> None:
+    filters = {"category": "payroll", "tags": ["payroll"]}
+    report = generate_report([_make_result("x")], active_filters=filters)
+    data = json.loads(report_to_json(report))
+    assert "active_filters" in data
+    assert data["active_filters"] == filters
+
+
+def test_json_report_includes_skipped_scenario_count() -> None:
+    report = generate_report([_make_result("x")], skipped_scenario_count=3)
+    data = json.loads(report_to_json(report))
+    assert "skipped_scenario_count" in data
+    assert data["skipped_scenario_count"] == 3
+
+
+def test_json_report_scenario_breakdown_includes_tags() -> None:
+    tags_by_id = {"s": ["vendor", "entity_graph"]}
+    report = generate_report([_make_result("s")], tags_by_id=tags_by_id)
+    data = json.loads(report_to_json(report))
+    breakdown = data["scenario_breakdown"][0]
+    assert breakdown["tags"] == ["vendor", "entity_graph"]
+
+
+# ---------------------------------------------------------------------------
+# Markdown report includes active filters section
+# ---------------------------------------------------------------------------
+
+def test_markdown_includes_active_filters_section_when_filters_set() -> None:
+    filters = {"category": "accounts_payable", "severity": "high"}
+    report = generate_report([_make_result("x")], active_filters=filters)
+    md = report_to_markdown(report)
+    assert "## Active Filters" in md
+    assert "accounts_payable" in md
+    assert "high" in md
+
+
+def test_markdown_omits_active_filters_section_when_no_filters() -> None:
+    report = generate_report([_make_result("x")])
+    md = report_to_markdown(report)
+    assert "## Active Filters" not in md
+
+
+def test_markdown_active_filters_shows_skipped_count() -> None:
+    filters = {"category": "payroll"}
+    report = generate_report(
+        [_make_result("x")],
+        active_filters=filters,
+        skipped_scenario_count=14,
+    )
+    md = report_to_markdown(report)
+    assert "14" in md
+    assert "skipped" in md
+
+
+def test_markdown_active_filters_tag_list_rendered_as_comma_separated() -> None:
+    filters = {"tags": ["vendor", "entity_graph"]}
+    report = generate_report([_make_result("x")], active_filters=filters)
+    md = report_to_markdown(report)
+    assert "vendor, entity_graph" in md
+
+
+def test_markdown_scenario_breakdown_includes_tags_column() -> None:
+    tags_by_id = {"s": ["vendor", "duplicate"]}
+    report = generate_report([_make_result("s")], tags_by_id=tags_by_id)
+    md = report_to_markdown(report)
+    assert "Tags" in md
+    assert "vendor, duplicate" in md
+
+
+def test_old_report_without_filter_fields_deserialises_safely() -> None:
+    """Reports written before Phase 2.9 (no active_filters / skipped_scenario_count) must load."""
+    import tempfile
+    from dataclasses import asdict
+    from scripts.quality_gate import load_report_from_json
+
+    report = generate_report([_make_result("x")], prompts_used=[])
+    data = asdict(report)
+    del data["active_filters"]
+    del data["skipped_scenario_count"]
+
+    import json as _json
+    with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as f:
+        _json.dump(data, f)
+        tmp = Path(f.name)
+
+    loaded = load_report_from_json(tmp)
+    assert loaded.active_filters == {}
+    assert loaded.skipped_scenario_count == 0
+    tmp.unlink()

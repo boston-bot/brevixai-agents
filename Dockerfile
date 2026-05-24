@@ -10,7 +10,7 @@ RUN adduser --disabled-password --gecos "" appuser
 COPY pyproject.toml README.md ./
 COPY app ./app
 
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir ".[llm]"
 
 USER appuser
 

@@ -1,0 +1,662 @@
+[
+  {
+    "scenario_id": "duplicate_invoice",
+    "latency_ms": 7.4,
+    "passed": true,
+    "checks": [
+      {
+        "name": "response_contract_validation",
+        "passed": true,
+        "details": "missing=[], wrong_types=[]",
+        "score": 1.0
+      },
+      {
+        "name": "finding_correctness",
+        "passed": true,
+        "details": "matched=['duplicate invoice'], missing=[], expected=['duplicate invoice']",
+        "score": 1.0
+      },
+      {
+        "name": "severity_correctness",
+        "passed": true,
+        "details": "expected=critical, actual=['critical']",
+        "score": 1.0
+      },
+      {
+        "name": "evidence_completeness",
+        "passed": true,
+        "details": "satisfied=2/2, unsatisfied=[]",
+        "score": 1.0
+      },
+      {
+        "name": "hallucination_detection",
+        "passed": true,
+        "details": "invented_evidence_ids=[], prohibited_claims=[]",
+        "score": 1.0
+      },
+      {
+        "name": "false_positive_rate",
+        "passed": true,
+        "details": "triggered_guardrails=[], clean=5/5",
+        "score": 1.0
+      }
+    ],
+    "errors": []
+  },
+  {
+    "scenario_id": "split_payments_under_threshold",
+    "latency_ms": 4.47,
+    "passed": true,
+    "checks": [
+      {
+        "name": "response_contract_validation",
+        "passed": true,
+        "details": "missing=[], wrong_types=[]",
+        "score": 1.0
+      },
+      {
+        "name": "finding_correctness",
+        "passed": true,
+        "details": "matched=['split payments', 'threshold'], missing=[], expected=['split payments', 'threshold']",
+        "score": 1.0
+      },
+      {
+        "name": "severity_correctness",
+        "passed": true,
+        "details": "expected=high, actual=['high']",
+        "score": 1.0
+      },
+      {
+        "name": "evidence_completeness",
+        "passed": true,
+        "details": "satisfied=2/2, unsatisfied=[]",
+        "score": 1.0
+      },
+      {
+        "name": "hallucination_detection",
+        "passed": true,
+        "details": "invented_evidence_ids=[], prohibited_claims=[]",
+        "score": 1.0
+      },
+      {
+        "name": "false_positive_rate",
+        "passed": true,
+        "details": "triggered_guardrails=[], clean=5/5",
+        "score": 1.0
+      }
+    ],
+    "errors": []
+  },
+  {
+    "scenario_id": "vendor_concentration",
+    "latency_ms": 5.54,
+    "passed": true,
+    "checks": [
+      {
+        "name": "response_contract_validation",
+        "passed": true,
+        "details": "missing=[], wrong_types=[]",
+        "score": 1.0
+      },
+      {
+        "name": "finding_correctness",
+        "passed": true,
+        "details": "matched=['vendor concentration'], missing=[], expected=['vendor concentration']",
+        "score": 1.0
+      },
+      {
+        "name": "severity_correctness",
+        "passed": true,
+        "details": "expected=high, actual=['high']",
+        "score": 1.0
+      },
+      {
+        "name": "evidence_completeness",
+        "passed": true,
+        "details": "satisfied=2/2, unsatisfied=[]",
+        "score": 1.0
+      },
+      {
+        "name": "hallucination_detection",
+        "passed": true,
+        "details": "invented_evidence_ids=[], prohibited_claims=[]",
+        "score": 1.0
+      },
+      {
+        "name": "false_positive_rate",
+        "passed": true,
+        "details": "triggered_guardrails=[], clean=5/5",
+        "score": 1.0
+      }
+    ],
+    "errors": []
+  },
+  {
+    "scenario_id": "round_dollar_payments",
+    "latency_ms": 5.21,
+    "passed": true,
+    "checks": [
+      {
+        "name": "response_contract_validation",
+        "passed": true,
+        "details": "missing=[], wrong_types=[]",
+        "score": 1.0
+      },
+      {
+        "name": "finding_correctness",
+        "passed": true,
+        "details": "matched=['round-dollar payments'], missing=[], expected=['round-dollar payments']",
+        "score": 1.0
+      },
+      {
+        "name": "severity_correctness",
+        "passed": true,
+        "details": "expected=medium, actual=['medium']",
+        "score": 1.0
+      },
+      {
+        "name": "evidence_completeness",
+        "passed": true,
+        "details": "satisfied=2/2, unsatisfied=[]",
+        "score": 1.0
+      },
+      {
+        "name": "hallucination_detection",
+        "passed": true,
+        "details": "invented_evidence_ids=[], prohibited_claims=[]",
+        "score": 1.0
+      },
+      {
+        "name": "false_positive_rate",
+        "passed": true,
+        "details": "triggered_guardrails=[], clean=5/5",
+        "score": 1.0
+      }
+    ],
+    "errors": []
+  },
+  {
+    "scenario_id": "reconciliation_mismatch",
+    "latency_ms": 4.8,
+    "passed": true,
+    "checks": [
+      {
+        "name": "response_contract_validation",
+        "passed": true,
+        "details": "missing=[], wrong_types=[]",
+        "score": 1.0
+      },
+      {
+        "name": "finding_correctness",
+        "passed": true,
+        "details": "matched=['reconciliation mismatch'], missing=[], expected=['reconciliation mismatch']",
+        "score": 1.0
+      },
+      {
+        "name": "severity_correctness",
+        "passed": true,
+        "details": "expected=high, actual=['high']",
+        "score": 1.0
+      },
+      {
+        "name": "evidence_completeness",
+        "passed": true,
+        "details": "satisfied=2/2, unsatisfied=[]",
+        "score": 1.0
+      },
+      {
+        "name": "hallucination_detection",
+        "passed": true,
+        "details": "invented_evidence_ids=[], prohibited_claims=[]",
+        "score": 1.0
+      },
+      {
+        "name": "false_positive_rate",
+        "passed": true,
+        "details": "triggered_guardrails=[], clean=5/5",
+        "score": 1.0
+      }
+    ],
+    "errors": []
+  },
+  {
+    "scenario_id": "ghost_vendor",
+    "latency_ms": 4.51,
+    "passed": true,
+    "checks": [
+      {
+        "name": "response_contract_validation",
+        "passed": true,
+        "details": "missing=[], wrong_types=[]",
+        "score": 1.0
+      },
+      {
+        "name": "finding_correctness",
+        "passed": true,
+        "details": "matched=['ghost vendor'], missing=[], expected=['ghost vendor']",
+        "score": 1.0
+      },
+      {
+        "name": "severity_correctness",
+        "passed": true,
+        "details": "expected=high, actual=['high']",
+        "score": 1.0
+      },
+      {
+        "name": "evidence_completeness",
+        "passed": true,
+        "details": "satisfied=3/3, unsatisfied=[]",
+        "score": 1.0
+      },
+      {
+        "name": "hallucination_detection",
+        "passed": true,
+        "details": "invented_evidence_ids=[], prohibited_claims=[]",
+        "score": 1.0
+      },
+      {
+        "name": "false_positive_rate",
+        "passed": true,
+        "details": "triggered_guardrails=[], clean=7/7",
+        "score": 1.0
+      }
+    ],
+    "errors": []
+  },
+  {
+    "scenario_id": "employee_vendor_overlap",
+    "latency_ms": 4.01,
+    "passed": true,
+    "checks": [
+      {
+        "name": "response_contract_validation",
+        "passed": true,
+        "details": "missing=[], wrong_types=[]",
+        "score": 1.0
+      },
+      {
+        "name": "finding_correctness",
+        "passed": true,
+        "details": "matched=['employee-vendor overlap'], missing=[], expected=['employee-vendor overlap']",
+        "score": 1.0
+      },
+      {
+        "name": "severity_correctness",
+        "passed": true,
+        "details": "expected=critical, actual=['critical']",
+        "score": 1.0
+      },
+      {
+        "name": "evidence_completeness",
+        "passed": true,
+        "details": "satisfied=4/4, unsatisfied=[]",
+        "score": 1.0
+      },
+      {
+        "name": "hallucination_detection",
+        "passed": true,
+        "details": "invented_evidence_ids=[], prohibited_claims=[]",
+        "score": 1.0
+      },
+      {
+        "name": "false_positive_rate",
+        "passed": true,
+        "details": "triggered_guardrails=[], clean=6/6",
+        "score": 1.0
+      }
+    ],
+    "errors": []
+  },
+  {
+    "scenario_id": "shared_bank_account_multiple_vendors",
+    "latency_ms": 3.92,
+    "passed": true,
+    "checks": [
+      {
+        "name": "response_contract_validation",
+        "passed": true,
+        "details": "missing=[], wrong_types=[]",
+        "score": 1.0
+      },
+      {
+        "name": "finding_correctness",
+        "passed": true,
+        "details": "matched=['shared bank account', 'multiple vendors'], missing=[], expected=['shared bank account', 'multiple vendors']",
+        "score": 1.0
+      },
+      {
+        "name": "severity_correctness",
+        "passed": true,
+        "details": "expected=high, actual=['high']",
+        "score": 1.0
+      },
+      {
+        "name": "evidence_completeness",
+        "passed": true,
+        "details": "satisfied=4/4, unsatisfied=[]",
+        "score": 1.0
+      },
+      {
+        "name": "hallucination_detection",
+        "passed": true,
+        "details": "invented_evidence_ids=[], prohibited_claims=[]",
+        "score": 1.0
+      },
+      {
+        "name": "false_positive_rate",
+        "passed": true,
+        "details": "triggered_guardrails=[], clean=6/6",
+        "score": 1.0
+      }
+    ],
+    "errors": []
+  },
+  {
+    "scenario_id": "vendor_paid_before_onboarding",
+    "latency_ms": 4.52,
+    "passed": true,
+    "checks": [
+      {
+        "name": "response_contract_validation",
+        "passed": true,
+        "details": "missing=[], wrong_types=[]",
+        "score": 1.0
+      },
+      {
+        "name": "finding_correctness",
+        "passed": true,
+        "details": "matched=['before onboarding'], missing=[], expected=['before onboarding']",
+        "score": 1.0
+      },
+      {
+        "name": "severity_correctness",
+        "passed": true,
+        "details": "expected=high, actual=['high']",
+        "score": 1.0
+      },
+      {
+        "name": "evidence_completeness",
+        "passed": true,
+        "details": "satisfied=3/3, unsatisfied=[]",
+        "score": 1.0
+      },
+      {
+        "name": "hallucination_detection",
+        "passed": true,
+        "details": "invented_evidence_ids=[], prohibited_claims=[]",
+        "score": 1.0
+      },
+      {
+        "name": "false_positive_rate",
+        "passed": true,
+        "details": "triggered_guardrails=[], clean=7/7",
+        "score": 1.0
+      }
+    ],
+    "errors": []
+  },
+  {
+    "scenario_id": "duplicate_vendor_name_variation",
+    "latency_ms": 4.48,
+    "passed": true,
+    "checks": [
+      {
+        "name": "response_contract_validation",
+        "passed": true,
+        "details": "missing=[], wrong_types=[]",
+        "score": 1.0
+      },
+      {
+        "name": "finding_correctness",
+        "passed": true,
+        "details": "matched=['duplicate vendor', 'name variation'], missing=[], expected=['duplicate vendor', 'name variation']",
+        "score": 1.0
+      },
+      {
+        "name": "severity_correctness",
+        "passed": true,
+        "details": "expected=high, actual=['high']",
+        "score": 1.0
+      },
+      {
+        "name": "evidence_completeness",
+        "passed": true,
+        "details": "satisfied=3/3, unsatisfied=[]",
+        "score": 1.0
+      },
+      {
+        "name": "hallucination_detection",
+        "passed": true,
+        "details": "invented_evidence_ids=[], prohibited_claims=[]",
+        "score": 1.0
+      },
+      {
+        "name": "false_positive_rate",
+        "passed": true,
+        "details": "triggered_guardrails=[], clean=7/7",
+        "score": 1.0
+      }
+    ],
+    "errors": []
+  },
+  {
+    "scenario_id": "unusual_refund_activity",
+    "latency_ms": 3.99,
+    "passed": true,
+    "checks": [
+      {
+        "name": "response_contract_validation",
+        "passed": true,
+        "details": "missing=[], wrong_types=[]",
+        "score": 1.0
+      },
+      {
+        "name": "finding_correctness",
+        "passed": true,
+        "details": "matched=['unusual refund'], missing=[], expected=['unusual refund']",
+        "score": 1.0
+      },
+      {
+        "name": "severity_correctness",
+        "passed": true,
+        "details": "expected=high, actual=['high']",
+        "score": 1.0
+      },
+      {
+        "name": "evidence_completeness",
+        "passed": true,
+        "details": "satisfied=3/3, unsatisfied=[]",
+        "score": 1.0
+      },
+      {
+        "name": "hallucination_detection",
+        "passed": true,
+        "details": "invented_evidence_ids=[], prohibited_claims=[]",
+        "score": 1.0
+      },
+      {
+        "name": "false_positive_rate",
+        "passed": true,
+        "details": "triggered_guardrails=[], clean=7/7",
+        "score": 1.0
+      }
+    ],
+    "errors": []
+  },
+  {
+    "scenario_id": "payroll_anomaly",
+    "latency_ms": 5.15,
+    "passed": true,
+    "checks": [
+      {
+        "name": "response_contract_validation",
+        "passed": true,
+        "details": "missing=[], wrong_types=[]",
+        "score": 1.0
+      },
+      {
+        "name": "finding_correctness",
+        "passed": true,
+        "details": "matched=['payroll anomaly'], missing=[], expected=['payroll anomaly']",
+        "score": 1.0
+      },
+      {
+        "name": "severity_correctness",
+        "passed": true,
+        "details": "expected=high, actual=['high']",
+        "score": 1.0
+      },
+      {
+        "name": "evidence_completeness",
+        "passed": true,
+        "details": "satisfied=3/3, unsatisfied=[]",
+        "score": 1.0
+      },
+      {
+        "name": "hallucination_detection",
+        "passed": true,
+        "details": "invented_evidence_ids=[], prohibited_claims=[]",
+        "score": 1.0
+      },
+      {
+        "name": "false_positive_rate",
+        "passed": true,
+        "details": "triggered_guardrails=[], clean=7/7",
+        "score": 1.0
+      }
+    ],
+    "errors": []
+  },
+  {
+    "scenario_id": "weekend_after_hours_payment",
+    "latency_ms": 4.34,
+    "passed": true,
+    "checks": [
+      {
+        "name": "response_contract_validation",
+        "passed": true,
+        "details": "missing=[], wrong_types=[]",
+        "score": 1.0
+      },
+      {
+        "name": "finding_correctness",
+        "passed": true,
+        "details": "matched=['weekend', 'after-hours payment'], missing=[], expected=['weekend', 'after-hours payment']",
+        "score": 1.0
+      },
+      {
+        "name": "severity_correctness",
+        "passed": true,
+        "details": "expected=medium, actual=['medium']",
+        "score": 1.0
+      },
+      {
+        "name": "evidence_completeness",
+        "passed": true,
+        "details": "satisfied=2/2, unsatisfied=[]",
+        "score": 1.0
+      },
+      {
+        "name": "hallucination_detection",
+        "passed": true,
+        "details": "invented_evidence_ids=[], prohibited_claims=[]",
+        "score": 1.0
+      },
+      {
+        "name": "false_positive_rate",
+        "passed": true,
+        "details": "triggered_guardrails=[], clean=7/7",
+        "score": 1.0
+      }
+    ],
+    "errors": []
+  },
+  {
+    "scenario_id": "approval_threshold_splitting",
+    "latency_ms": 4.77,
+    "passed": true,
+    "checks": [
+      {
+        "name": "response_contract_validation",
+        "passed": true,
+        "details": "missing=[], wrong_types=[]",
+        "score": 1.0
+      },
+      {
+        "name": "finding_correctness",
+        "passed": true,
+        "details": "matched=['approval', 'threshold splitting'], missing=[], expected=['approval', 'threshold splitting']",
+        "score": 1.0
+      },
+      {
+        "name": "severity_correctness",
+        "passed": true,
+        "details": "expected=critical, actual=['critical']",
+        "score": 1.0
+      },
+      {
+        "name": "evidence_completeness",
+        "passed": true,
+        "details": "satisfied=2/2, unsatisfied=[]",
+        "score": 1.0
+      },
+      {
+        "name": "hallucination_detection",
+        "passed": true,
+        "details": "invented_evidence_ids=[], prohibited_claims=[]",
+        "score": 1.0
+      },
+      {
+        "name": "false_positive_rate",
+        "passed": true,
+        "details": "triggered_guardrails=[], clean=7/7",
+        "score": 1.0
+      }
+    ],
+    "errors": []
+  },
+  {
+    "scenario_id": "high_risk_vendor_concentration_over_time",
+    "latency_ms": 4.54,
+    "passed": true,
+    "checks": [
+      {
+        "name": "response_contract_validation",
+        "passed": true,
+        "details": "missing=[], wrong_types=[]",
+        "score": 1.0
+      },
+      {
+        "name": "finding_correctness",
+        "passed": true,
+        "details": "matched=['vendor concentration', 'over time'], missing=[], expected=['vendor concentration', 'over time']",
+        "score": 1.0
+      },
+      {
+        "name": "severity_correctness",
+        "passed": true,
+        "details": "expected=high, actual=['high']",
+        "score": 1.0
+      },
+      {
+        "name": "evidence_completeness",
+        "passed": true,
+        "details": "satisfied=4/4, unsatisfied=[]",
+        "score": 1.0
+      },
+      {
+        "name": "hallucination_detection",
+        "passed": true,
+        "details": "invented_evidence_ids=[], prohibited_claims=[]",
+        "score": 1.0
+      },
+      {
+        "name": "false_positive_rate",
+        "passed": true,
+        "details": "triggered_guardrails=[], clean=7/7",
+        "score": 1.0
+      }
+    ],
+    "errors": []
+  }
+]
