@@ -1,0 +1,119 @@
+name: Deploy Agent Service
+
+on:
+  workflow_run:
+    workflows:
+      - Benchmark Quality Gate
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag, or commit SHA to deploy. Defaults to the workflow run SHA."
+        required: false
+        type: string
+
+concurrency:
+  group: agent-ec2-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'pull_request' &&
+        github.event.workflow_run.head_repository.full_name == github.repository
+      )
+    env:
+      DEPLOY_HOST: ${{ secrets.AGENT_EC2_HOST }}
+      DEPLOY_USER: ${{ secrets.AGENT_EC2_USER || 'ec2-user' }}
+      DEPLOY_PATH: ${{ secrets.AGENT_DEPLOY_PATH || '/home/ec2-user/brevixai-agents' }}
+      DEPLOY_REF: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.ref || github.sha }}
+      SSH_KEY: ${{ secrets.AGENT_EC2_SSH_KEY }}
+
+    steps:
+      - name: Validate deploy configuration
+        run: |
+          set -euo pipefail
+
+          missing=0
+          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_PATH DEPLOY_REF SSH_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name is required"
+              missing=1
+            fi
+          done
+
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Configure SSH
+        run: |
+          set -euo pipefail
+
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/agent-ec2
+          chmod 600 ~/.ssh/agent-ec2
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy selected git ref
+        run: |
+          set -euo pipefail
+
+          ssh -i ~/.ssh/agent-ec2 \
+            -o IdentitiesOnly=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "DEPLOY_PATH='$DEPLOY_PATH' DEPLOY_REF='$DEPLOY_REF' bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+
+          cd "$DEPLOY_PATH"
+
+          if ! git diff --quiet || ! git diff --cached --quiet; then
+            echo "Tracked local changes are present on the EC2 checkout. Refusing to deploy."
+            git status --short
+            exit 1
+          fi
+
+          git fetch --prune origin '+refs/heads/*:refs/remotes/origin/*'
+
+          if git rev-parse --verify --quiet "${DEPLOY_REF}^{commit}" >/dev/null; then
+            git checkout --detach "$DEPLOY_REF"
+          else
+            git checkout --detach "origin/${DEPLOY_REF}"
+          fi
+
+          docker compose up -d --build --force-recreate
+          docker compose ps
+
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8010/health; then
+              echo
+              echo "Agent service is healthy."
+              exit 0
+            fi
+            echo "Waiting for agent service health check ($attempt/30)..."
+            sleep 2
+          done
+
+          docker compose ps
+          docker compose logs --tail=200 agent-service
+          exit 1
+          REMOTE
+
+      - name: Write deployment summary
+        if: always()
+        run: |
+          {
+            echo "## Agent EC2 Deployment"
+            echo
+            echo "- Host: \`$DEPLOY_HOST\`"
+            echo "- User: \`$DEPLOY_USER\`"
+            echo "- Path: \`$DEPLOY_PATH\`"
+            echo "- Ref: \`$DEPLOY_REF\`"
+            echo "- Trigger: \`${{ github.event_name }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
