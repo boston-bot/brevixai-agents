@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.providers.base import ModelProvider, ProviderConfigError, ProviderResponse
+from app.providers.base import ModelProvider, ProviderConfigError, ProviderResponse, ProviderRuntimeError
 from app.providers.deterministic import DeterministicProvider
 
 __all__ = [
@@ -8,6 +8,7 @@ __all__ = [
     "ModelProvider",
     "ProviderConfigError",
     "ProviderResponse",
+    "ProviderRuntimeError",
     "get_provider",
 ]
 

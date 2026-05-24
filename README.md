@@ -39,6 +39,8 @@ BREVIX_LARAVEL_BASE_URL=http://localhost:8000
 BREVIX_LARAVEL_AGENT_TOOL_KEY=local-dev-key
 ```
 
+In production, startup fails if the inbound service token (`BREVIX_AGENT_SERVICE_KEY` or `ORCHESTRATOR_API_TOKEN`) or `BREVIX_LARAVEL_AGENT_TOOL_KEY` is missing.
+
 ## API
 
 ```http
@@ -57,6 +59,14 @@ Authorization: Bearer local-dev-key
   }
 }
 ```
+
+Rex-facing compatibility notes:
+
+- `message` is the canonical user text field.
+- Legacy `content` and ChatGPT-style `messages` payloads are accepted when `message` is absent.
+- Responses API-style string `input` is accepted when `message` and `content` are absent.
+- Numeric Laravel IDs are coerced to strings; boolean IDs are rejected.
+- `page_context: null` and `page_context: []` are normalized to `{}` for Laravel compatibility.
 
 ## Graph
 
@@ -102,7 +112,9 @@ app/prompts/
 ├── fraud_analyzer_summary.v1.md
 ├── investigation_synthesis.v1.md
 ├── explanation.v1.md
-└── action_gate.v1.md
+├── explanation.v2.md
+├── action_gate.v1.md
+└── action_gate.v2.md
 ```
 
 The loader lives at [`app/prompts/loader.py`](app/prompts/loader.py).
@@ -156,12 +168,12 @@ Each benchmark result in `reports/latest_benchmark_report.json` carries the `pro
   },
   {
     "prompt_name": "explanation",
-    "prompt_version": "v1",
+    "prompt_version": "v2",
     "prompt_hash": "c5d1e2b9..."
   },
   {
     "prompt_name": "action_gate",
-    "prompt_version": "v1",
+    "prompt_version": "v2",
     "prompt_hash": "f7a3c8d2..."
   }
 ]
@@ -176,8 +188,9 @@ Each benchmark result in `reports/latest_benchmark_report.json` carries the `pro
 |------------------------|---------|--------------|
 | router                 | v1      | `3a9f2c1d`   |
 | fraud_analyzer_summary | v1      | `8b4e7f0a`   |
-| explanation            | v1      | `c5d1e2b9`   |
-| action_gate            | v1      | `f7a3c8d2`   |
+| investigation_synthesis | v1      | `9d6c4b1a`   |
+| explanation            | v2      | `c5d1e2b9`   |
+| action_gate            | v2      | `f7a3c8d2`   |
 ```
 
 **Quality gate output** prints prompt versions before the metric checks:
@@ -192,8 +205,9 @@ Brevix AI Quality Gate
   Prompt Versions:
     router                       v1   3a9f2c1d
     fraud_analyzer_summary       v1   8b4e7f0a
-    explanation                  v1   c5d1e2b9
-    action_gate                  v1   f7a3c8d2
+    investigation_synthesis      v1   9d6c4b1a
+    explanation                  v2   c5d1e2b9
+    action_gate                  v2   f7a3c8d2
 
   PASS  pass_rate                    1.000      >= 0.95
   ...
@@ -345,6 +359,8 @@ Install the optional dependency first:
 ```bash
 pip install -e ".[llm]"
 ```
+
+The Docker image installs the `llm` extra so OpenAI mode is available in deployed containers. OpenAI runtime failures return a safe, non-actioning response and are surfaced in the `errors` array; the service does not silently switch providers.
 
 If `OPENAI_API_KEY` is missing or empty when `model_provider=openai`, the service will refuse to start with a clear configuration error. It will never silently fall back to deterministic mode in production.
 

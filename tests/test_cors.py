@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from app.main import _cors_origins
+from app.main import _cors_origins, _validate_startup_config
 
 
 def _settings(**env_overrides: str):
@@ -79,3 +79,38 @@ def test_cors_error_message_names_the_variable() -> None:
     settings = _settings(APP_ENV="production", ORCHESTRATOR_ALLOWED_ORIGINS="")
     with pytest.raises(RuntimeError, match="ORCHESTRATOR_ALLOWED_ORIGINS"):
         _cors_origins(settings)
+
+
+def test_production_startup_requires_agent_service_key() -> None:
+    settings = _settings(
+        APP_ENV="production",
+        BREVIX_AGENT_SERVICE_KEY="",
+        ORCHESTRATOR_API_TOKEN="",
+        BREVIX_LARAVEL_AGENT_TOOL_KEY="tool-key",
+    )
+
+    with pytest.raises(RuntimeError, match="BREVIX_AGENT_SERVICE_KEY"):
+        _validate_startup_config(settings)
+
+
+def test_production_startup_accepts_orchestrator_api_token_alias() -> None:
+    settings = _settings(
+        APP_ENV="production",
+        BREVIX_AGENT_SERVICE_KEY="",
+        ORCHESTRATOR_API_TOKEN="token-from-orchestrator",
+        BREVIX_LARAVEL_AGENT_TOOL_KEY="tool-key",
+    )
+
+    assert settings.agent_service_key == "token-from-orchestrator"
+    _validate_startup_config(settings)
+
+
+def test_production_startup_requires_laravel_tool_key() -> None:
+    settings = _settings(
+        APP_ENV="production",
+        BREVIX_AGENT_SERVICE_KEY="agent-key",
+        BREVIX_LARAVEL_AGENT_TOOL_KEY="",
+    )
+
+    with pytest.raises(RuntimeError, match="BREVIX_LARAVEL_AGENT_TOOL_KEY"):
+        _validate_startup_config(settings)

@@ -9,6 +9,10 @@ class ProviderConfigError(Exception):
     """Raised when a provider cannot be initialized due to missing or invalid config."""
 
 
+class ProviderRuntimeError(RuntimeError):
+    """Raised when a configured provider cannot complete a generation request."""
+
+
 @dataclass
 class ProviderResponse:
     text: str

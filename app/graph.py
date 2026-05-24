@@ -13,7 +13,7 @@ from app.investigation_synthesis import synthesize_investigation
 from app.models import AgentFinding, BrevixAgentState, RecommendedAction
 from app.observability import instrument_node
 from app.prompts import load_prompt
-from app.providers import ModelProvider, get_provider
+from app.providers import ModelProvider, ProviderConfigError, ProviderRuntimeError, get_provider
 from app.tools.laravel import LaravelToolClient, LaravelToolError
 
 logger = logging.getLogger("brevix.agent.graph")
@@ -47,8 +47,8 @@ def build_graph(
     _router_prompt = load_prompt("router", "v1")
     _fraud_analyzer_prompt = load_prompt("fraud_analyzer_summary", "v1")
     _investigation_synthesis_prompt = load_prompt("investigation_synthesis", "v1")
-    _explanation_prompt = load_prompt("explanation", "v1")
-    _action_gate_prompt = load_prompt("action_gate", "v1")
+    _explanation_prompt = load_prompt("explanation", "v2")
+    _action_gate_prompt = load_prompt("action_gate", "v2")
 
     async def router_node(state: BrevixAgentState) -> dict[str, Any]:
         message = state["user_message"].lower()
@@ -505,7 +505,31 @@ def build_graph(
             "risk_level": str(context.get("risk_level", "low")),
             "findings_text": findings_text,
         })
-        provider_response = await resolved_provider.generate(prompt, context)
+        try:
+            provider_response = await resolved_provider.generate(prompt, context)
+        except (ProviderConfigError, ProviderRuntimeError) as exc:
+            fallback = "I could not complete the risk review right now. No alerts or cases were created."
+            return {
+                "errors": [*state.get("errors", []), str(exc)],
+                "final_response": fallback,
+                "steps": [
+                    step(
+                        "explanation",
+                        status="failed",
+                        output_payload={
+                            "message": fallback,
+                            "finding_count": len(state.get("findings", [])),
+                            "provider_name": resolved_provider.provider_name,
+                            "model_name": resolved_provider.model_name,
+                            "provider_latency_ms": 0.0,
+                            "tokens_input": 0,
+                            "tokens_output": 0,
+                            **_explanation_prompt.metadata,
+                        },
+                        error_message=str(exc),
+                    )
+                ],
+            }
 
         return {
             "final_response": provider_response.text,

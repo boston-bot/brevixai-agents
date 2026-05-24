@@ -1,10 +1,13 @@
 """Tests for model provider abstraction."""
 from __future__ import annotations
 
+import sys
+import types
+
 import pytest
 
 from app.config import Settings
-from app.providers import DeterministicProvider, ProviderConfigError, ProviderResponse, get_provider
+from app.providers import DeterministicProvider, ProviderConfigError, ProviderResponse, ProviderRuntimeError, get_provider
 from app.providers.openai_compat import OpenAIProvider
 
 
@@ -241,6 +244,73 @@ def test_get_provider_openai_without_key_raises() -> None:
     settings = Settings(BREVIX_AGENT_MODEL_PROVIDER="openai", OPENAI_API_KEY="")
     with pytest.raises(ProviderConfigError, match="OPENAI_API_KEY"):
         get_provider(settings)
+
+
+@pytest.mark.asyncio
+async def test_openai_provider_sends_system_and_user_messages(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[dict] = []
+
+    class FakeCompletions:
+        async def create(self, **kwargs):
+            calls.append(kwargs)
+            return types.SimpleNamespace(
+                choices=[
+                    types.SimpleNamespace(
+                        message=types.SimpleNamespace(content="Possible risk worth reviewing. No alerts or cases were created.")
+                    )
+                ],
+                usage=types.SimpleNamespace(prompt_tokens=10, completion_tokens=8),
+            )
+
+    class FakeClient:
+        def __init__(self, api_key: str, timeout: float) -> None:
+            self.chat = types.SimpleNamespace(completions=FakeCompletions())
+
+    monkeypatch.setitem(sys.modules, "openai", types.SimpleNamespace(AsyncOpenAI=FakeClient))
+
+    response = await OpenAIProvider(api_key="sk-test-key", model_name="gpt-4o").generate("Explain findings", {})
+
+    assert response.text.endswith("No alerts or cases were created.")
+    assert response.tokens_input == 10
+    assert response.tokens_output == 8
+    assert calls[0]["messages"][0]["role"] == "system"
+    assert "approved Brevix tools" in calls[0]["messages"][0]["content"]
+    assert calls[0]["messages"][1] == {"role": "user", "content": "Explain findings"}
+
+
+@pytest.mark.asyncio
+async def test_openai_provider_wraps_api_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeCompletions:
+        async def create(self, **kwargs):
+            raise RuntimeError("raw provider details")
+
+    class FakeClient:
+        def __init__(self, api_key: str, timeout: float) -> None:
+            self.chat = types.SimpleNamespace(completions=FakeCompletions())
+
+    monkeypatch.setitem(sys.modules, "openai", types.SimpleNamespace(AsyncOpenAI=FakeClient))
+
+    with pytest.raises(ProviderRuntimeError, match="OpenAI provider request failed"):
+        await OpenAIProvider(api_key="sk-test-key", model_name="gpt-4o").generate("Explain findings", {})
+
+
+@pytest.mark.asyncio
+async def test_openai_provider_rejects_empty_messages(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeCompletions:
+        async def create(self, **kwargs):
+            return types.SimpleNamespace(
+                choices=[types.SimpleNamespace(message=types.SimpleNamespace(content="  "))],
+                usage=None,
+            )
+
+    class FakeClient:
+        def __init__(self, api_key: str, timeout: float) -> None:
+            self.chat = types.SimpleNamespace(completions=FakeCompletions())
+
+    monkeypatch.setitem(sys.modules, "openai", types.SimpleNamespace(AsyncOpenAI=FakeClient))
+
+    with pytest.raises(ProviderRuntimeError, match="empty message"):
+        await OpenAIProvider(api_key="sk-test-key", model_name="gpt-4o").generate("Explain findings", {})
 
 
 # ---------------------------------------------------------------------------

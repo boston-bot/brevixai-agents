@@ -6,6 +6,46 @@ from typing import Annotated, Any, Literal, TypedDict
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 
+def _extract_message_text(value: Any) -> str | None:
+    if isinstance(value, str):
+        return value
+
+    if isinstance(value, list):
+        parts: list[str] = []
+        for item in value:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict):
+                text = item.get("text")
+                if isinstance(text, str) and item.get("type") in {None, "text", "input_text", "output_text"}:
+                    parts.append(text)
+        text = "\n".join(part.strip() for part in parts if part.strip())
+        return text or None
+
+    return None
+
+
+def _extract_message_from_messages(messages: Any) -> str | None:
+    if not isinstance(messages, list):
+        return None
+
+    fallback: str | None = None
+    user_message: str | None = None
+    for message in messages:
+        if not isinstance(message, dict):
+            continue
+
+        text = _extract_message_text(message.get("content"))
+        if not text:
+            continue
+
+        fallback = text
+        if message.get("role") == "user":
+            user_message = text
+
+    return user_message or fallback
+
+
 class AgentFinding(BaseModel):
     title: str
     severity: Literal["info", "low", "medium", "high", "critical"] = "info"
@@ -43,9 +83,27 @@ class AgentRunRequest(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def accept_legacy_content_message(cls, value: Any) -> Any:
-        if isinstance(value, dict) and "message" not in value and "content" in value:
-            return {**value, "message": value["content"]}
+        if not isinstance(value, dict) or "message" in value:
+            return value
+
+        for key in ("content", "input"):
+            extracted = _extract_message_text(value.get(key)) or _extract_message_from_messages(value.get(key))
+            if extracted is not None:
+                return {**value, "message": extracted}
+
+        extracted = _extract_message_from_messages(value.get("messages"))
+        if extracted is not None:
+            return {**value, "message": extracted}
+
         return value
+
+    @field_validator("message", mode="after")
+    @classmethod
+    def strip_and_require_message_text(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("message must contain non-whitespace text")
+        return stripped
 
     @field_validator("agent_run_id", "company_id", "user_id", "conversation_id", mode="before")
     @classmethod

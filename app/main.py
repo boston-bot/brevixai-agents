@@ -36,8 +36,27 @@ def _cors_origins(settings: Settings) -> list[str]:
     return ["*"]
 
 
+def _validate_startup_config(settings: Settings) -> None:
+    """Fail fast on production settings that would make Rex chat unusable."""
+    if not settings.is_production:
+        return
+
+    missing = []
+    if not settings.agent_service_key:
+        missing.append("BREVIX_AGENT_SERVICE_KEY or ORCHESTRATOR_API_TOKEN")
+    if not settings.laravel_agent_tool_key:
+        missing.append("BREVIX_LARAVEL_AGENT_TOOL_KEY")
+
+    if missing:
+        raise RuntimeError(
+            f"Missing required production configuration: {', '.join(missing)}."
+        )
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
+    _validate_startup_config(settings)
+
     tool_client = LaravelToolClient(
         base_url=settings.laravel_base_url,
         tool_key=settings.laravel_agent_tool_key,

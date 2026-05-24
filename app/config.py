@@ -1,14 +1,20 @@
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        populate_by_name=True,
+    )
 
     app_env: str = Field(default="local", alias="APP_ENV")
     agent_service_key: str = Field(default="", alias="BREVIX_AGENT_SERVICE_KEY")
+    orchestrator_api_token: str = Field(default="", alias="ORCHESTRATOR_API_TOKEN")
     laravel_base_url: str = Field(default="http://localhost:8000", alias="BREVIX_LARAVEL_BASE_URL")
     laravel_agent_tool_key: str = Field(default="", alias="BREVIX_LARAVEL_AGENT_TOOL_KEY")
     http_timeout_seconds: float = Field(default=20.0, alias="HTTP_TIMEOUT_SECONDS")
@@ -49,6 +55,12 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.app_env.lower() in {"production", "prod"}
+
+    @model_validator(mode="after")
+    def use_orchestrator_api_token_alias(self) -> "Settings":
+        if not self.agent_service_key and self.orchestrator_api_token:
+            self.agent_service_key = self.orchestrator_api_token
+        return self
 
 
 @lru_cache
