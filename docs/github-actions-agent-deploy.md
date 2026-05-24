@@ -1,6 +1,6 @@
 # GitHub Actions Agent Deployment
 
-This repo deploys the agent service to the EC2 checkout at `/home/ec2-user/brevixai-agents` after the `Benchmark Quality Gate` workflow succeeds for an internal pull request.
+This repo deploys the agent service to the EC2 checkout at `/home/ec2-user/brevixai-agents` after the `Benchmark Quality Gate` workflow succeeds for an internal pull request or a push to `main`.
 
 ## Required Secrets
 
@@ -28,7 +28,7 @@ The workflow refuses to deploy if tracked local changes are present in the EC2 c
 
 ## Deployment Behavior
 
-For internal pull requests, deployment runs only after `Benchmark Quality Gate` succeeds. The workflow SSHes into EC2, fetches from `origin`, checks out the exact pull request commit in detached HEAD mode, rebuilds the Docker Compose service, recreates the container, and verifies `http://127.0.0.1:8010/health`.
+For internal pull requests and pushes to `main`, deployment runs only after `Benchmark Quality Gate` succeeds. The workflow SSHes into EC2, fetches from `origin`, checks out the exact commit in detached HEAD mode, rebuilds the Docker Compose service, recreates the container, and verifies `http://127.0.0.1:8010/health`.
 
 Forked pull requests are not deployed because repository secrets are not safe to expose to untrusted code.
 
