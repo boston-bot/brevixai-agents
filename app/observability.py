@@ -81,7 +81,7 @@ def sanitize_node_inputs(inputs: dict[str, Any]) -> dict[str, Any]:
 
 
 def sanitize_node_outputs(outputs: dict[str, Any]) -> dict[str, Any]:
-    steps = outputs.get("steps") if isinstance(outputs, dict) else []
+    steps = (outputs.get("steps") or []) if isinstance(outputs, dict) else []
     return {
         "intent": outputs.get("intent") if isinstance(outputs, dict) else None,
         "finding_count": len(outputs.get("findings", [])) if isinstance(outputs, dict) else 0,
