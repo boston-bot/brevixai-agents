@@ -53,6 +53,12 @@ def _build_initial_state(request: AgentRunRequest) -> dict:
         "degraded_tools": [],
         "errors": [],
         "steps": [],
+        "next_best_action": None,
+        "evidence_gaps": [],
+        "scope_limitations": [],
+        "readiness_summary": None,
+        "suggested_answers": [],
+        "recommended_workflow": None,
     }
 
 
@@ -187,6 +193,12 @@ def create_app() -> FastAPI:
             model_provider=settings.model_provider,
             model_name=settings.model_name,
             usage=usage,
+            next_best_action=result.get("next_best_action"),
+            evidence_gaps=result.get("evidence_gaps", []),
+            scope_limitations=result.get("scope_limitations", []),
+            readiness_summary=result.get("readiness_summary"),
+            suggested_answers=result.get("suggested_answers", []),
+            recommended_workflow=result.get("recommended_workflow"),
         )
 
     @app.post("/agent/run/stream")
