@@ -243,6 +243,66 @@ class FakeLaravelToolClient:
             "current": {},
         }
 
+    async def onboarding_context(
+        self,
+        company_id: str,
+        user_id: str,
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        return {
+            "company_id": company_id,
+            "session_status": "not_started",
+            "primary_intent": None,
+            "current_step": None,
+            "scope_mode": None,
+        }
+
+    async def evidence_requirements(
+        self,
+        company_id: str,
+        user_id: str,
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        return {"company_id": company_id, "items": []}
+
+    async def data_source_status(
+        self,
+        company_id: str,
+        user_id: str,
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        return {"company_id": company_id, "sources": [], "total_sources": 0}
+
+    async def first_snapshot(
+        self,
+        company_id: str,
+        user_id: str,
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        return {
+            "company_id": company_id,
+            "data_readiness_score": 0,
+            "review_scope": "none",
+            "available_sources": [],
+            "missing_evidence": [],
+            "risk_indicators": [],
+            "data_quality_issues": [],
+            "recommended_next_action": None,
+        }
+
+    async def action_plan(
+        self,
+        company_id: str,
+        user_id: str,
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        return {"company_id": company_id, "current_objective": None, "next_best_action": None}
+
     async def process_registry(
         self,
         user_id: str,
@@ -403,6 +463,56 @@ class FixtureLaravelToolClient:
         trace_metadata: dict | None = None,
     ) -> dict:
         fixture = self.risk_fixture.get("behavioral_baseline", {})
+        return {"company_id": company_id, **fixture} if isinstance(fixture, dict) else {}
+
+    async def onboarding_context(
+        self,
+        company_id: str,
+        user_id: str,
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        fixture = self.risk_fixture.get("onboarding_context", {})
+        return {"company_id": company_id, **fixture} if isinstance(fixture, dict) else {}
+
+    async def evidence_requirements(
+        self,
+        company_id: str,
+        user_id: str,
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        fixture = self.risk_fixture.get("evidence_requirements", {})
+        return {"company_id": company_id, **fixture} if isinstance(fixture, dict) else {}
+
+    async def data_source_status(
+        self,
+        company_id: str,
+        user_id: str,
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        fixture = self.risk_fixture.get("data_source_status", {})
+        return {"company_id": company_id, **fixture} if isinstance(fixture, dict) else {}
+
+    async def first_snapshot(
+        self,
+        company_id: str,
+        user_id: str,
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        fixture = self.risk_fixture.get("first_snapshot", {})
+        return {"company_id": company_id, **fixture} if isinstance(fixture, dict) else {}
+
+    async def action_plan(
+        self,
+        company_id: str,
+        user_id: str,
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        fixture = self.risk_fixture.get("action_plan", {})
         return {"company_id": company_id, **fixture} if isinstance(fixture, dict) else {}
 
     async def process_registry(

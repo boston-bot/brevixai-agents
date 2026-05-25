@@ -57,6 +57,14 @@ def build_graph(
         intent = "unknown_or_unsupported"
 
         if any(term in message for term in (
+            "action plan", "first snapshot", "first review",
+            "evidence checklist", "evidence gap", "data readiness", "evidence readiness",
+            "what do i need", "where do i start", "get started",
+            "what evidence", "what should i upload", "missing evidence",
+            "what is needed", "what's needed",
+        )):
+            intent = "guided_intake"
+        elif any(term in message for term in (
             "financial health", "overview", "dashboard", "current health",
             "spend summary", "budget", "expense", "expenses",
             "monthly summary", "cash flow",
@@ -280,7 +288,173 @@ def build_graph(
             "steps": tool_steps,
         }
 
+    async def _guided_intake_analysis(state: BrevixAgentState) -> dict[str, Any]:
+        company_id = state["company_id"]
+        user_id = state["user_id"]
+        trace_id = state.get("agent_run_id")
+        trace_meta: dict[str, Any] = {"intent": "guided_intake"}
+        degraded: list[dict[str, Any]] = []
+        tool_steps: list[dict[str, Any]] = []
+
+        try:
+            onboarding_ctx = await tool_client.onboarding_context(
+                company_id, user_id, trace_id=trace_id, trace_metadata=trace_meta,
+            )
+        except LaravelToolError as exc:
+            return {
+                "errors": [str(exc)],
+                "findings": [],
+                "evidence_gaps": [],
+                "scope_limitations": [],
+                "readiness_summary": None,
+                "next_best_action": None,
+                "steps": [failed_tool_step("fraud_analyzer", "onboarding_context", exc)],
+            }
+
+        tool_steps.append(step(
+            "fraud_analyzer",
+            step_type="tool_call",
+            input_payload={"tool": "onboarding_context", "company_id": company_id},
+            output_payload={
+                "session_status": onboarding_ctx.get("session_status"),
+                "primary_intent": onboarding_ctx.get("primary_intent"),
+                "current_step": onboarding_ctx.get("current_step"),
+            },
+        ))
+
+        evidence_reqs: dict[str, Any] = {}
+        try:
+            evidence_reqs = await tool_client.evidence_requirements(
+                company_id, user_id, trace_id=trace_id, trace_metadata=trace_meta,
+            )
+        except LaravelToolError as exc:
+            logger.warning("evidence_requirements degraded: %s", exc)
+            degraded.append(degraded_tool("evidence_requirements", exc))
+
+        data_status: dict[str, Any] = {}
+        try:
+            data_status = await tool_client.data_source_status(
+                company_id, user_id, trace_id=trace_id, trace_metadata=trace_meta,
+            )
+        except LaravelToolError as exc:
+            logger.warning("data_source_status degraded: %s", exc)
+            degraded.append(degraded_tool("data_source_status", exc))
+
+        snapshot: dict[str, Any] = {}
+        try:
+            snapshot = await tool_client.first_snapshot(
+                company_id, user_id, trace_id=trace_id, trace_metadata=trace_meta,
+            )
+        except LaravelToolError as exc:
+            logger.warning("first_snapshot degraded: %s", exc)
+            degraded.append(degraded_tool("first_snapshot", exc))
+
+        # Build evidence gaps from items with missing/failed/processing status
+        items = evidence_reqs.get("items") or []
+        evidence_gaps = [
+            item for item in items
+            if isinstance(item, dict) and item.get("status") in {"missing", "failed", "processing"}
+        ]
+
+        # Build scope limitations from partial scope and missing required items
+        scope_limitations: list[str] = []
+        scope_mode = str(onboarding_ctx.get("scope_mode") or "")
+        if scope_mode in {"partial", "limited", "none"}:
+            scope_limitations.append(
+                "Review is scope-limited. Results may be incomplete until all required evidence is provided."
+            )
+        for item in evidence_gaps:
+            if not isinstance(item, dict) or item.get("priority") != "required":
+                continue
+            label = item.get("label") or item.get("requirement_key") or "unknown"
+            reason = item.get("reason", "")
+            scope_limitations.append(f"Missing required evidence: {label}.{' ' + reason if reason else ''}")
+
+        # Build findings from first_snapshot risk indicators
+        risk_indicators = snapshot.get("risk_indicators") or []
+        readiness_score = int(snapshot.get("data_readiness_score") or 0)
+        findings: list[dict[str, Any]] = []
+        for indicator in risk_indicators:
+            if not isinstance(indicator, dict):
+                continue
+            findings.append(
+                AgentFinding(
+                    title=str(indicator.get("driver") or "Risk indicator worth reviewing"),
+                    severity=normalize_severity(str(indicator.get("severity") or "info")),
+                    confidence=confidence_from_risk_score(readiness_score),
+                    summary=str(indicator.get("description") or "A risk indicator was returned by Brevix."),
+                    evidence=indicator.get("evidence") if isinstance(indicator.get("evidence"), list) else [],
+                ).model_dump()
+            )
+
+        # Fall back to a single evidence-gap finding when no risk indicators exist
+        if not findings and evidence_gaps:
+            gap_evidence = [
+                {
+                    "type": "evidence_gap",
+                    "requirement_key": item.get("requirement_key", ""),
+                    "label": item.get("label", ""),
+                    "priority": item.get("priority", ""),
+                }
+                for item in evidence_gaps
+            ]
+            findings.append(
+                AgentFinding(
+                    title="Evidence gaps limit review scope",
+                    severity="info",
+                    confidence=0.5,
+                    summary=(
+                        f"{len(evidence_gaps)} evidence item(s) are missing or incomplete. "
+                        "Brevix can start with what you have, but the review will be scope-limited."
+                    ),
+                    evidence=gap_evidence,
+                ).model_dump()
+            )
+
+        next_best_action = snapshot.get("recommended_next_action") or None
+        readiness_summary = {
+            "data_readiness_score": snapshot.get("data_readiness_score"),
+            "review_scope": snapshot.get("review_scope"),
+            "available_sources": snapshot.get("available_sources") or [],
+            "missing_evidence": snapshot.get("missing_evidence") or [],
+            "session_status": onboarding_ctx.get("session_status"),
+            "primary_intent": onboarding_ctx.get("primary_intent"),
+            "current_step": onboarding_ctx.get("current_step"),
+        }
+
+        tool_results = {
+            "onboarding_context": onboarding_ctx,
+            "evidence_requirements": evidence_reqs,
+            "data_source_status": data_status,
+            "first_snapshot": snapshot,
+        }
+
+        tool_steps.append(step(
+            "fraud_analyzer",
+            input_payload={"tools": ["evidence_requirements", "data_source_status", "first_snapshot"]},
+            output_payload={
+                "finding_count": len(findings),
+                "evidence_gap_count": len(evidence_gaps),
+                "scope_limitation_count": len(scope_limitations),
+                "data_readiness_score": readiness_score,
+            },
+        ))
+
+        return {
+            "tool_results": tool_results,
+            "findings": findings,
+            "evidence_gaps": evidence_gaps,
+            "scope_limitations": scope_limitations,
+            "readiness_summary": readiness_summary,
+            "next_best_action": next_best_action,
+            "degraded_tools": degraded,
+            "steps": tool_steps,
+        }
+
     async def fraud_analyzer_node(state: BrevixAgentState) -> dict[str, Any]:
+        if state.get("intent") == "guided_intake":
+            return await _guided_intake_analysis(state)
+
         if state.get("intent") == "dashboard_health":
             findings = dashboard_findings_from_context(state.get("company_context", {}))
             return {
@@ -1077,12 +1251,38 @@ def _build_context(state: BrevixAgentState) -> dict[str, Any]:
         "dashboard_summary": company_context.get("dashboard_summary") if isinstance(company_context, dict) else None,
         # Limit to last 8 turns to stay within context budget; oldest first
         "conversation_history": history[-8:] if history else [],
+        # Guided intake fields
+        "evidence_gaps": state.get("evidence_gaps") or [],
+        "scope_limitations": state.get("scope_limitations") or [],
+        "readiness_summary": state.get("readiness_summary"),
+        "next_best_action": state.get("next_best_action"),
     }
 
 
 def suggested_actions(state: BrevixAgentState) -> list[RecommendedAction]:
     if state.get("errors") or state.get("intent") in {"unknown_or_unsupported", "transaction_lookup", "dashboard_health"}:
         return []
+
+    if state.get("intent") == "guided_intake":
+        next_action = state.get("next_best_action")
+        if isinstance(next_action, dict) and next_action.get("type"):
+            return [
+                RecommendedAction(
+                    type=str(next_action["type"]),
+                    label=str(next_action.get("label", "Complete the next intake step")),
+                    requires_approval=False,
+                    payload={"reason": "guided_intake_next_step"},
+                )
+            ]
+        if state.get("evidence_gaps"):
+            return [
+                RecommendedAction(
+                    type="upload_evidence",
+                    label="Upload missing evidence to continue",
+                    requires_approval=False,
+                    payload={"evidence_gap_count": len(state.get("evidence_gaps", []))},
+                )
+            ]
 
     findings = state.get("findings", [])
     if not findings:

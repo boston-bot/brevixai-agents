@@ -154,6 +154,12 @@ class AgentRunResponse(BaseModel):
     model_provider: str | None = None
     model_name: str | None = None
     usage: dict[str, Any] = Field(default_factory=dict)
+    next_best_action: dict[str, Any] | None = None
+    evidence_gaps: list[dict[str, Any]] = Field(default_factory=list)
+    scope_limitations: list[str] = Field(default_factory=list)
+    readiness_summary: dict[str, Any] | None = None
+    suggested_answers: list[dict[str, Any]] = Field(default_factory=list)
+    recommended_workflow: str | None = None
 
 
 class BrevixAgentState(TypedDict, total=False):
@@ -181,3 +187,9 @@ class BrevixAgentState(TypedDict, total=False):
     errors: list[str]
     steps: Annotated[list[dict[str, Any]], add]
     usage: dict[str, Any]
+    next_best_action: dict[str, Any] | None
+    evidence_gaps: list[dict[str, Any]]
+    scope_limitations: list[str]
+    readiness_summary: dict[str, Any] | None
+    suggested_answers: list[dict[str, Any]]
+    recommended_workflow: str | None
