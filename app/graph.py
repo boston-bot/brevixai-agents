@@ -58,7 +58,7 @@ def build_graph(
 
         if any(term in message for term in (
             "financial health", "overview", "dashboard", "current health",
-            "spend summary", "spending", "spend", "budget", "expense", "expenses",
+            "spend summary", "budget", "expense", "expenses",
             "monthly summary", "cash flow",
         )):
             intent = "dashboard_health"
@@ -74,7 +74,6 @@ def build_graph(
                 "what needs review", "needs my review", "awaiting review",
                 "open case", "open cases", "my cases", "investigation case",
                 "investigation cases", "case status", "case list", "cases",
-                "investigation", "investigations",
             )
         ):
             intent = "recommendation_review"
