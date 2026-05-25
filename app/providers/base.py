@@ -21,6 +21,7 @@ class ProviderResponse:
     latency_ms: float
     tokens_input: int = 0
     tokens_output: int = 0
+    tool_calls: list[str] | None = None  # Tool names selected by function calling, if any
 
     @property
     def tokens_total(self) -> int:

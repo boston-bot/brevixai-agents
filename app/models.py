@@ -86,6 +86,7 @@ class AgentRunRequest(BaseModel):
     conversation_id: str | None = None
     message: str = Field(min_length=1, max_length=4000)
     page_context: dict[str, Any] = Field(default_factory=dict)
+    conversation_history: list[dict[str, Any]] | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -162,9 +163,16 @@ class BrevixAgentState(TypedDict, total=False):
     conversation_id: str | None
     user_message: str
     page_context: dict[str, Any]
+    conversation_history: list[dict[str, Any]] | None
     intent: str | None
     company_context: dict[str, Any]
     tool_results: dict[str, Any]
+    alert_recommendations: dict[str, Any] | None
+    case_recommendations: dict[str, Any] | None
+    pending_recommendations: dict[str, Any] | None
+    dashboard_health: dict[str, Any] | None
+    behavioral_baseline: dict[str, Any] | None
+    selected_tools: list[str] | None
     findings: list[dict[str, Any]]
     investigative_synthesis: dict[str, Any]
     recommended_actions: list[dict[str, Any]]
