@@ -2341,7 +2341,9 @@
       "ghost vendor",
       "duplicate invoice",
       "employee overlap"
-    ]
+    ],
+    "title": "Little League Partial Evidence Review",
+    "severity": "medium"
   },
   {
     "id": "guided_intake_partial_bank_statements_no_ledger",
@@ -2426,7 +2428,9 @@
       "ghost vendor",
       "duplicate invoice",
       "vendor concentration"
-    ]
+    ],
+    "title": "Partial Bank Statements No Ledger",
+    "severity": "info"
   },
   {
     "id": "guided_intake_quickbooks_no_bank_statements",
@@ -2522,7 +2526,9 @@
       "ghost vendor",
       "duplicate invoice",
       "vendor concentration"
-    ]
+    ],
+    "title": "QuickBooks Without Bank Statements",
+    "severity": "info"
   },
   {
     "id": "guided_intake_irs_notice_next_steps",
@@ -2625,7 +2631,9 @@
       "duplicate invoice",
       "vendor concentration",
       "employee overlap"
-    ]
+    ],
+    "title": "IRS Notice Next Steps",
+    "severity": "info"
   },
   {
     "id": "guided_intake_routine_controls_sufficient_evidence",
@@ -2733,6 +2741,8 @@
       "duplicate invoice",
       "vendor concentration",
       "stole"
-    ]
+    ],
+    "title": "Routine Controls Sufficient Evidence",
+    "severity": "info"
   }
 ]
