@@ -59,7 +59,7 @@ def build_graph(
         if any(term in message for term in (
             "financial health", "overview", "dashboard", "current health",
             "spend summary", "spending", "spend", "budget", "expense", "expenses",
-            "monthly summary", "month's", "this month", "cash flow",
+            "monthly summary", "cash flow",
         )):
             intent = "dashboard_health"
         elif any(term in message for term in ("reconciliation", "unmatched", "mismatch")):
