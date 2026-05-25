@@ -2226,5 +2226,513 @@
     "scenario_id": "phase4_multiple_medium_risk_elevation",
     "severity": "medium",
     "title": "Phase 4 Multiple Medium Risk Elevation"
+  },
+  {
+    "id": "guided_intake_little_league_partial_evidence",
+    "category": "guided_intake",
+    "risk_type": "partial_evidence_review",
+    "tags": [
+      "guided_intake",
+      "partial_evidence",
+      "suspected_fraud"
+    ],
+    "input_prompt": "Review evidence readiness for suspected missing funds in a little league account.",
+    "page_context": {
+      "source": "evaluation",
+      "selected_period": "2026-05"
+    },
+    "tool_fixture": {
+      "onboarding_context": {
+        "session_status": "in_progress",
+        "primary_intent": "suspected_fraud",
+        "current_step": "evidence_checklist",
+        "scope_mode": "partial",
+        "organization_type": "youth sports team"
+      },
+      "evidence_requirements": {
+        "items": [
+          {
+            "requirement_key": "transaction_ledger",
+            "label": "Transaction ledger or accounting export",
+            "reason": "Ledger rows show who approved each payment and what category was applied.",
+            "priority": "required",
+            "status": "missing"
+          },
+          {
+            "requirement_key": "bank_statements",
+            "label": "Bank statements for review period",
+            "reason": "Bank statements confirm deposits and withdrawals.",
+            "priority": "required",
+            "status": "received"
+          },
+          {
+            "requirement_key": "check_images",
+            "label": "Check images or front/back copies",
+            "reason": "Check images show signatures and endorsements not captured in digital records.",
+            "priority": "recommended",
+            "status": "missing"
+          }
+        ]
+      },
+      "data_source_status": {
+        "sources": [
+          {
+            "type": "file_upload",
+            "label": "Bank export",
+            "status": "validated",
+            "record_count": 247
+          }
+        ],
+        "total_sources": 1
+      },
+      "first_snapshot": {
+        "data_readiness_score": 35,
+        "review_scope": "partial",
+        "available_sources": [
+          "bank_export"
+        ],
+        "missing_evidence": [
+          "transaction_ledger",
+          "check_images"
+        ],
+        "risk_indicators": [
+          {
+            "driver": "Personal-looking purchase pattern",
+            "description": "Several bank transactions appear inconsistent with stated organizational activity.",
+            "severity": "medium",
+            "evidence": [
+              {
+                "type": "transaction",
+                "id": "txn-personal-001"
+              },
+              {
+                "type": "evidence_gap",
+                "id": "gap-transaction-ledger"
+              }
+            ]
+          }
+        ],
+        "data_quality_issues": [],
+        "recommended_next_action": {
+          "type": "upload_ledger",
+          "label": "Upload your transaction ledger or accounting export to improve review confidence."
+        }
+      }
+    },
+    "expected_findings": [
+      "personal-looking purchase"
+    ],
+    "expected_severity": "medium",
+    "expected_evidence_patterns": [
+      {
+        "type": "transaction",
+        "min_count": 1
+      },
+      {
+        "type": "evidence_gap",
+        "min_count": 1
+      }
+    ],
+    "expected_recommended_action": "upload_ledger",
+    "false_positive_guardrails": [
+      "committed fraud",
+      "is fraud",
+      "stole",
+      "ghost vendor",
+      "duplicate invoice",
+      "employee overlap"
+    ]
+  },
+  {
+    "id": "guided_intake_partial_bank_statements_no_ledger",
+    "category": "guided_intake",
+    "risk_type": "partial_evidence_review",
+    "tags": [
+      "guided_intake",
+      "partial_evidence"
+    ],
+    "input_prompt": "Check data readiness for a business with partial bank statements and no accounting ledger.",
+    "page_context": {
+      "source": "evaluation"
+    },
+    "tool_fixture": {
+      "onboarding_context": {
+        "session_status": "in_progress",
+        "primary_intent": "routine_books_review",
+        "current_step": "evidence_checklist",
+        "scope_mode": "partial",
+        "organization_type": "business"
+      },
+      "evidence_requirements": {
+        "items": [
+          {
+            "requirement_key": "transaction_ledger",
+            "label": "Transaction ledger or accounting export",
+            "reason": "A ledger is required to cross-reference bank activity against recorded books.",
+            "priority": "required",
+            "status": "missing"
+          },
+          {
+            "requirement_key": "bank_statements",
+            "label": "Bank statements for review period",
+            "priority": "required",
+            "status": "received"
+          }
+        ]
+      },
+      "data_source_status": {
+        "sources": [
+          {
+            "type": "file_upload",
+            "label": "Partial bank statements",
+            "status": "validated",
+            "record_count": 42
+          }
+        ],
+        "total_sources": 1
+      },
+      "first_snapshot": {
+        "data_readiness_score": 25,
+        "review_scope": "partial",
+        "available_sources": [
+          "bank_export"
+        ],
+        "missing_evidence": [
+          "transaction_ledger"
+        ],
+        "risk_indicators": [],
+        "data_quality_issues": [
+          "Bank statements cover only partial period"
+        ],
+        "recommended_next_action": {
+          "type": "upload_ledger",
+          "label": "Upload your accounting export or transaction ledger to enable cross-referencing."
+        }
+      }
+    },
+    "expected_findings": [
+      "evidence gaps"
+    ],
+    "expected_severity": "info",
+    "expected_evidence_patterns": [
+      {
+        "type": "evidence_gap",
+        "min_count": 1
+      }
+    ],
+    "expected_recommended_action": "upload_ledger",
+    "false_positive_guardrails": [
+      "committed fraud",
+      "ghost vendor",
+      "duplicate invoice",
+      "vendor concentration"
+    ]
+  },
+  {
+    "id": "guided_intake_quickbooks_no_bank_statements",
+    "category": "guided_intake",
+    "risk_type": "partial_evidence_review",
+    "tags": [
+      "guided_intake",
+      "quickbooks",
+      "partial_evidence"
+    ],
+    "input_prompt": "Check evidence readiness with QuickBooks connected but bank statements not yet uploaded.",
+    "page_context": {
+      "source": "evaluation"
+    },
+    "tool_fixture": {
+      "onboarding_context": {
+        "session_status": "in_progress",
+        "primary_intent": "vendor_controls",
+        "current_step": "evidence_checklist",
+        "scope_mode": "partial",
+        "organization_type": "business"
+      },
+      "evidence_requirements": {
+        "items": [
+          {
+            "requirement_key": "quickbooks",
+            "label": "QuickBooks Online connection",
+            "priority": "required",
+            "status": "received"
+          },
+          {
+            "requirement_key": "bank_statements",
+            "label": "Bank statements for review period",
+            "reason": "Bank statements are needed to verify that QuickBooks records match actual account activity.",
+            "priority": "required",
+            "status": "missing"
+          }
+        ]
+      },
+      "data_source_status": {
+        "sources": [
+          {
+            "type": "quickbooks",
+            "label": "QuickBooks Online",
+            "status": "connected",
+            "record_count": 1840
+          }
+        ],
+        "total_sources": 1
+      },
+      "first_snapshot": {
+        "data_readiness_score": 50,
+        "review_scope": "partial",
+        "available_sources": [
+          "quickbooks"
+        ],
+        "missing_evidence": [
+          "bank_statements"
+        ],
+        "risk_indicators": [
+          {
+            "driver": "Bank statement verification missing",
+            "description": "QuickBooks records are available but cannot be verified against bank statements. Unverified ledger data limits review confidence.",
+            "severity": "info",
+            "evidence": [
+              {
+                "type": "evidence_gap",
+                "id": "gap-bank-statements"
+              }
+            ]
+          }
+        ],
+        "data_quality_issues": [],
+        "recommended_next_action": {
+          "type": "upload_bank_statements",
+          "label": "Upload bank statements to verify QuickBooks records against actual account activity."
+        }
+      }
+    },
+    "expected_findings": [
+      "bank statement verification"
+    ],
+    "expected_severity": "info",
+    "expected_evidence_patterns": [
+      {
+        "type": "evidence_gap",
+        "min_count": 1
+      }
+    ],
+    "expected_recommended_action": "upload_bank_statements",
+    "false_positive_guardrails": [
+      "committed fraud",
+      "ghost vendor",
+      "duplicate invoice",
+      "vendor concentration"
+    ]
+  },
+  {
+    "id": "guided_intake_irs_notice_next_steps",
+    "category": "guided_intake",
+    "risk_type": "tax_compliance_routing",
+    "tags": [
+      "guided_intake",
+      "irs_notice",
+      "tax_compliance"
+    ],
+    "input_prompt": "Help with an IRS notice - what evidence is needed and what are the next steps?",
+    "page_context": {
+      "source": "evaluation"
+    },
+    "tool_fixture": {
+      "onboarding_context": {
+        "session_status": "in_progress",
+        "primary_intent": "tax_compliance",
+        "current_step": "evidence_checklist",
+        "scope_mode": "none",
+        "organization_type": "business"
+      },
+      "evidence_requirements": {
+        "items": [
+          {
+            "requirement_key": "irs_notice",
+            "label": "IRS notice or letter",
+            "reason": "The notice identifies the tax year, issue type, and deadline needed to scope the review.",
+            "priority": "required",
+            "status": "missing"
+          },
+          {
+            "requirement_key": "tax_period_records",
+            "label": "Records for the relevant tax period",
+            "reason": "Ledger or bank records for the notice period are required to assess the concern.",
+            "priority": "required",
+            "status": "missing"
+          },
+          {
+            "requirement_key": "prior_returns",
+            "label": "Prior tax returns for the relevant years",
+            "priority": "recommended",
+            "status": "missing"
+          }
+        ]
+      },
+      "data_source_status": {
+        "sources": [],
+        "total_sources": 0
+      },
+      "first_snapshot": {
+        "data_readiness_score": 0,
+        "review_scope": "none",
+        "available_sources": [],
+        "missing_evidence": [
+          "irs_notice",
+          "tax_period_records"
+        ],
+        "risk_indicators": [
+          {
+            "driver": "Tax period records needed",
+            "description": "No evidence has been uploaded yet. Brevix needs the IRS notice and relevant period records before a review can begin.",
+            "severity": "info",
+            "evidence": [
+              {
+                "type": "evidence_gap",
+                "id": "gap-irs-notice"
+              },
+              {
+                "type": "evidence_gap",
+                "id": "gap-tax-period-records"
+              }
+            ]
+          }
+        ],
+        "data_quality_issues": [],
+        "recommended_next_action": {
+          "type": "upload_notice",
+          "label": "Upload the IRS notice or letter to begin scoping the review."
+        }
+      }
+    },
+    "expected_findings": [
+      "tax period records needed"
+    ],
+    "expected_severity": "info",
+    "expected_evidence_patterns": [
+      {
+        "type": "evidence_gap",
+        "min_count": 1
+      },
+      {
+        "id_contains": "gap-irs"
+      }
+    ],
+    "expected_recommended_action": "upload_notice",
+    "false_positive_guardrails": [
+      "committed fraud",
+      "ghost vendor",
+      "duplicate invoice",
+      "vendor concentration",
+      "employee overlap"
+    ]
+  },
+  {
+    "id": "guided_intake_routine_controls_sufficient_evidence",
+    "category": "guided_intake",
+    "risk_type": "routine_controls_readiness",
+    "tags": [
+      "guided_intake",
+      "routine_controls",
+      "sufficient_evidence"
+    ],
+    "input_prompt": "Check evidence readiness for a routine controls review.",
+    "page_context": {
+      "source": "evaluation"
+    },
+    "tool_fixture": {
+      "onboarding_context": {
+        "session_status": "in_progress",
+        "primary_intent": "routine_controls",
+        "current_step": "first_snapshot",
+        "scope_mode": "full",
+        "organization_type": "business"
+      },
+      "evidence_requirements": {
+        "items": [
+          {
+            "requirement_key": "quickbooks",
+            "label": "QuickBooks Online connection",
+            "priority": "required",
+            "status": "received"
+          },
+          {
+            "requirement_key": "bank_statements",
+            "label": "Bank statements",
+            "priority": "required",
+            "status": "received"
+          },
+          {
+            "requirement_key": "vendor_list",
+            "label": "Vendor list",
+            "priority": "recommended",
+            "status": "received"
+          }
+        ]
+      },
+      "data_source_status": {
+        "sources": [
+          {
+            "type": "quickbooks",
+            "label": "QuickBooks Online",
+            "status": "connected",
+            "record_count": 2100
+          },
+          {
+            "type": "file_upload",
+            "label": "Bank statements",
+            "status": "validated",
+            "record_count": 360
+          }
+        ],
+        "total_sources": 2
+      },
+      "first_snapshot": {
+        "data_readiness_score": 80,
+        "review_scope": "full",
+        "available_sources": [
+          "quickbooks",
+          "bank_statements"
+        ],
+        "missing_evidence": [],
+        "risk_indicators": [
+          {
+            "driver": "Controls review ready to begin",
+            "description": "Evidence is sufficient for a routine controls review. No significant anomalies identified in the readiness scan.",
+            "severity": "info",
+            "evidence": [
+              {
+                "type": "data_source",
+                "id": "controls-ready-001",
+                "label": "QuickBooks Online"
+              }
+            ]
+          }
+        ],
+        "data_quality_issues": [],
+        "recommended_next_action": {
+          "type": "review_findings",
+          "label": "Run your first full controls review. Evidence is sufficient to begin."
+        }
+      }
+    },
+    "expected_findings": [
+      "controls review ready"
+    ],
+    "expected_severity": "info",
+    "expected_evidence_patterns": [
+      {
+        "type": "data_source",
+        "min_count": 1
+      }
+    ],
+    "expected_recommended_action": "review_findings",
+    "false_positive_guardrails": [
+      "committed fraud",
+      "ghost vendor",
+      "duplicate invoice",
+      "vendor concentration",
+      "stole"
+    ]
   }
 ]

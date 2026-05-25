@@ -97,6 +97,7 @@ PROMPT_REGISTRY: list[tuple[str, str]] = [
     ("investigation_synthesis", "v1"),
     ("explanation", "v2"),
     ("action_gate", "v2"),
+    ("guided_intake", "v1"),
 ]
 
 

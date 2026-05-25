@@ -410,6 +410,135 @@ class LaravelToolClient:
             ),
         )
 
+    async def onboarding_context(
+        self,
+        company_id: str,
+        user_id: str,
+        trace_id: str | None = None,
+        trace_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        cache_key = f"onboarding_context:{company_id}"
+        return await self._cached_get(
+            cache_key,
+            f"/api/internal/agent-tools/companies/{company_id}/onboarding-context",
+            user_id,
+            trace_id=trace_id,
+            trace_metadata={
+                "tool_name": "onboarding_context",
+                "company_id": company_id,
+                **(trace_metadata or {}),
+            },
+            langsmith_extra=self._langsmith_extra(
+                "onboarding_context",
+                company_id,
+                user_id,
+                trace_id,
+                trace_metadata,
+            ),
+        )
+
+    async def evidence_requirements(
+        self,
+        company_id: str,
+        user_id: str,
+        trace_id: str | None = None,
+        trace_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        cache_key = f"evidence_requirements:{company_id}"
+        return await self._cached_get(
+            cache_key,
+            f"/api/internal/agent-tools/companies/{company_id}/evidence-requirements",
+            user_id,
+            trace_id=trace_id,
+            trace_metadata={
+                "tool_name": "evidence_requirements",
+                "company_id": company_id,
+                **(trace_metadata or {}),
+            },
+            langsmith_extra=self._langsmith_extra(
+                "evidence_requirements",
+                company_id,
+                user_id,
+                trace_id,
+                trace_metadata,
+            ),
+        )
+
+    async def data_source_status(
+        self,
+        company_id: str,
+        user_id: str,
+        trace_id: str | None = None,
+        trace_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return await self._get(
+            f"/api/internal/agent-tools/companies/{company_id}/data-source-status",
+            user_id,
+            trace_id=trace_id,
+            trace_metadata={
+                "tool_name": "data_source_status",
+                "company_id": company_id,
+                **(trace_metadata or {}),
+            },
+            langsmith_extra=self._langsmith_extra(
+                "data_source_status",
+                company_id,
+                user_id,
+                trace_id,
+                trace_metadata,
+            ),
+        )
+
+    async def first_snapshot(
+        self,
+        company_id: str,
+        user_id: str,
+        trace_id: str | None = None,
+        trace_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return await self._get(
+            f"/api/internal/agent-tools/companies/{company_id}/first-snapshot",
+            user_id,
+            trace_id=trace_id,
+            trace_metadata={
+                "tool_name": "first_snapshot",
+                "company_id": company_id,
+                **(trace_metadata or {}),
+            },
+            langsmith_extra=self._langsmith_extra(
+                "first_snapshot",
+                company_id,
+                user_id,
+                trace_id,
+                trace_metadata,
+            ),
+        )
+
+    async def action_plan(
+        self,
+        company_id: str,
+        user_id: str,
+        trace_id: str | None = None,
+        trace_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return await self._get(
+            f"/api/internal/agent-tools/companies/{company_id}/action-plan",
+            user_id,
+            trace_id=trace_id,
+            trace_metadata={
+                "tool_name": "action_plan",
+                "company_id": company_id,
+                **(trace_metadata or {}),
+            },
+            langsmith_extra=self._langsmith_extra(
+                "action_plan",
+                company_id,
+                user_id,
+                trace_id,
+                trace_metadata,
+            ),
+        )
+
     async def process_registry(
         self,
         user_id: str,

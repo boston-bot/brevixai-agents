@@ -50,6 +50,9 @@ def _explanation_from_context(context: dict[str, Any]) -> str:
     if intent == "dashboard_health":
         return _dashboard_health_response(context)
 
+    if intent == "guided_intake":
+        return _guided_intake_response(context)
+
     if not findings:
         return (
             f"The deterministic Brevix risk services did not return specific fraud indicators "
@@ -125,6 +128,41 @@ def _format_amount(value: Any) -> str:
         return f"${float(value):,.2f}"
     except (TypeError, ValueError):
         return "an unknown amount"
+
+
+def _guided_intake_response(context: dict[str, Any]) -> str:
+    readiness = context.get("readiness_summary") or {}
+    evidence_gaps = context.get("evidence_gaps") or []
+    scope_limitations = context.get("scope_limitations") or []
+    next_best_action = context.get("next_best_action") or {}
+    findings = context.get("findings") or []
+
+    score = int(readiness.get("data_readiness_score") or 0)
+    scope = str(readiness.get("review_scope") or "limited")
+
+    parts: list[str] = []
+    parts.append(f"Brevix has reviewed your current evidence and setup. Data readiness: {score}/100 ({scope} scope).")
+
+    if scope_limitations:
+        parts.append(scope_limitations[0])
+
+    required_gaps = [g for g in evidence_gaps if isinstance(g, dict) and g.get("priority") == "required"]
+    if required_gaps:
+        labels = [g.get("label") or g.get("requirement_key") or "item" for g in required_gaps[:2]]
+        parts.append(f"Required evidence still needed: {', '.join(labels)}.")
+
+    if findings:
+        first = findings[0]
+        parts.append(
+            f"Risk indicator: {first.get('title')}. "
+            "This may indicate a concern but does not prove wrongdoing."
+        )
+
+    if isinstance(next_best_action, dict) and next_best_action.get("label"):
+        parts.append(f"Recommended next step: {next_best_action['label']}")
+
+    parts.append("No alerts or cases were created.")
+    return " ".join(parts)
 
 
 def _dashboard_health_response(context: dict[str, Any]) -> str:
