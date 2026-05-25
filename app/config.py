@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     model_provider: str = Field(default="deterministic", alias="BREVIX_AGENT_MODEL_PROVIDER")
     model_name: str = Field(default="deterministic-risk-v1", alias="BREVIX_AGENT_MODEL_NAME")
     model_timeout_seconds: float = Field(default=30.0, alias="BREVIX_AGENT_MODEL_TIMEOUT_SECONDS")
+    structured_outputs: bool = Field(default=True, alias="BREVIX_AGENT_STRUCTURED_OUTPUTS")
 
     allowed_origins: str = Field(default="", alias="ORCHESTRATOR_ALLOWED_ORIGINS")
     approval_required_tools: str = Field(

@@ -32,6 +32,7 @@ def get_provider(settings) -> ModelProvider:
             api_key=settings.openai_api_key,
             model_name=model,
             timeout_seconds=timeout,
+            structured_outputs=getattr(settings, "structured_outputs", True),
         )
 
     raise ProviderConfigError(
