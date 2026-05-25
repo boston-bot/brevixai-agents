@@ -26,10 +26,14 @@ class LaravelToolClient:
     accepts SQL or arbitrary endpoint paths from graph state or user input.
     """
 
+    _CACHE_TTL_SECONDS = 60
+
     def __init__(self, base_url: str, tool_key: str, timeout_seconds: float = 20.0) -> None:
         self.base_url = base_url.rstrip("/")
         self.tool_key = tool_key
         self.timeout_seconds = timeout_seconds
+        # Per-instance request-lifecycle cache: {key: (result, expiry_ts)}
+        self._cache: dict[str, tuple[dict[str, Any], float]] = {}
 
     async def company_context(
         self,
@@ -57,24 +61,26 @@ class LaravelToolClient:
                 },
             })
 
-        return await self._get(
-            f"/api/internal/agent-tools/companies/{company_id}/context",
-            user_id,
-            params=params,
-            trace_id=trace_id,
-            trace_metadata={
+        _kwargs: dict[str, Any] = {
+            "params": params,
+            "trace_id": trace_id,
+            "trace_metadata": {
                 "tool_name": "company_context",
                 "company_id": company_id,
                 **(trace_metadata or {}),
             },
-            langsmith_extra=self._langsmith_extra(
+            "langsmith_extra": self._langsmith_extra(
                 "company_context",
                 company_id,
                 user_id,
                 trace_id,
                 trace_metadata,
             ),
-        )
+        }
+        _path = f"/api/internal/agent-tools/companies/{company_id}/context"
+        if params is None:
+            return await self._cached_get(f"company_context:{company_id}", _path, user_id, **_kwargs)
+        return await self._get(_path, user_id, **_kwargs)
 
     async def risk_summary(
         self,
@@ -85,7 +91,9 @@ class LaravelToolClient:
         trace_metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         params = {"period": period} if period else None
-        return await self._get(
+        cache_key = f"risk_summary:{company_id}:{period or 'default'}"
+        return await self._cached_get(
+            cache_key,
             f"/api/internal/agent-tools/companies/{company_id}/risk-summary",
             user_id,
             params=params,
@@ -207,12 +215,249 @@ class LaravelToolClient:
             ),
         )
 
+    async def alert_recommendations(
+        self,
+        company_id: str,
+        user_id: str,
+        trace_id: str | None = None,
+        trace_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return await self._get(
+            f"/api/internal/agent-tools/company/{company_id}/alert-recommendations",
+            user_id,
+            trace_id=trace_id,
+            trace_metadata={
+                "tool_name": "alert_recommendations",
+                "company_id": company_id,
+                **(trace_metadata or {}),
+            },
+            langsmith_extra=self._langsmith_extra(
+                "alert_recommendations",
+                company_id,
+                user_id,
+                trace_id,
+                trace_metadata,
+            ),
+        )
+
+    async def case_recommendations(
+        self,
+        company_id: str,
+        user_id: str,
+        trace_id: str | None = None,
+        trace_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return await self._get(
+            f"/api/internal/agent-tools/company/{company_id}/case-recommendations",
+            user_id,
+            trace_id=trace_id,
+            trace_metadata={
+                "tool_name": "case_recommendations",
+                "company_id": company_id,
+                **(trace_metadata or {}),
+            },
+            langsmith_extra=self._langsmith_extra(
+                "case_recommendations",
+                company_id,
+                user_id,
+                trace_id,
+                trace_metadata,
+            ),
+        )
+
+    async def pending_recommendations(
+        self,
+        company_id: str,
+        user_id: str,
+        trace_id: str | None = None,
+        trace_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return await self._get(
+            f"/api/internal/agent-tools/company/{company_id}/pending-recommendations",
+            user_id,
+            trace_id=trace_id,
+            trace_metadata={
+                "tool_name": "pending_recommendations",
+                "company_id": company_id,
+                **(trace_metadata or {}),
+            },
+            langsmith_extra=self._langsmith_extra(
+                "pending_recommendations",
+                company_id,
+                user_id,
+                trace_id,
+                trace_metadata,
+            ),
+        )
+
+    async def dashboard_health(
+        self,
+        company_id: str,
+        user_id: str,
+        trace_id: str | None = None,
+        trace_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return await self._get(
+            f"/api/internal/agent-tools/company/{company_id}/dashboard",
+            user_id,
+            trace_id=trace_id,
+            trace_metadata={
+                "tool_name": "dashboard_health",
+                "company_id": company_id,
+                **(trace_metadata or {}),
+            },
+            langsmith_extra=self._langsmith_extra(
+                "dashboard_health",
+                company_id,
+                user_id,
+                trace_id,
+                trace_metadata,
+            ),
+        )
+
+    async def transaction_lookup(
+        self,
+        company_id: str,
+        user_id: str,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        limit: int | None = None,
+        vendor: str | None = None,
+        trace_id: str | None = None,
+        trace_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {}
+        if date_from:
+            params["date_from"] = date_from
+        if date_to:
+            params["date_to"] = date_to
+        if limit is not None:
+            params["limit"] = limit
+        if vendor:
+            params["vendor"] = vendor
+        return await self._get(
+            f"/api/internal/agent-tools/company/{company_id}/transactions",
+            user_id,
+            params=params or None,
+            trace_id=trace_id,
+            trace_metadata={
+                "tool_name": "transaction_lookup",
+                "company_id": company_id,
+                **(trace_metadata or {}),
+            },
+            langsmith_extra=self._langsmith_extra(
+                "transaction_lookup",
+                company_id,
+                user_id,
+                trace_id,
+                trace_metadata,
+            ),
+        )
+
+    async def transaction_detail(
+        self,
+        company_id: str,
+        user_id: str,
+        ids: list[str] | None = None,
+        trace_id: str | None = None,
+        trace_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        # PHP expects ids[] for array query params
+        params: list[tuple[str, str]] | None = None
+        if ids:
+            params = [("ids[]", txn_id) for txn_id in ids[:20]]
+        return await self._get(
+            f"/api/internal/agent-tools/company/{company_id}/transaction-detail",
+            user_id,
+            params=params,
+            trace_id=trace_id,
+            trace_metadata={
+                "tool_name": "transaction_detail",
+                "company_id": company_id,
+                **(trace_metadata or {}),
+            },
+            langsmith_extra=self._langsmith_extra(
+                "transaction_detail",
+                company_id,
+                user_id,
+                trace_id,
+                trace_metadata,
+            ),
+        )
+
+    async def behavioral_baseline(
+        self,
+        company_id: str,
+        user_id: str,
+        trace_id: str | None = None,
+        trace_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return await self._get(
+            f"/api/internal/agent-tools/company/{company_id}/behavioral-baseline",
+            user_id,
+            trace_id=trace_id,
+            trace_metadata={
+                "tool_name": "behavioral_baseline",
+                "company_id": company_id,
+                **(trace_metadata or {}),
+            },
+            langsmith_extra=self._langsmith_extra(
+                "behavioral_baseline",
+                company_id,
+                user_id,
+                trace_id,
+                trace_metadata,
+            ),
+        )
+
+    async def process_registry(
+        self,
+        user_id: str,
+        trace_id: str | None = None,
+        trace_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return await self._get(
+            "/api/internal/agent-tools/process-registry",
+            user_id,
+            trace_id=trace_id,
+            trace_metadata={
+                "tool_name": "process_registry",
+                **(trace_metadata or {}),
+            },
+            langsmith_extra=self._langsmith_extra(
+                "process_registry",
+                "",
+                user_id,
+                trace_id,
+                trace_metadata,
+            ),
+        )
+
     @traceable(
         name="agent.tool.laravel_get",
         run_type="tool",
         process_inputs=sanitize_tool_inputs,
         process_outputs=sanitize_tool_outputs,
     )
+    async def _cached_get(
+        self,
+        cache_key: str,
+        path: str,
+        user_id: str,
+        params: dict[str, Any] | None = None,
+        trace_id: str | None = None,
+        trace_metadata: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        cached = self._cache.get(cache_key)
+        if cached is not None:
+            result, expiry = cached
+            if time.monotonic() < expiry:
+                return result
+        data = await self._get(path, user_id, params=params, trace_id=trace_id, trace_metadata=trace_metadata, **kwargs)
+        self._cache[cache_key] = (data, time.monotonic() + self._CACHE_TTL_SECONDS)
+        return data
+
     async def _get(
         self,
         path: str,

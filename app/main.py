@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import time
 
@@ -7,6 +8,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from langsmith.run_helpers import tracing_context
 
 from app.config import Settings, get_settings
@@ -16,6 +18,42 @@ from app.observability import base_trace_metadata, summarize_usage
 from app.tools.laravel import LaravelToolClient
 
 logger = logging.getLogger("brevix.agent.api")
+
+# Graph nodes that represent tool-calling work visible to the user.
+_STREAM_TOOL_NODES: frozenset[str] = frozenset({
+    "context_loader",
+    "llm_tool_dispatch",
+    "fraud_analyzer",
+})
+
+
+def _sse(event_type: str, payload: dict) -> str:
+    return f"data: {json.dumps({'type': event_type, 'payload': payload})}\n\n"
+
+
+def _build_initial_state(request: AgentRunRequest) -> dict:
+    return {
+        "agent_run_id": request.agent_run_id,
+        "company_id": request.company_id,
+        "user_id": request.user_id,
+        "conversation_id": request.conversation_id,
+        "user_message": request.message,
+        "page_context": request.page_context,
+        "conversation_history": request.conversation_history,
+        "tool_results": {},
+        "alert_recommendations": None,
+        "case_recommendations": None,
+        "pending_recommendations": None,
+        "dashboard_health": None,
+        "behavioral_baseline": None,
+        "selected_tools": None,
+        "findings": [],
+        "investigative_synthesis": {},
+        "recommended_actions": [],
+        "degraded_tools": [],
+        "errors": [],
+        "steps": [],
+    }
 
 
 def _cors_origins(settings: Settings) -> list[str]:
@@ -115,21 +153,7 @@ def create_app() -> FastAPI:
         request: AgentRunRequest,
         _: None = Depends(validate_agent_auth),
     ) -> AgentRunResponse:
-        state = {
-            "agent_run_id": request.agent_run_id,
-            "company_id": request.company_id,
-            "user_id": request.user_id,
-            "conversation_id": request.conversation_id,
-            "user_message": request.message,
-            "page_context": request.page_context,
-            "tool_results": {},
-            "findings": [],
-            "investigative_synthesis": {},
-            "recommended_actions": [],
-            "degraded_tools": [],
-            "errors": [],
-            "steps": [],
-        }
+        state = _build_initial_state(request)
 
         metadata = base_trace_metadata(state, settings)
         start = time.perf_counter()
@@ -163,6 +187,120 @@ def create_app() -> FastAPI:
             model_provider=settings.model_provider,
             model_name=settings.model_name,
             usage=usage,
+        )
+
+    @app.post("/agent/run/stream")
+    async def run_agent_stream(
+        request: AgentRunRequest,
+        _: None = Depends(validate_agent_auth),
+    ) -> StreamingResponse:
+        state = _build_initial_state(request)
+        metadata = base_trace_metadata(state, settings)
+        start = time.perf_counter()
+        graph_config = {
+            "metadata": metadata,
+            "tags": ["brevix-ai", "langgraph", settings.graph_version],
+            "run_name": "brevix_agent_graph",
+        }
+
+        async def generate():
+            yield _sse("run.started", {
+                "agent_run_id": state.get("agent_run_id"),
+                "company_id": state["company_id"],
+            })
+
+            accumulated_findings: list[dict] = []
+            accumulated_actions: list[dict] = []
+            accumulated_steps: list[dict] = []
+            accumulated_degraded: list[dict] = []
+            accumulated_errors: list[str] = []
+            accumulated_synthesis: dict = {}
+            final_intent: str | None = None
+            final_message = ""
+
+            try:
+                with tracing_context(
+                    project_name=settings.langchain_project,
+                    metadata=metadata,
+                    tags=["brevix-ai", "agent-request", settings.graph_version],
+                    enabled=settings.langsmith_enabled,
+                ):
+                    async for chunk in graph.astream(state, config=graph_config, stream_mode="updates"):
+                        for node_name, node_output in chunk.items():
+                            if not isinstance(node_output, dict):
+                                continue
+
+                            # Accumulate shared list fields before emitting events
+                            accumulated_steps.extend(node_output.get("steps") or [])
+                            accumulated_degraded.extend(node_output.get("degraded_tools") or [])
+                            accumulated_errors.extend(node_output.get("errors") or [])
+
+                            if node_name in _STREAM_TOOL_NODES:
+                                yield _sse("tool.started", {"toolName": node_name})
+
+                            if node_name == "router":
+                                final_intent = node_output.get("intent")
+
+                            elif node_name == "fraud_analyzer":
+                                for finding in (node_output.get("findings") or []):
+                                    accumulated_findings.append(finding)
+                                    yield _sse("artifact.upsert", finding)
+
+                            elif node_name == "investigation_synthesis":
+                                accumulated_synthesis = node_output.get("investigative_synthesis") or {}
+
+                            elif node_name == "explanation":
+                                final_message = node_output.get("final_response") or ""
+                                if final_message:
+                                    yield _sse("message.delta", {"content": final_message})
+
+                            elif node_name == "action_gate":
+                                for action in (node_output.get("recommended_actions") or []):
+                                    accumulated_actions.append(action)
+                                    if action.get("requires_approval"):
+                                        yield _sse("confirmation.requested", action)
+
+                            if node_name in _STREAM_TOOL_NODES:
+                                yield _sse("tool.completed", {
+                                    "toolName": node_name,
+                                    "success": True,
+                                })
+
+            except Exception as exc:
+                logger.exception("Streaming agent run failed: %s", exc)
+                yield _sse("run.error", {"message": "Agent run failed. No actions were taken."})
+                return
+
+            request_latency_ms = round((time.perf_counter() - start) * 1000, 2)
+            usage = summarize_usage(
+                {"steps": accumulated_steps},
+                request_latency_ms,
+                settings,
+            )
+
+            yield _sse("message.completed", {
+                "agentRunId": state.get("agent_run_id"),
+                "intent": final_intent,
+                "message": final_message or "I could not complete the risk review right now.",
+                "findings": accumulated_findings,
+                "investigativeSynthesis": accumulated_synthesis,
+                "recommendedActions": accumulated_actions,
+                "degradedTools": accumulated_degraded,
+                "errors": accumulated_errors,
+                "steps": accumulated_steps,
+                "modelProvider": settings.model_provider,
+                "modelName": settings.model_name,
+                "usage": usage,
+            })
+
+        return StreamingResponse(
+            generate(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+                "Connection": "keep-alive",
+            },
         )
 
     return app

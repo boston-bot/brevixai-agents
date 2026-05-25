@@ -44,9 +44,11 @@ def build_graph(
     resolved_provider = provider or get_provider(resolved_settings)
 
     # Load prompt templates once at graph-build time — fail early if any are missing.
+    # Use v2 prompts (structured JSON schema + calibrated severity) when the OpenAI provider is active.
+    _prompt_version = "v2" if resolved_provider.provider_name == "openai" else "v1"
     _router_prompt = load_prompt("router", "v1")
-    _fraud_analyzer_prompt = load_prompt("fraud_analyzer_summary", "v1")
-    _investigation_synthesis_prompt = load_prompt("investigation_synthesis", "v1")
+    _fraud_analyzer_prompt = load_prompt("fraud_analyzer_summary", _prompt_version)
+    _investigation_synthesis_prompt = load_prompt("investigation_synthesis", _prompt_version)
     _explanation_prompt = load_prompt("explanation", "v2")
     _action_gate_prompt = load_prompt("action_gate", "v2")
 
@@ -54,12 +56,27 @@ def build_graph(
         message = state["user_message"].lower()
         intent = "unknown_or_unsupported"
 
-        if any(term in message for term in ("financial health", "overview", "dashboard", "current health")):
+        if any(term in message for term in (
+            "financial health", "overview", "dashboard", "current health",
+            "spend summary", "budget", "expense", "expenses",
+            "monthly summary", "cash flow",
+        )):
             intent = "dashboard_health"
         elif any(term in message for term in ("reconciliation", "unmatched", "mismatch")):
             intent = "reconciliation_review"
         elif is_transaction_lookup(message):
             intent = "transaction_lookup"
+        elif any(
+            term in message
+            for term in (
+                "pending recommendation", "pending alert", "pending case",
+                "review recommendation", "alert recommendation", "case recommendation",
+                "what needs review", "needs my review", "awaiting review",
+                "open case", "open cases", "my cases", "investigation case",
+                "investigation cases", "case status", "case list", "cases",
+            )
+        ):
+            intent = "recommendation_review"
         elif any(
             term in message
             for term in (
@@ -125,6 +142,144 @@ def build_graph(
                 ],
             }
 
+    async def llm_tool_dispatch_node(state: BrevixAgentState) -> dict[str, Any]:
+        """Ask the LLM which domain tools to call for this query.
+
+        Only active when the OpenAI provider is configured and the intent is
+        fraud_pattern_search or reconciliation_review. For the deterministic
+        provider or other intents this is a no-op and all tools run as normal.
+        """
+        intent = state.get("intent")
+        if resolved_provider.provider_name == "deterministic":
+            return {}
+        if intent not in {"fraud_pattern_search", "reconciliation_review"}:
+            return {}
+
+        try:
+            # select_tools is only available on OpenAIProvider
+            select_fn = getattr(resolved_provider, "select_tools", None)
+            if select_fn is None:
+                return {}
+            dispatch_response = await select_fn(state["user_message"])
+            selected = dispatch_response.tool_calls  # list[str] | None
+            if not selected:
+                return {}
+            return {
+                "selected_tools": selected,
+                "steps": [
+                    step(
+                        "llm_tool_dispatch",
+                        input_payload={"user_message": state["user_message"], "intent": intent},
+                        output_payload={"selected_tools": selected},
+                    )
+                ],
+            }
+        except Exception as exc:
+            logger.warning("LLM tool dispatch failed, falling back to all tools: %s", exc)
+            return {}
+
+    async def _recommendation_review_analysis(state: BrevixAgentState) -> dict[str, Any]:
+        """Fetch pending recommendations and surface them as findings for review."""
+        degraded: list[dict[str, Any]] = []
+        tool_steps: list[dict[str, Any]] = []
+        findings: list[dict[str, Any]] = []
+        alert_rec_data = None
+        case_rec_data = None
+        pending_data = None
+
+        try:
+            pending_data = await tool_client.pending_recommendations(
+                state["company_id"],
+                state["user_id"],
+                trace_id=state.get("agent_run_id"),
+                trace_metadata={"intent": "recommendation_review"},
+            )
+        except Exception as exc:
+            logger.warning("Failed to retrieve pending recommendations: %s", exc)
+            degraded.append(degraded_tool("pending_recommendations", exc))
+            tool_steps.append(failed_tool_step("pending_recommendations", "pending_recommendations", exc))
+
+        try:
+            alert_rec_data = await tool_client.alert_recommendations(
+                state["company_id"],
+                state["user_id"],
+                trace_id=state.get("agent_run_id"),
+                trace_metadata={"intent": "recommendation_review"},
+            )
+        except Exception as exc:
+            logger.warning("Failed to retrieve alert recommendations: %s", exc)
+            degraded.append(degraded_tool("alert_recommendations", exc))
+
+        try:
+            case_rec_data = await tool_client.case_recommendations(
+                state["company_id"],
+                state["user_id"],
+                trace_id=state.get("agent_run_id"),
+                trace_metadata={"intent": "recommendation_review"},
+            )
+        except Exception as exc:
+            logger.warning("Failed to retrieve case recommendations: %s", exc)
+            degraded.append(degraded_tool("case_recommendations", exc))
+
+        if pending_data:
+            pending_alerts = pending_data.get("alert_recommendations", {})
+            alert_count = pending_alerts.get("pending_count", 0) if isinstance(pending_alerts, dict) else 0
+            pending_cases = pending_data.get("case_recommendations", {})
+            case_count = pending_cases.get("pending_count", 0) if isinstance(pending_cases, dict) else 0
+
+            if alert_count > 0 or case_count > 0:
+                findings.append(
+                    AgentFinding(
+                        title=f"{alert_count + case_count} item(s) pending review",
+                        severity="medium" if (alert_count + case_count) > 3 else "low",
+                        confidence=1.0,
+                        summary=(
+                            f"There are {alert_count} alert recommendation(s) and "
+                            f"{case_count} case recommendation(s) awaiting your review."
+                        ),
+                        evidence=[
+                            {"type": "pending_recommendations", "alert_count": alert_count, "case_count": case_count}
+                        ],
+                    ).model_dump()
+                )
+            else:
+                findings.append(
+                    AgentFinding(
+                        title="No pending recommendations",
+                        severity="info",
+                        confidence=1.0,
+                        summary="All recommendations have been reviewed. No items are currently pending.",
+                        evidence=[],
+                    ).model_dump()
+                )
+
+            tool_steps.append(
+                step(
+                    "pending_recommendations",
+                    step_type="tool_call",
+                    input_payload={"tool": "pending_recommendations"},
+                    output_payload={"alert_count": alert_count, "case_count": case_count},
+                )
+            )
+
+        tool_results: dict[str, Any] = {}
+        if pending_data:
+            tool_results["pending_recommendations"] = pending_data
+        if alert_rec_data:
+            tool_results["alert_recommendations"] = alert_rec_data
+        if case_rec_data:
+            tool_results["case_recommendations"] = case_rec_data
+
+        return {
+            "tool_results": tool_results,
+            "alert_recommendations": alert_rec_data,
+            "case_recommendations": case_rec_data,
+            "pending_recommendations": pending_data,
+            "findings": findings,
+            "degraded_tools": degraded,
+            "steps": tool_steps,
+        }
+
     async def fraud_analyzer_node(state: BrevixAgentState) -> dict[str, Any]:
         if state.get("intent") == "dashboard_health":
             findings = dashboard_findings_from_context(state.get("company_context", {}))
@@ -157,6 +312,9 @@ def build_graph(
                     )
                 ],
             }
+
+        if state.get("intent") == "recommendation_review":
+            return await _recommendation_review_analysis(state)
 
         if state.get("intent") not in {"fraud_pattern_search", "reconciliation_review"}:
             return {
@@ -200,6 +358,11 @@ def build_graph(
 
         findings = findings_from_risk_summary(risk_summary)
 
+        # When llm_tool_dispatch has pre-selected tools, only fetch the selected subset.
+        # None means no selection was made — fetch all tools as before.
+        _selected = state.get("selected_tools")
+        _should_run = lambda tool_name: _selected is None or tool_name in _selected  # noqa: E731
+
         # Determine if a specific vendor was queried or mentioned
         vendor_findings = []
         vendor_risk_data = None
@@ -224,21 +387,22 @@ def build_graph(
                     vendor_name_query = casing_map[seeded_vendor]
                     break
 
-        try:
-            vendor_risk_data = await tool_client.vendor_risk(
-                state["company_id"],
-                state["user_id"],
-                vendor=vendor_name_query,
-                trace_id=state.get("agent_run_id"),
-                trace_metadata={
-                    "intent": state.get("intent"),
-                    "request_source": state.get("page_context", {}).get("source"),
-                }
-            )
-        except Exception as exc:
-            logger.warning("Failed to retrieve vendor risk: %s", exc)
-            degraded_tools.append(degraded_tool("vendor_risk", exc))
-            failed_tool_steps.append(failed_tool_step("vendor_risk_analysis", "vendor_risk", exc))
+        if _should_run("vendor_risk"):
+            try:
+                vendor_risk_data = await tool_client.vendor_risk(
+                    state["company_id"],
+                    state["user_id"],
+                    vendor=vendor_name_query,
+                    trace_id=state.get("agent_run_id"),
+                    trace_metadata={
+                        "intent": state.get("intent"),
+                        "request_source": state.get("page_context", {}).get("source"),
+                    }
+                )
+            except Exception as exc:
+                logger.warning("Failed to retrieve vendor risk: %s", exc)
+                degraded_tools.append(degraded_tool("vendor_risk", exc))
+                failed_tool_steps.append(failed_tool_step("vendor_risk_analysis", "vendor_risk", exc))
 
         if vendor_risk_data:
             if "vendors" in vendor_risk_data:
@@ -282,20 +446,21 @@ def build_graph(
         # Retrieve reconciliation risk data
         reconciliation_risk_data = None
         recon_findings = []
-        try:
-            reconciliation_risk_data = await tool_client.reconciliation_risk(
-                state["company_id"],
-                state["user_id"],
-                trace_id=state.get("agent_run_id"),
-                trace_metadata={
-                    "intent": state.get("intent"),
-                    "request_source": state.get("page_context", {}).get("source"),
-                }
-            )
-        except Exception as exc:
-            logger.warning("Failed to retrieve reconciliation risk: %s", exc)
-            degraded_tools.append(degraded_tool("reconciliation_risk", exc))
-            failed_tool_steps.append(failed_tool_step("reconciliation_risk_analysis", "reconciliation_risk", exc))
+        if _should_run("reconciliation_risk"):
+            try:
+                reconciliation_risk_data = await tool_client.reconciliation_risk(
+                    state["company_id"],
+                    state["user_id"],
+                    trace_id=state.get("agent_run_id"),
+                    trace_metadata={
+                        "intent": state.get("intent"),
+                        "request_source": state.get("page_context", {}).get("source"),
+                    }
+                )
+            except Exception as exc:
+                logger.warning("Failed to retrieve reconciliation risk: %s", exc)
+                degraded_tools.append(degraded_tool("reconciliation_risk", exc))
+                failed_tool_steps.append(failed_tool_step("reconciliation_risk_analysis", "reconciliation_risk", exc))
 
         if reconciliation_risk_data:
             recon_score = reconciliation_risk_data.get("reconciliation_risk_score", 0)
@@ -320,20 +485,21 @@ def build_graph(
         # Retrieve entity relationship risk data
         entity_relationship_risk_data = None
         entity_findings = []
-        try:
-            entity_relationship_risk_data = await tool_client.entity_relationship_risk(
-                state["company_id"],
-                state["user_id"],
-                trace_id=state.get("agent_run_id"),
-                trace_metadata={
-                    "intent": state.get("intent"),
-                    "request_source": state.get("page_context", {}).get("source"),
-                }
-            )
-        except Exception as exc:
-            logger.warning("Failed to retrieve entity relationship risk: %s", exc)
-            degraded_tools.append(degraded_tool("entity_relationship_risk", exc))
-            failed_tool_steps.append(failed_tool_step("entity_relationship_risk_analysis", "entity_relationship_risk", exc))
+        if _should_run("entity_relationship_risk"):
+            try:
+                entity_relationship_risk_data = await tool_client.entity_relationship_risk(
+                    state["company_id"],
+                    state["user_id"],
+                    trace_id=state.get("agent_run_id"),
+                    trace_metadata={
+                        "intent": state.get("intent"),
+                        "request_source": state.get("page_context", {}).get("source"),
+                    }
+                )
+            except Exception as exc:
+                logger.warning("Failed to retrieve entity relationship risk: %s", exc)
+                degraded_tools.append(degraded_tool("entity_relationship_risk", exc))
+                failed_tool_steps.append(failed_tool_step("entity_relationship_risk_analysis", "entity_relationship_risk", exc))
 
         if entity_relationship_risk_data:
             entity_score = entity_relationship_risk_data.get("entity_relationship_risk_score", 0)
@@ -358,20 +524,21 @@ def build_graph(
 
         # Retrieve aggregate risk summary
         aggregate_risk_data = None
-        try:
-            aggregate_risk_data = await tool_client.aggregate_risk_summary(
-                state["company_id"],
-                state["user_id"],
-                trace_id=state.get("agent_run_id"),
-                trace_metadata={
-                    "intent": state.get("intent"),
-                    "request_source": state.get("page_context", {}).get("source"),
-                }
-            )
-        except Exception as exc:
-            logger.warning("Failed to retrieve aggregate risk summary: %s", exc)
-            degraded_tools.append(degraded_tool("aggregate_risk_summary", exc))
-            failed_tool_steps.append(failed_tool_step("aggregate_risk_summary", "aggregate_risk_summary", exc))
+        if _should_run("aggregate_risk_summary"):
+            try:
+                aggregate_risk_data = await tool_client.aggregate_risk_summary(
+                    state["company_id"],
+                    state["user_id"],
+                    trace_id=state.get("agent_run_id"),
+                    trace_metadata={
+                        "intent": state.get("intent"),
+                        "request_source": state.get("page_context", {}).get("source"),
+                    }
+                )
+            except Exception as exc:
+                logger.warning("Failed to retrieve aggregate risk summary: %s", exc)
+                degraded_tools.append(degraded_tool("aggregate_risk_summary", exc))
+                failed_tool_steps.append(failed_tool_step("aggregate_risk_summary", "aggregate_risk_summary", exc))
 
         # Merge findings
         all_findings = []
@@ -448,6 +615,33 @@ def build_graph(
                 )
             )
 
+        # Fetch alert/case recommendations to enrich fraud analysis context
+        alert_rec_data = None
+        case_rec_data = None
+        if _should_run("alert_recommendations"):
+            try:
+                alert_rec_data = await tool_client.alert_recommendations(
+                    state["company_id"],
+                    state["user_id"],
+                    trace_id=state.get("agent_run_id"),
+                    trace_metadata={"intent": state.get("intent")},
+                )
+            except Exception as exc:
+                logger.warning("Failed to retrieve alert recommendations: %s", exc)
+                degraded_tools.append(degraded_tool("alert_recommendations", exc))
+
+        if _should_run("case_recommendations"):
+            try:
+                case_rec_data = await tool_client.case_recommendations(
+                    state["company_id"],
+                    state["user_id"],
+                    trace_id=state.get("agent_run_id"),
+                    trace_metadata={"intent": state.get("intent")},
+                )
+            except Exception as exc:
+                logger.warning("Failed to retrieve case recommendations: %s", exc)
+                degraded_tools.append(degraded_tool("case_recommendations", exc))
+
         tool_results = {"risk_summary": risk_summary}
         if vendor_risk_data:
             tool_results["vendor_risk"] = vendor_risk_data
@@ -461,9 +655,15 @@ def build_graph(
                 tool_results["alert_recommendations"] = aggregate_risk_data.get("alert_recommendations")
             if aggregate_risk_data.get("case_recommendations"):
                 tool_results["case_recommendations"] = aggregate_risk_data.get("case_recommendations")
+        if alert_rec_data:
+            tool_results.setdefault("alert_recommendations", alert_rec_data)
+        if case_rec_data:
+            tool_results.setdefault("case_recommendations", case_rec_data)
 
         return {
             "tool_results": tool_results,
+            "alert_recommendations": alert_rec_data,
+            "case_recommendations": case_rec_data,
             "findings": all_findings,
             "degraded_tools": degraded_tools,
             "steps": steps_list,
@@ -605,6 +805,7 @@ def build_graph(
     builder = StateGraph(BrevixAgentState)
     builder.add_node("router", instrument_node("router", router_node, resolved_settings))
     builder.add_node("context_loader", instrument_node("context_loader", context_loader_node, resolved_settings))
+    builder.add_node("llm_tool_dispatch", instrument_node("llm_tool_dispatch", llm_tool_dispatch_node, resolved_settings))
     builder.add_node("fraud_analyzer", instrument_node("fraud_analyzer", fraud_analyzer_node, resolved_settings))
     builder.add_node(
         "investigation_synthesis",
@@ -615,7 +816,8 @@ def build_graph(
     builder.add_node("final_response", instrument_node("final_response", final_response_node, resolved_settings))
     builder.add_edge(START, "router")
     builder.add_edge("router", "context_loader")
-    builder.add_edge("context_loader", "fraud_analyzer")
+    builder.add_edge("context_loader", "llm_tool_dispatch")
+    builder.add_edge("llm_tool_dispatch", "fraud_analyzer")
     builder.add_edge("fraud_analyzer", "investigation_synthesis")
     builder.add_edge("investigation_synthesis", "explanation")
     builder.add_edge("explanation", "action_gate")
@@ -863,6 +1065,7 @@ def confidence_from_risk_score(score: int) -> float:
 def _build_context(state: BrevixAgentState) -> dict[str, Any]:
     risk_summary = state.get("tool_results", {}).get("risk_summary", {})
     company_context = state.get("company_context", {})
+    history = state.get("conversation_history") or []
     return {
         "intent": state.get("intent"),
         "errors": state.get("errors", []),
@@ -872,6 +1075,8 @@ def _build_context(state: BrevixAgentState) -> dict[str, Any]:
         "risk_level": risk_summary.get("risk_level", "low"),
         "transaction_summary": company_context.get("transaction_summary") if isinstance(company_context, dict) else None,
         "dashboard_summary": company_context.get("dashboard_summary") if isinstance(company_context, dict) else None,
+        # Limit to last 8 turns to stay within context budget; oldest first
+        "conversation_history": history[-8:] if history else [],
     }
 
 
