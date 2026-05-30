@@ -23,11 +23,14 @@ def _analyze_control_weaknesses(
     if not above_threshold:
         return []
 
+    has_approval_data = any("approved_by" in txn for txn in above_threshold)
+    has_document_data = any("document_id" in txn for txn in above_threshold)
+
     # --- Missing approval ---
     unapproved = [
         txn for txn in above_threshold
         if not txn.get("approved_by", "")
-    ]
+    ] if has_approval_data else []
     if unapproved:
         pct_unapproved = len(unapproved) / len(above_threshold)
         confidence = round(min(0.92, 0.50 + pct_unapproved * 0.5), 2)
@@ -73,7 +76,7 @@ def _analyze_control_weaknesses(
     undocumented = [
         txn for txn in above_threshold
         if not txn.get("document_id", "")
-    ]
+    ] if has_document_data else []
     if undocumented:
         pct_undocumented = len(undocumented) / len(above_threshold)
         confidence = round(min(0.90, 0.45 + pct_undocumented * 0.5), 2)
@@ -117,7 +120,7 @@ def _analyze_control_weaknesses(
 
     # --- Approval concentration (single approver dominance) ---
     approver_counts: dict[str, int] = {}
-    approved_txns = [txn for txn in above_threshold if txn.get("approved_by", "")]
+    approved_txns = [txn for txn in above_threshold if txn.get("approved_by", "")] if has_approval_data else []
     for txn in approved_txns:
         approver = str(txn["approved_by"])
         approver_counts[approver] = approver_counts.get(approver, 0) + 1

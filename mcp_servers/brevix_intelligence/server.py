@@ -23,7 +23,7 @@ from .tools.vendor_concentration import analyze_vendor_concentration
 
 mcp = FastMCP(
     "brevix_intelligence",
-    description=(
+    instructions=(
         "Brevix AI financial intelligence tools. "
         "Deterministic fraud detection and risk analysis for small business financials. "
         "All tools are read-only and return structured JSON findings with evidence."
