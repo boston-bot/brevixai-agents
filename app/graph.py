@@ -15,6 +15,7 @@ from app.irs_procedural import (
     classify_irs_tool_request,
     is_irs_procedural_question,
     synthesize_irs_answer,
+    synthesize_irs_notice_workflow,
 )
 from app.models import AgentFinding, BrevixAgentState, RecommendedAction
 from app.observability import instrument_node
@@ -602,6 +603,14 @@ def build_graph(
                     trace_id=state.get("agent_run_id"),
                     trace_metadata=trace_metadata,
                 )
+            elif request.tool_name == "irs_notice_extract":
+                payload = await tool_client.irs_notice_extract(
+                    request.query,
+                    limit=request.limit,
+                    user_id=state["user_id"],
+                    trace_id=state.get("agent_run_id"),
+                    trace_metadata=trace_metadata,
+                )
             else:
                 payload = await tool_client.irm_search(
                     request.query,
@@ -628,24 +637,61 @@ def build_graph(
                 "steps": [failed_tool_step("irs_knowledge", request.tool_name, exc)],
             }
 
-        answer = synthesize_irs_answer(request, payload)
-        return {
-            "tool_results": {"irs_knowledge": payload},
+        workflow: dict[str, Any] | None = None
+        response_payload = payload
+        if request.tool_name == "irs_notice_extract" and isinstance(payload, dict):
+            workflow = synthesize_irs_notice_workflow(payload)
+            response_payload = {**payload, "workflow": workflow}
+
+        answer = synthesize_irs_answer(request, response_payload)
+        tool_results = {"irs_knowledge": response_payload}
+        steps = [
+            step(
+                "irs_knowledge",
+                step_type="tool_call",
+                input_payload={"tool": request.tool_name, "query": request.query, "limit": request.limit},
+                output_payload={
+                    "status": payload.get("status", "ok") if isinstance(payload, dict) else "ok",
+                    "answer_has_disclaimer": "Disclaimer:" in answer,
+                    "answer_has_irm_reference": "irm_reference:" in answer,
+                },
+            )
+        ]
+        result: dict[str, Any] = {
+            "tool_results": tool_results,
             "irs_answer": answer,
             "findings": [],
-            "steps": [
+            "steps": steps,
+        }
+        if workflow:
+            tool_results["irs_notice_workflow"] = workflow
+            result.update(
+                {
+                    "next_best_action": workflow.get("recommended_action"),
+                    "evidence_gaps": workflow.get("evidence_gaps", []),
+                    "scope_limitations": workflow.get("scope_limitations", []),
+                    "readiness_summary": workflow.get("readiness_summary"),
+                    "recommended_workflow": workflow.get("workflow_type"),
+                }
+            )
+            steps.append(
                 step(
-                    "irs_knowledge",
-                    step_type="tool_call",
-                    input_payload={"tool": request.tool_name, "query": request.query, "limit": request.limit},
+                    "irs_notice_workflow",
+                    step_type="workflow_synthesis",
+                    input_payload={
+                        "notice_type": workflow.get("notice_type"),
+                        "issue_family": workflow.get("issue_family"),
+                    },
                     output_payload={
-                        "status": payload.get("status", "ok") if isinstance(payload, dict) else "ok",
-                        "answer_has_disclaimer": "Disclaimer:" in answer,
-                        "answer_has_irm_reference": "irm_reference:" in answer,
+                        "workflow_type": workflow.get("workflow_type"),
+                        "review_priority": workflow.get("review_priority"),
+                        "deadline_urgency": workflow.get("deadline_urgency"),
+                        "evidence_gap_count": len(workflow.get("evidence_gaps", [])),
+                        "escalation_count": len(workflow.get("escalation_criteria", [])),
                     },
                 )
-            ],
-        }
+            )
+        return result
 
     async def fraud_analyzer_node(state: BrevixAgentState) -> dict[str, Any]:
         if state.get("intent") == IRS_INTENT:
@@ -1519,8 +1565,20 @@ def suggested_actions(state: BrevixAgentState) -> list[RecommendedAction]:
         "unknown_or_unsupported",
         "transaction_lookup",
         "dashboard_health",
-        IRS_INTENT,
     }:
+        return []
+
+    if state.get("intent") == IRS_INTENT:
+        next_action = state.get("next_best_action")
+        if isinstance(next_action, dict) and next_action.get("type"):
+            return [
+                RecommendedAction(
+                    type=str(next_action["type"]),
+                    label=str(next_action.get("label", "Prepare IRS notice review")),
+                    requires_approval=bool(next_action.get("requires_approval", False)),
+                    payload=dict(next_action.get("payload") or {}),
+                )
+            ]
         return []
 
     if state.get("intent") == "guided_intake":

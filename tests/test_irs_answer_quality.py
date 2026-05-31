@@ -29,7 +29,11 @@ async def test_irs_answer_quality_fixtures(scenario: dict) -> None:
     assert "irm_reference:" in message
     assert "Disclaimer:" in message
     assert "not tax, legal, or accounting advice" in message
-    assert result["recommended_actions"] == []
+    expected_action = scenario.get("expected_recommended_action")
+    if expected_action:
+        assert result["recommended_actions"][0]["type"] == expected_action
+    else:
+        assert result["recommended_actions"] == []
 
     irs_step = next(step for step in result["steps"] if step["step_name"] == "irs_knowledge")
     assert irs_step["input_payload"]["tool"] == scenario["expected_tool"]
@@ -42,6 +46,10 @@ async def test_irs_answer_quality_fixtures(scenario: dict) -> None:
         assert "procedural summary:" not in message
     else:
         assert scenario["expected_irm_reference"] in message
+
+    if scenario.get("expected_workflow"):
+        assert result["recommended_workflow"] == scenario["expected_workflow"]
+        assert "Workflow next steps:" in message
 
 
 @pytest.mark.asyncio

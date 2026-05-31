@@ -691,12 +691,107 @@ class LaravelToolClient:
             ),
         )
 
+    async def irs_notice_extract(
+        self,
+        text: str,
+        limit: int = 5,
+        user_id: str = "mcp_service",
+        trace_id: str | None = None,
+        trace_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return await self._post(
+            "/api/internal/agent-tools/irs/notice/extract",
+            user_id,
+            json_body={"text": text, "limit": limit},
+            trace_id=trace_id,
+            trace_metadata={
+                "tool_name": "irs_notice_extract",
+                **(trace_metadata or {}),
+            },
+        )
+
     @traceable(
         name="agent.tool.laravel_get",
         run_type="tool",
         process_inputs=sanitize_tool_inputs,
         process_outputs=sanitize_tool_outputs,
     )
+    async def _post(
+        self,
+        path: str,
+        user_id: str,
+        json_body: dict[str, Any] | None = None,
+        trace_id: str | None = None,
+        trace_metadata: dict[str, Any] | None = None,
+        **_: Any,
+    ) -> dict[str, Any]:
+        if not self.tool_key:
+            raise LaravelToolError("Laravel agent tool key is not configured.")
+
+        headers = {
+            "Authorization": f"Bearer {self.tool_key}",
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "X-Brevix-User-Id": user_id,
+        }
+        if trace_id:
+            headers["X-Brevix-Agent-Request-Id"] = trace_id
+
+        settings = get_settings()
+        metadata = {
+            "trace_id": trace_id,
+            "user_id": user_id,
+            "tool_endpoint": path,
+            "environment": settings.app_env,
+            "graph_version": settings.graph_version,
+            "feature_flags": settings.feature_flag_list,
+            "model_name": settings.model_name,
+            **(trace_metadata or {}),
+        }
+        start = time.perf_counter()
+        status = "completed"
+
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+                try:
+                    response = await client.post(
+                        f"{self.base_url}{path}",
+                        headers=headers,
+                        json=json_body,
+                    )
+                except httpx.RequestError as exc:
+                    status = "failed"
+                    raise LaravelToolError(f"Laravel tool request failed: {exc.__class__.__name__}.") from exc
+
+            if response.status_code >= 400:
+                status = "failed"
+                raise LaravelToolError(f"Laravel tool request failed with status {response.status_code}.")
+
+            try:
+                data = response.json()
+            except ValueError as exc:
+                status = "failed"
+                raise LaravelToolError("Laravel tool returned an invalid JSON payload.") from exc
+
+            if not isinstance(data, dict):
+                status = "failed"
+                raise LaravelToolError("Laravel tool returned an invalid payload.")
+
+            return data
+        finally:
+            latency_ms = round((time.perf_counter() - start) * 1000, 2)
+            logger.info(
+                "agent_tool_timing %s",
+                json.dumps(
+                    {
+                        **{key: value for key, value in metadata.items() if value is not None},
+                        "latency_ms": latency_ms,
+                        "status": status,
+                    },
+                    sort_keys=True,
+                ),
+            )
+
     async def _cached_get(
         self,
         cache_key: str,
