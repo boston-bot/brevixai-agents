@@ -562,6 +562,135 @@ class LaravelToolClient:
             ),
         )
 
+    async def irm_search(
+        self,
+        topic: str,
+        limit: int = 5,
+        user_id: str = "mcp_service",
+        trace_id: str | None = None,
+        trace_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return await self._get(
+            "/api/internal/agent-tools/irs/irm/search",
+            user_id,
+            params={"topic": topic, "limit": limit},
+            trace_id=trace_id,
+            trace_metadata={
+                "tool_name": "irm_search",
+                **(trace_metadata or {}),
+            },
+            langsmith_extra=self._langsmith_extra(
+                "irm_search",
+                "",
+                user_id,
+                trace_id,
+                trace_metadata,
+            ),
+        )
+
+    async def irm_section(
+        self,
+        reference: str,
+        user_id: str = "mcp_service",
+        trace_id: str | None = None,
+        trace_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return await self._get(
+            "/api/internal/agent-tools/irs/irm/section",
+            user_id,
+            params={"reference": reference},
+            trace_id=trace_id,
+            trace_metadata={
+                "tool_name": "irm_section",
+                **(trace_metadata or {}),
+            },
+            langsmith_extra=self._langsmith_extra(
+                "irm_section",
+                "",
+                user_id,
+                trace_id,
+                trace_metadata,
+            ),
+        )
+
+    async def irs_notice_type(
+        self,
+        code: str,
+        limit: int = 5,
+        user_id: str = "mcp_service",
+        trace_id: str | None = None,
+        trace_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return await self._get(
+            "/api/internal/agent-tools/irs/notice-type",
+            user_id,
+            params={"code": code, "limit": limit},
+            trace_id=trace_id,
+            trace_metadata={
+                "tool_name": "irs_notice_type",
+                **(trace_metadata or {}),
+            },
+            langsmith_extra=self._langsmith_extra(
+                "irs_notice_type",
+                "",
+                user_id,
+                trace_id,
+                trace_metadata,
+            ),
+        )
+
+    async def irs_records_checklist(
+        self,
+        issue_type: str,
+        limit: int = 5,
+        user_id: str = "mcp_service",
+        trace_id: str | None = None,
+        trace_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return await self._get(
+            "/api/internal/agent-tools/irs/records-checklist",
+            user_id,
+            params={"issue_type": issue_type, "limit": limit},
+            trace_id=trace_id,
+            trace_metadata={
+                "tool_name": "irs_records_checklist",
+                **(trace_metadata or {}),
+            },
+            langsmith_extra=self._langsmith_extra(
+                "irs_records_checklist",
+                "",
+                user_id,
+                trace_id,
+                trace_metadata,
+            ),
+        )
+
+    async def irs_collection_risk(
+        self,
+        issue_type: str,
+        limit: int = 5,
+        user_id: str = "mcp_service",
+        trace_id: str | None = None,
+        trace_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return await self._get(
+            "/api/internal/agent-tools/irs/collection-risk",
+            user_id,
+            params={"issue_type": issue_type, "limit": limit},
+            trace_id=trace_id,
+            trace_metadata={
+                "tool_name": "irs_collection_risk",
+                **(trace_metadata or {}),
+            },
+            langsmith_extra=self._langsmith_extra(
+                "irs_collection_risk",
+                "",
+                user_id,
+                trace_id,
+                trace_metadata,
+            ),
+        )
+
     @traceable(
         name="agent.tool.laravel_get",
         run_type="tool",
