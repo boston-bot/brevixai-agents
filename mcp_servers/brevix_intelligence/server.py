@@ -21,12 +21,14 @@ from .tools.dormant_vendor import detect_dormant_vendor_reactivation
 from .tools.duplicate_payments import detect_duplicate_payments
 from .tools.irs_knowledge import (
     explain_notice_type,
+    extract_irs_notice,
     get_irm_section,
     recommend_records_to_gather,
     search_irm,
     summarize_collection_risk,
 )
 from .tools.vendor_concentration import analyze_vendor_concentration
+from .tools.workflows import create_irs_notice_review
 
 mcp = FastMCP(
     "brevix_intelligence",
@@ -281,6 +283,61 @@ async def recommend_records_to_gather_tool(issue_type: str, limit: int = 5, user
 
     log_tool_call(
         tool_name="recommend_records_to_gather",
+        company_id="global",
+        user_id=user_id,
+        execution_time_ms=(time.perf_counter() - start) * 1000,
+        status=result.get("status", "ok"),
+    )
+    return result
+
+
+@mcp.tool()
+async def extract_irs_notice_tool(notice_text: str, limit: int = 5, user_id: str = "") -> dict[str, Any]:
+    """Extract structured fields from raw IRS notice text and return source-backed IRM sections.
+
+    Identifies the notice type (e.g. CP504, LT11, CP2000), risk level, deadline,
+    and required action from the pasted notice content, then returns matching IRM
+    procedural sections for the identified notice type.
+
+    Args:
+        notice_text: Raw text of the IRS notice (pasted or typed). Must be at least 20 characters.
+        limit: Maximum number of IRM sections to return (1–10, default 5).
+        user_id: Optional caller identity for audit logging.
+    """
+    client = get_laravel_client()
+    start = time.perf_counter()
+
+    result = await extract_irs_notice(client, notice_text, limit=limit, user_id=user_id or "mcp_service")
+
+    log_tool_call(
+        tool_name="extract_irs_notice",
+        company_id="global",
+        user_id=user_id,
+        execution_time_ms=(time.perf_counter() - start) * 1000,
+        status=result.get("status", "ok"),
+    )
+    return result
+
+
+@mcp.tool()
+async def create_irs_notice_review_tool(extraction_payload: dict[str, Any], user_id: str = "") -> dict[str, Any]:
+    """Create a guided IRS notice review workflow from extracted notice fields.
+
+    Consumes the structured payload returned by extract_irs_notice_tool and returns
+    reviewer-facing next steps, evidence requests, escalation criteria, deadline
+    urgency, and a non-mutating recommended action. This tool does not create
+    cases, alerts, correspondence, or IRS submissions.
+
+    Args:
+        extraction_payload: Structured IRS notice extraction payload.
+        user_id: Optional caller identity for audit logging.
+    """
+    start = time.perf_counter()
+
+    result = create_irs_notice_review(extraction_payload)
+
+    log_tool_call(
+        tool_name="create_irs_notice_review",
         company_id="global",
         user_id=user_id,
         execution_time_ms=(time.perf_counter() - start) * 1000,

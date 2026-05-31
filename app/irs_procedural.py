@@ -4,6 +4,8 @@ import re
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from app.irs_notice_workflow import build_irs_notice_workflow
+
 IRS_INTENT = "irs_procedural_question"
 
 IRS_DISCLAIMER = (
@@ -78,7 +80,22 @@ _ADVICE_POSITIONING_TERMS = (
     "legal advice",
 )
 
-ToolName = Literal["irm_section", "irs_notice_type", "irs_records_checklist", "irs_collection_risk", "irm_search"]
+ToolName = Literal["irm_section", "irs_notice_type", "irs_records_checklist", "irs_collection_risk", "irm_search", "irs_notice_extract"]
+
+_NOTICE_TEXT_TRIGGERS = (
+    "my notice says",
+    "my notice reads",
+    "the notice says",
+    "the notice reads",
+    "notice text",
+    "i received a notice",
+    "i got a notice",
+    "here is my notice",
+    "here's my notice",
+    "i have a notice that",
+    "notice states",
+    "notice dated",
+)
 
 
 @dataclass(frozen=True)
@@ -114,6 +131,10 @@ def classify_irs_tool_request(message: str) -> IrsToolRequest:
         return IrsToolRequest(tool_name="irm_section", query=reference_match.group(1))
 
     normalized = _normalize(message)
+
+    if _is_notice_text_submission(message, normalized):
+        return IrsToolRequest(tool_name="irs_notice_extract", query=message.strip())
+
     if any(term in normalized for term in _RECORDS_TERMS):
         return IrsToolRequest(tool_name="irs_records_checklist", query=_issue_type_from_message(message))
 
@@ -127,7 +148,19 @@ def classify_irs_tool_request(message: str) -> IrsToolRequest:
     return IrsToolRequest(tool_name="irm_search", query=message.strip())
 
 
+def _is_notice_text_submission(message: str, normalized: str) -> bool:
+    has_irs_anchor = any(term in normalized for term in _IRS_ANCHOR_TERMS)
+    if not has_irs_anchor:
+        return False
+    has_trigger = any(trigger in normalized for trigger in _NOTICE_TEXT_TRIGGERS)
+    is_long_paste = len(message.strip()) > 300
+    return has_trigger or is_long_paste
+
+
 def synthesize_irs_answer(request: IrsToolRequest, payload: dict[str, Any]) -> str:
+    if request.tool_name == "irs_notice_extract":
+        return _synthesize_notice_extraction(payload)
+
     records = [record for record in _extract_records(payload) if _record_reference(record)]
     if request.tool_name == "irm_section":
         records = _filter_exact_reference(records, request.query)
@@ -167,6 +200,69 @@ def synthesize_irs_answer(request: IrsToolRequest, payload: dict[str, Any]) -> s
     lines.append(f"IRM references: {references_text}.")
     lines.append(IRS_DISCLAIMER)
     return " ".join(lines)
+
+
+def _synthesize_notice_extraction(payload: dict[str, Any]) -> str:
+    notice_type = payload.get("notice_type", "Unknown")
+    risk_level = payload.get("risk_level", "")
+    deadline_description = payload.get("deadline_description", "")
+    required_action = payload.get("required_action", "")
+    summary = _clean_text(str(payload.get("summary") or ""), max_length=420)
+    key_amount = _coerce_float(payload.get("key_amount"))
+    workflow = payload.get("workflow")
+
+    lines: list[str] = []
+    risk_label = f" [{risk_level}]" if risk_level else ""
+    lines.append(f"IRS notice extraction — identified as {notice_type}{risk_label}.")
+
+    if summary:
+        lines.append(summary)
+    if required_action:
+        lines.append(f"Required action: {_clean_text(required_action, max_length=200)}")
+    if deadline_description:
+        lines.append(f"Deadline: {_clean_text(deadline_description, max_length=160)}")
+    if key_amount is not None:
+        lines.append(f"Amount at issue: ${key_amount:,.2f}")
+
+    records = [record for record in _extract_records(payload) if _record_reference(record)]
+    if records:
+        lines.append("Related IRM sections:")
+        for index, record in enumerate(records[:3], start=1):
+            reference = _record_reference(record) or "unknown"
+            title = _record_title(record)
+            if title:
+                lines.append(f"{index}. {title}. irm_reference: {reference}.")
+            else:
+                lines.append(f"{index}. irm_reference: {reference}.")
+        references = _unique_preserving_order(
+            ref for record in records if (ref := _record_reference(record))
+        )
+        lines.append(f"IRM references: {', '.join(references)}.")
+    else:
+        lines.append("irm_reference: none returned.")
+
+    if isinstance(workflow, dict):
+        next_steps = _workflow_text_items(workflow.get("next_steps"), max_length=180)
+        evidence_to_gather = [
+            _clean_text(str(item.get("label")), max_length=120)
+            for item in workflow.get("evidence_requests", [])
+            if isinstance(item, dict) and item.get("status") in {"missing", "incomplete"} and item.get("label")
+        ]
+        escalation_criteria = _workflow_text_items(workflow.get("escalation_criteria"), max_length=160)
+
+        if next_steps:
+            lines.append("Workflow next steps: " + "; ".join(next_steps[:4]) + ".")
+        if evidence_to_gather:
+            lines.append("Evidence to gather: " + "; ".join(evidence_to_gather[:5]) + ".")
+        if escalation_criteria:
+            lines.append("Escalation criteria: " + "; ".join(escalation_criteria[:4]) + ".")
+
+    lines.append(IRS_DISCLAIMER)
+    return " ".join(lines)
+
+
+def synthesize_irs_notice_workflow(payload: dict[str, Any]) -> dict[str, Any]:
+    return build_irs_notice_workflow(payload)
 
 
 def _opening_for_request(request: IrsToolRequest) -> str:
@@ -279,3 +375,20 @@ def _unique_preserving_order(values: Any) -> list[str]:
         seen.add(value)
         unique.append(value)
     return unique
+
+
+def _workflow_text_items(value: Any, max_length: int) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [_clean_text(str(item), max_length=max_length) for item in value if str(item).strip()]
+
+
+def _coerce_float(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, str):
+        value = value.replace("$", "").replace(",", "").strip()
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
