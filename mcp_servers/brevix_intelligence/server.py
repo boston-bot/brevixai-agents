@@ -19,13 +19,19 @@ from .tools.cash_burn import calculate_cash_burn
 from .tools.control_weaknesses import summarize_control_weaknesses
 from .tools.dormant_vendor import detect_dormant_vendor_reactivation
 from .tools.duplicate_payments import detect_duplicate_payments
+from .tools.irs_knowledge import (
+    explain_notice_type,
+    recommend_records_to_gather,
+    search_irm,
+    summarize_collection_risk,
+)
 from .tools.vendor_concentration import analyze_vendor_concentration
 
 mcp = FastMCP(
     "brevix_intelligence",
     instructions=(
         "Brevix AI financial intelligence tools. "
-        "Deterministic fraud detection and risk analysis for small business financials. "
+        "Deterministic fraud detection, risk analysis, and IRS procedural intelligence. "
         "All tools are read-only and return structured JSON findings with evidence."
     ),
 )
@@ -190,6 +196,78 @@ async def summarize_control_weaknesses_tool(
         status=result.status,
     )
     return result.model_dump()
+
+
+@mcp.tool()
+async def search_irm_tool(topic: str, limit: int = 5, user_id: str = "") -> dict[str, Any]:
+    """Search parsed Internal Revenue Manual sections by topic."""
+    client = get_laravel_client()
+    start = time.perf_counter()
+
+    result = await search_irm(client, topic, limit=limit, user_id=user_id or "mcp_service")
+
+    log_tool_call(
+        tool_name="search_irm",
+        company_id="global",
+        user_id=user_id,
+        execution_time_ms=(time.perf_counter() - start) * 1000,
+        status=result.get("status", "ok"),
+    )
+    return result
+
+
+@mcp.tool()
+async def explain_notice_type_tool(notice_code: str, limit: int = 5, user_id: str = "") -> dict[str, Any]:
+    """Explain an IRS notice type using source-backed IRM sections."""
+    client = get_laravel_client()
+    start = time.perf_counter()
+
+    result = await explain_notice_type(client, notice_code, limit=limit, user_id=user_id or "mcp_service")
+
+    log_tool_call(
+        tool_name="explain_notice_type",
+        company_id="global",
+        user_id=user_id,
+        execution_time_ms=(time.perf_counter() - start) * 1000,
+        status=result.get("status", "ok"),
+    )
+    return result
+
+
+@mcp.tool()
+async def summarize_collection_risk_tool(issue_type: str, limit: int = 5, user_id: str = "") -> dict[str, Any]:
+    """Summarize IRS collection risk for an issue type using IRM sources."""
+    client = get_laravel_client()
+    start = time.perf_counter()
+
+    result = await summarize_collection_risk(client, issue_type, limit=limit, user_id=user_id or "mcp_service")
+
+    log_tool_call(
+        tool_name="summarize_collection_risk",
+        company_id="global",
+        user_id=user_id,
+        execution_time_ms=(time.perf_counter() - start) * 1000,
+        status=result.get("status", "ok"),
+    )
+    return result
+
+
+@mcp.tool()
+async def recommend_records_to_gather_tool(issue_type: str, limit: int = 5, user_id: str = "") -> dict[str, Any]:
+    """Recommend records to gather for an IRS issue type using IRM sources."""
+    client = get_laravel_client()
+    start = time.perf_counter()
+
+    result = await recommend_records_to_gather(client, issue_type, limit=limit, user_id=user_id or "mcp_service")
+
+    log_tool_call(
+        tool_name="recommend_records_to_gather",
+        company_id="global",
+        user_id=user_id,
+        execution_time_ms=(time.perf_counter() - start) * 1000,
+        status=result.get("status", "ok"),
+    )
+    return result
 
 
 if __name__ == "__main__":

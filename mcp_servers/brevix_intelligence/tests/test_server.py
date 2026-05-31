@@ -8,7 +8,7 @@ from mcp_servers.brevix_intelligence.server import mcp
 
 
 @pytest.mark.asyncio
-async def test_mcp_server_registers_phase_1_tools() -> None:
+async def test_mcp_server_registers_intelligence_tools() -> None:
     tools = await mcp.list_tools()
     tool_names = {tool.name for tool in tools}
 
@@ -18,4 +18,8 @@ async def test_mcp_server_registers_phase_1_tools() -> None:
         "detect_dormant_vendor_reactivation_tool",
         "calculate_cash_burn_tool",
         "summarize_control_weaknesses_tool",
+        "search_irm_tool",
+        "explain_notice_type_tool",
+        "summarize_collection_risk_tool",
+        "recommend_records_to_gather_tool",
     }.issubset(tool_names)

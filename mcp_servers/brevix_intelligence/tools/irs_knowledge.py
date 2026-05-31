@@ -1,28 +1,46 @@
-"""IRS Knowledge MCP tools — Phase 2 (not yet implemented).
+"""IRS Knowledge MCP tools — Phase 2.
 
-These tools will provide structured IRS procedural intelligence:
-- search_irm: Search the Internal Revenue Manual by topic
-- explain_notice_type: Explain a specific IRS notice code
-- summarize_collection_risk: Summarize risk for a given issue type
-- recommend_records_to_gather: Recommend documentation for a given issue
-
-See the architecture plan (docs/brevix_mcp_architecture_plan.md) for full design.
+These tools are read-only adapters over Laravel's IRM knowledge endpoints.
+Laravel owns all RDS access; this module only calls approved internal agent
+tool endpoints and returns source-backed, disclaimer-safe payloads.
 """
 
 from __future__ import annotations
 
-
-def search_irm(topic: str) -> dict:
-    raise NotImplementedError("IRS knowledge tools are planned for Phase 2.")
+from app.tools.laravel import LaravelToolClient
 
 
-def explain_notice_type(notice_code: str) -> dict:
-    raise NotImplementedError("IRS knowledge tools are planned for Phase 2.")
+async def search_irm(
+    client: LaravelToolClient,
+    topic: str,
+    limit: int = 5,
+    user_id: str = "mcp_service",
+) -> dict:
+    return await client.irm_search(topic=topic, limit=limit, user_id=user_id)
 
 
-def summarize_collection_risk(issue_type: str) -> dict:
-    raise NotImplementedError("IRS knowledge tools are planned for Phase 2.")
+async def explain_notice_type(
+    client: LaravelToolClient,
+    notice_code: str,
+    limit: int = 5,
+    user_id: str = "mcp_service",
+) -> dict:
+    return await client.irs_notice_type(code=notice_code, limit=limit, user_id=user_id)
 
 
-def recommend_records_to_gather(issue_type: str) -> dict:
-    raise NotImplementedError("IRS knowledge tools are planned for Phase 2.")
+async def summarize_collection_risk(
+    client: LaravelToolClient,
+    issue_type: str,
+    limit: int = 5,
+    user_id: str = "mcp_service",
+) -> dict:
+    return await client.irs_collection_risk(issue_type=issue_type, limit=limit, user_id=user_id)
+
+
+async def recommend_records_to_gather(
+    client: LaravelToolClient,
+    issue_type: str,
+    limit: int = 5,
+    user_id: str = "mcp_service",
+) -> dict:
+    return await client.irs_records_checklist(issue_type=issue_type, limit=limit, user_id=user_id)
