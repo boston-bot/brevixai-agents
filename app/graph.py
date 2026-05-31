@@ -15,6 +15,13 @@ from app.observability import instrument_node
 from app.prompts import load_prompt
 from app.providers import ModelProvider, ProviderConfigError, ProviderRuntimeError, get_provider
 from app.tools.laravel import LaravelToolClient, LaravelToolError
+from mcp_servers.brevix_intelligence.config import get_mcp_settings
+from mcp_servers.brevix_intelligence.schemas.findings import Finding as IntelligenceFinding
+from mcp_servers.brevix_intelligence.tools.cash_burn import _analyze_cash_burn
+from mcp_servers.brevix_intelligence.tools.control_weaknesses import _analyze_control_weaknesses
+from mcp_servers.brevix_intelligence.tools.dormant_vendor import _analyze_dormant_reactivation
+from mcp_servers.brevix_intelligence.tools.duplicate_payments import _analyze_duplicates
+from mcp_servers.brevix_intelligence.tools.vendor_concentration import _analyze_concentration
 
 logger = logging.getLogger("brevix.agent.graph")
 
@@ -90,6 +97,8 @@ def build_graph(
             for term in (
                 "fraud", "suspicious", "vendor", "risk", "alert", "anomaly",
                 "payment", "invoice", "duplicate", "threshold", "split", "concentration",
+                "dormant", "burn", "control weakness", "approval", "missing approval",
+                "missing document", "segregation",
             )
         ):
             intent = "fraud_pattern_search"
@@ -451,6 +460,85 @@ def build_graph(
             "steps": tool_steps,
         }
 
+    async def _fraud_intelligence_analysis(
+        state: BrevixAgentState,
+        should_run: Any,
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+        """Fetch transactions once and run all deterministic intelligence tools.
+
+        Returns (findings_dicts, degraded_tools, steps).
+        """
+        mcp_settings = get_mcp_settings()
+        today = datetime.now(timezone.utc).date()
+        lookback_start = (today - timedelta(days=365)).isoformat()
+        lookback_end = today.isoformat()
+
+        try:
+            txn_result = await tool_client.transaction_lookup(
+                state["company_id"],
+                state["user_id"],
+                date_from=lookback_start,
+                date_to=lookback_end,
+                limit=mcp_settings.max_transactions,
+                trace_id=state.get("agent_run_id"),
+                trace_metadata={"intent": "intelligence_analysis"},
+            )
+            transactions = txn_result.get("transactions", [])
+        except Exception as exc:
+            logger.warning("Intelligence transaction fetch failed: %s", exc)
+            return [], [degraded_tool("intelligence_transaction_lookup", exc)], []
+
+        if not transactions:
+            return [], [], []
+
+        raw_findings: list[IntelligenceFinding] = []
+
+        if should_run("duplicate_payments"):
+            raw_findings.extend(
+                _analyze_duplicates(
+                    transactions,
+                    amount_tolerance=mcp_settings.duplicate_amount_tolerance,
+                    date_window_days=mcp_settings.duplicate_date_window_days,
+                )
+            )
+
+        if should_run("vendor_concentration"):
+            raw_findings.extend(
+                _analyze_concentration(
+                    transactions,
+                    threshold=mcp_settings.vendor_concentration_threshold,
+                )
+            )
+
+        if should_run("dormant_vendor"):
+            raw_findings.extend(
+                _analyze_dormant_reactivation(
+                    transactions,
+                    dormant_days=mcp_settings.dormant_vendor_days,
+                )
+            )
+
+        if should_run("cash_burn"):
+            raw_findings.extend(_analyze_cash_burn(transactions))
+
+        if should_run("control_weaknesses"):
+            raw_findings.extend(
+                _analyze_control_weaknesses(
+                    transactions,
+                    min_amount=mcp_settings.control_weakness_min_amount,
+                    approver_dominance_threshold=mcp_settings.control_weakness_approver_dominance,
+                )
+            )
+
+        findings_dicts = [intelligence_finding_to_agent_finding(f).model_dump() for f in raw_findings]
+        tool_step = step(
+            "fraud_intelligence",
+            step_type="tool_call",
+            input_payload={"tool": "intelligence_analysis", "transaction_count": len(transactions)},
+            output_payload={"intelligence_finding_count": len(findings_dicts)},
+        )
+        return findings_dicts, [], [tool_step]
+
     async def fraud_analyzer_node(state: BrevixAgentState) -> dict[str, Any]:
         if state.get("intent") == "guided_intake":
             return await _guided_intake_analysis(state)
@@ -714,6 +802,13 @@ def build_graph(
                 degraded_tools.append(degraded_tool("aggregate_risk_summary", exc))
                 failed_tool_steps.append(failed_tool_step("aggregate_risk_summary", "aggregate_risk_summary", exc))
 
+        # Run deterministic intelligence tools (duplicate payments, concentration, etc.)
+        intelligence_findings, intelligence_degraded, intelligence_steps = await _fraud_intelligence_analysis(
+            state, _should_run
+        )
+        degraded_tools.extend(intelligence_degraded)
+        steps_list_intelligence = intelligence_steps  # merged below after steps_list is built
+
         # Merge findings
         all_findings = []
         for f in findings:
@@ -724,8 +819,9 @@ def build_graph(
             all_findings.append(f.model_dump())
         for f in entity_findings:
             all_findings.append(f.model_dump())
+        all_findings.extend(intelligence_findings)
 
-        # Compile steps
+        # Compile steps (intelligence steps merged at end)
         steps_list = [
             step(
                 "fraud_analyzer",
@@ -740,6 +836,7 @@ def build_graph(
             )
         ]
         steps_list.extend(failed_tool_steps)
+        steps_list.extend(steps_list_intelligence)
         if vendor_risk_data:
             steps_list.append(
                 step(
@@ -1257,6 +1354,19 @@ def _build_context(state: BrevixAgentState) -> dict[str, Any]:
         "readiness_summary": state.get("readiness_summary"),
         "next_best_action": state.get("next_best_action"),
     }
+
+
+def intelligence_finding_to_agent_finding(finding: IntelligenceFinding) -> AgentFinding:
+    evidence = [item.model_dump(exclude_none=True) for item in finding.evidence]
+    if finding.recommended_next_steps:
+        evidence.append({"type": "recommended_next_steps", "steps": finding.recommended_next_steps})
+    return AgentFinding(
+        title=finding.risk_type.replace("_", " ").title(),
+        severity=finding.severity,
+        confidence=finding.confidence,
+        summary=finding.summary,
+        evidence=evidence,
+    )
 
 
 def suggested_actions(state: BrevixAgentState) -> list[RecommendedAction]:
