@@ -23,4 +23,6 @@ async def test_mcp_server_registers_intelligence_tools() -> None:
         "explain_notice_type_tool",
         "summarize_collection_risk_tool",
         "recommend_records_to_gather_tool",
+        "extract_irs_notice_tool",
+        "create_irs_notice_review_tool",
     }.issubset(tool_names)

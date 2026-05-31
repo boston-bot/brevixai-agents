@@ -1,0 +1,80 @@
+[
+  {
+    "id": "levy_notice",
+    "request": {
+      "tool_name": "irm_search",
+      "query": "levy notice",
+      "limit": 5
+    },
+    "passed": true,
+    "failures": [],
+    "latency_ms": 3160.23,
+    "payload_status": "ok",
+    "answer_preview": "IRM search summary for levy notice: 1. Notice of Levy vs. Seizure: There is no legal distinction between levy and seizure. Generally, use a Notice of Levy (Form 668-A, Form 668-W, Form 668-R) to take a taxpayer's property held by someone el"
+  },
+  {
+    "id": "cp504",
+    "request": {
+      "tool_name": "irs_notice_type",
+      "query": "CP504",
+      "limit": 5
+    },
+    "passed": true,
+    "failures": [],
+    "latency_ms": 6430.57,
+    "payload_status": "ok",
+    "answer_preview": "IRS notice CP504 procedural summary: 1. Recognizing if ACS Issued Notice of Intent to Levy/Notice of a Right to a Hearing: ACS also issues a Notice of Intent to Levy/Notice of a Right to a Hearing. If the ACS action history shows action cod"
+  },
+  {
+    "id": "lt11",
+    "request": {
+      "tool_name": "irs_notice_type",
+      "query": "LT11",
+      "limit": 5
+    },
+    "passed": true,
+    "failures": [],
+    "latency_ms": 5594.59,
+    "payload_status": "ok",
+    "answer_preview": "IRS notice LT11 procedural summary: 1. Recognizing if ACS Issued Notice of Intent to Levy/Notice of a Right to a Hearing: ACS also issues a Notice of Intent to Levy/Notice of a Right to a Hearing. If the ACS action history shows action code"
+  },
+  {
+    "id": "cp2000",
+    "request": {
+      "tool_name": "irs_notice_type",
+      "query": "CP2000",
+      "limit": 5
+    },
+    "passed": true,
+    "failures": [],
+    "latency_ms": 6751.25,
+    "payload_status": "ok",
+    "answer_preview": "IRS notice CP2000 procedural summary: 1. Results of an In-Depth Examination of Income: After completion of the in-depth examination of income, the examiner should decide the next step using the following decision criteria: IF THEN The taxpa"
+  },
+  {
+    "id": "trust_fund_recovery_penalty",
+    "request": {
+      "tool_name": "irs_collection_risk",
+      "query": "trust fund recovery penalty",
+      "limit": 5
+    },
+    "passed": true,
+    "failures": [],
+    "latency_ms": 5784.03,
+    "payload_status": "ok",
+    "answer_preview": "IRS collection process summary for trust fund recovery penalty: 1. Working Repeater Trust Fund Taxpayers to Address Pyramiding: If a taxpayer is identified as a repeater, attempt initial contact within 45 days from receipt of the case (see "
+  },
+  {
+    "id": "unknown_notice_code",
+    "request": {
+      "tool_name": "irs_notice_type",
+      "query": "CP9999",
+      "limit": 5
+    },
+    "passed": true,
+    "failures": [],
+    "latency_ms": 1080.89,
+    "payload_status": "no_results",
+    "answer_preview": "No source-backed IRM result was returned for 'CP9999'. I do not have enough retrieved IRM support to give procedural guidance for that request. irm_reference: none returned. Disclaimer: This is general IRS procedural information based on re"
+  }
+]

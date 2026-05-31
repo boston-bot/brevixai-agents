@@ -21,6 +21,7 @@ class FakeLaravelToolClient:
         self.irs_notice_type_calls: list[dict] = []
         self.irs_records_checklist_calls: list[dict] = []
         self.irs_collection_risk_calls: list[dict] = []
+        self.irs_notice_extract_calls: list[dict] = []
 
     async def company_context(
         self,
@@ -420,6 +421,35 @@ class FakeLaravelToolClient:
             ],
         }
 
+    async def irs_notice_extract(
+        self,
+        text: str,
+        limit: int = 5,
+        user_id: str = "mcp_service",
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        self.irs_notice_extract_calls.append({"text": text, "limit": limit, "user_id": user_id})
+        return {
+            "status": "ok",
+            "notice_type": "CP504",
+            "deadline_days": 30,
+            "deadline_description": "30-day window from notice date",
+            "required_action": "Pay in full or file Form 9465 to stop levy action.",
+            "risk_level": "critical",
+            "key_amount": 5000.0,
+            "summary": "CP504 is an urgent notice of intent to levy state tax refunds.",
+            "irm_search_topic": "levy notice intent to levy balance due collection",
+            "results": [
+                {
+                    "irm_reference": "5.11.1.1",
+                    "title": "Notice of Levy",
+                    "summary": "The returned IRM-backed result describes the levy notice procedure.",
+                }
+            ],
+            "disclaimer": "For informational purposes only.",
+        }
+
 
 class FixtureLaravelToolClient:
     """Fake tool client that returns a caller-supplied risk fixture for evaluation runs."""
@@ -684,6 +714,17 @@ class FixtureLaravelToolClient:
     ) -> dict:
         fixture = self.risk_fixture.get("irs_collection_risk", {})
         return {"status": "ok", "issue_type": issue_type, **fixture} if isinstance(fixture, dict) else {}
+
+    async def irs_notice_extract(
+        self,
+        text: str,
+        limit: int = 5,
+        user_id: str = "mcp_service",
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        fixture = self.risk_fixture.get("irs_notice_extract", {})
+        return {"status": "ok", **fixture} if isinstance(fixture, dict) else {}
 
 
 def base_state(message: str = "Are there any suspicious vendors this month?") -> dict:

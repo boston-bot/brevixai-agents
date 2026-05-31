@@ -228,6 +228,12 @@ def create_app() -> FastAPI:
             accumulated_degraded: list[dict] = []
             accumulated_errors: list[str] = []
             accumulated_synthesis: dict = {}
+            accumulated_next_best_action: dict | None = None
+            accumulated_evidence_gaps: list[dict] = []
+            accumulated_scope_limitations: list[str] = []
+            accumulated_readiness_summary: dict | None = None
+            accumulated_suggested_answers: list[dict] = []
+            accumulated_recommended_workflow: str | None = None
             final_intent: str | None = None
             final_message = ""
 
@@ -247,6 +253,18 @@ def create_app() -> FastAPI:
                             accumulated_steps.extend(node_output.get("steps") or [])
                             accumulated_degraded.extend(node_output.get("degraded_tools") or [])
                             accumulated_errors.extend(node_output.get("errors") or [])
+                            if "next_best_action" in node_output:
+                                accumulated_next_best_action = node_output.get("next_best_action")
+                            if "evidence_gaps" in node_output:
+                                accumulated_evidence_gaps = node_output.get("evidence_gaps") or []
+                            if "scope_limitations" in node_output:
+                                accumulated_scope_limitations = node_output.get("scope_limitations") or []
+                            if "readiness_summary" in node_output:
+                                accumulated_readiness_summary = node_output.get("readiness_summary")
+                            if "suggested_answers" in node_output:
+                                accumulated_suggested_answers = node_output.get("suggested_answers") or []
+                            if "recommended_workflow" in node_output:
+                                accumulated_recommended_workflow = node_output.get("recommended_workflow")
 
                             if node_name in _STREAM_TOOL_NODES:
                                 yield _sse("tool.started", {"toolName": node_name})
@@ -304,6 +322,12 @@ def create_app() -> FastAPI:
                 "modelProvider": settings.model_provider,
                 "modelName": settings.model_name,
                 "usage": usage,
+                "nextBestAction": accumulated_next_best_action,
+                "evidenceGaps": accumulated_evidence_gaps,
+                "scopeLimitations": accumulated_scope_limitations,
+                "readinessSummary": accumulated_readiness_summary,
+                "suggestedAnswers": accumulated_suggested_answers,
+                "recommendedWorkflow": accumulated_recommended_workflow,
             })
 
         return StreamingResponse(

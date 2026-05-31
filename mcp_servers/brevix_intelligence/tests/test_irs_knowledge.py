@@ -6,6 +6,7 @@ import pytest
 
 from mcp_servers.brevix_intelligence.tools.irs_knowledge import (
     explain_notice_type,
+    extract_irs_notice,
     get_irm_section,
     recommend_records_to_gather,
     search_irm,
@@ -36,6 +37,22 @@ class FakeIrmClient:
     async def irs_records_checklist(self, issue_type: str, limit: int, user_id: str) -> dict:
         self.calls.append(("irs_records_checklist", {"issue_type": issue_type, "limit": limit, "user_id": user_id}))
         return {"status": "ok", "issue_type": issue_type, "recommended_records": ["Notice"], "results": []}
+
+    async def irs_notice_extract(self, text: str, limit: int, user_id: str) -> dict:
+        self.calls.append(("irs_notice_extract", {"text": text, "limit": limit, "user_id": user_id}))
+        return {
+            "status": "ok",
+            "notice_type": "CP504",
+            "deadline_days": 30,
+            "deadline_description": "30-day window from notice date",
+            "required_action": "Pay in full or file Form 9465.",
+            "risk_level": "critical",
+            "key_amount": 5000.0,
+            "summary": "CP504 is an urgent intent to levy notice.",
+            "irm_search_topic": "levy notice intent to levy balance due collection",
+            "results": [{"irm_reference": "5.11.1.1", "section_title": "Notice of Levy", "excerpt": "levy notice"}],
+            "disclaimer": "For informational purposes only.",
+        }
 
 
 @pytest.mark.asyncio
@@ -86,3 +103,16 @@ async def test_recommend_records_to_gather_delegates_to_laravel_client() -> None
 
     assert result["recommended_records"] == ["Notice"]
     assert client.calls[0][0] == "irs_records_checklist"
+
+
+@pytest.mark.asyncio
+async def test_extract_irs_notice_delegates_to_laravel_client() -> None:
+    client = FakeIrmClient()
+    notice_text = "CP504: Urgent notice of intent to levy. You owe $5,000 and must respond within 30 days."
+
+    result = await extract_irs_notice(client, notice_text, limit=3, user_id="user-1")
+
+    assert result["notice_type"] == "CP504"
+    assert result["risk_level"] == "critical"
+    assert result["results"][0]["irm_reference"] == "5.11.1.1"
+    assert client.calls == [("irs_notice_extract", {"text": notice_text, "limit": 3, "user_id": "user-1"})]

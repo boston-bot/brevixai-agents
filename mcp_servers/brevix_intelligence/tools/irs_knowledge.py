@@ -1,4 +1,4 @@
-"""IRS Knowledge MCP tools — Phase 2.
+"""IRS Knowledge MCP tools — Phase 2/3.
 
 These tools are read-only adapters over Laravel's IRM knowledge endpoints.
 Laravel owns all RDS access; this module only calls approved internal agent
@@ -52,3 +52,12 @@ async def recommend_records_to_gather(
     user_id: str = "mcp_service",
 ) -> dict:
     return await client.irs_records_checklist(issue_type=issue_type, limit=limit, user_id=user_id)
+
+
+async def extract_irs_notice(
+    client: LaravelToolClient,
+    notice_text: str,
+    limit: int = 5,
+    user_id: str = "mcp_service",
+) -> dict:
+    return await client.irs_notice_extract(text=notice_text, limit=limit, user_id=user_id)
