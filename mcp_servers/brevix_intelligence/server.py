@@ -21,6 +21,7 @@ from .tools.dormant_vendor import detect_dormant_vendor_reactivation
 from .tools.duplicate_payments import detect_duplicate_payments
 from .tools.irs_knowledge import (
     explain_notice_type,
+    get_irm_section,
     recommend_records_to_gather,
     search_irm,
     summarize_collection_risk,
@@ -208,6 +209,24 @@ async def search_irm_tool(topic: str, limit: int = 5, user_id: str = "") -> dict
 
     log_tool_call(
         tool_name="search_irm",
+        company_id="global",
+        user_id=user_id,
+        execution_time_ms=(time.perf_counter() - start) * 1000,
+        status=result.get("status", "ok"),
+    )
+    return result
+
+
+@mcp.tool()
+async def get_irm_section_tool(reference: str, user_id: str = "") -> dict[str, Any]:
+    """Retrieve one parsed Internal Revenue Manual section by exact section reference."""
+    client = get_laravel_client()
+    start = time.perf_counter()
+
+    result = await get_irm_section(client, reference, user_id=user_id or "mcp_service")
+
+    log_tool_call(
+        tool_name="get_irm_section",
         company_id="global",
         user_id=user_id,
         execution_time_ms=(time.perf_counter() - start) * 1000,

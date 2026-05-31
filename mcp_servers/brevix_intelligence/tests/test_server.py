@@ -19,6 +19,7 @@ async def test_mcp_server_registers_intelligence_tools() -> None:
         "calculate_cash_burn_tool",
         "summarize_control_weaknesses_tool",
         "search_irm_tool",
+        "get_irm_section_tool",
         "explain_notice_type_tool",
         "summarize_collection_risk_tool",
         "recommend_records_to_gather_tool",

@@ -31,6 +31,7 @@ build-backend = "hatchling.build"
 packages = ["app", "scripts", "mcp_servers"]
 
 [project.scripts]
+irs-smoke = "scripts.smoke_irs_knowledge:main"
 run-evals = "scripts.run_evals:main"
 
 [tool.pytest.ini_options]

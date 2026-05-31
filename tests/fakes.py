@@ -16,6 +16,11 @@ class FakeLaravelToolClient:
         self.transaction_lookup_calls: list[dict] = []
         self.transaction_detail_calls: list[dict] = []
         self.process_registry_calls: list[dict] = []
+        self.irm_search_calls: list[dict] = []
+        self.irm_section_calls: list[dict] = []
+        self.irs_notice_type_calls: list[dict] = []
+        self.irs_records_checklist_calls: list[dict] = []
+        self.irs_collection_risk_calls: list[dict] = []
 
     async def company_context(
         self,
@@ -312,6 +317,109 @@ class FakeLaravelToolClient:
         self.process_registry_calls.append({"user_id": user_id})
         return {"processes": [], "action_types": []}
 
+    async def irm_search(
+        self,
+        topic: str,
+        limit: int = 5,
+        user_id: str = "mcp_service",
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        self.irm_search_calls.append({"topic": topic, "limit": limit, "user_id": user_id})
+        return {
+            "status": "ok",
+            "query": topic,
+            "results": [
+                {
+                    "irm_reference": "5.11.1.1",
+                    "title": "Levy authority",
+                    "summary": "The returned IRM section describes procedural collection activity.",
+                }
+            ],
+        }
+
+    async def irm_section(
+        self,
+        reference: str,
+        user_id: str = "mcp_service",
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        self.irm_section_calls.append({"reference": reference, "user_id": user_id})
+        return {
+            "status": "ok",
+            "reference": reference,
+            "result": {
+                "irm_reference": reference,
+                "title": "Requested IRM section",
+                "summary": "The requested IRM section was returned by exact reference lookup.",
+            },
+        }
+
+    async def irs_notice_type(
+        self,
+        code: str,
+        limit: int = 5,
+        user_id: str = "mcp_service",
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        self.irs_notice_type_calls.append({"code": code, "limit": limit, "user_id": user_id})
+        return {
+            "status": "ok",
+            "notice_code": code,
+            "results": [
+                {
+                    "irm_reference": "5.19.1.6",
+                    "title": f"{code} notice procedures",
+                    "summary": "The returned IRM-backed result explains the notice procedure.",
+                }
+            ],
+        }
+
+    async def irs_records_checklist(
+        self,
+        issue_type: str,
+        limit: int = 5,
+        user_id: str = "mcp_service",
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        self.irs_records_checklist_calls.append({"issue_type": issue_type, "limit": limit, "user_id": user_id})
+        return {
+            "status": "ok",
+            "issue_type": issue_type,
+            "recommended_records": ["IRS notice", "account transcript", "payment records"],
+            "results": [
+                {
+                    "irm_reference": "5.1.10.3",
+                    "title": "Collection case documentation",
+                    "summary": "The returned result identifies records that support collection-procedure review.",
+                }
+            ],
+        }
+
+    async def irs_collection_risk(
+        self,
+        issue_type: str,
+        limit: int = 5,
+        user_id: str = "mcp_service",
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        self.irs_collection_risk_calls.append({"issue_type": issue_type, "limit": limit, "user_id": user_id})
+        return {
+            "status": "ok",
+            "issue_type": issue_type,
+            "results": [
+                {
+                    "irm_reference": "5.11.1.1",
+                    "title": "Collection process",
+                    "summary": "The returned IRM-backed result describes IRS collection procedure.",
+                }
+            ],
+        }
+
 
 class FixtureLaravelToolClient:
     """Fake tool client that returns a caller-supplied risk fixture for evaluation runs."""
@@ -523,6 +631,60 @@ class FixtureLaravelToolClient:
     ) -> dict:
         return self.risk_fixture.get("process_registry", {"processes": [], "action_types": []})
 
+    async def irm_search(
+        self,
+        topic: str,
+        limit: int = 5,
+        user_id: str = "mcp_service",
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        fixture = self.risk_fixture.get("irm_search", {})
+        return {"status": "ok", "query": topic, **fixture} if isinstance(fixture, dict) else {}
+
+    async def irm_section(
+        self,
+        reference: str,
+        user_id: str = "mcp_service",
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        fixture = self.risk_fixture.get("irm_section", {})
+        return {"status": "ok", "reference": reference, **fixture} if isinstance(fixture, dict) else {}
+
+    async def irs_notice_type(
+        self,
+        code: str,
+        limit: int = 5,
+        user_id: str = "mcp_service",
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        fixture = self.risk_fixture.get("irs_notice_type", {})
+        return {"status": "ok", "notice_code": code, **fixture} if isinstance(fixture, dict) else {}
+
+    async def irs_records_checklist(
+        self,
+        issue_type: str,
+        limit: int = 5,
+        user_id: str = "mcp_service",
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        fixture = self.risk_fixture.get("irs_records_checklist", {})
+        return {"status": "ok", "issue_type": issue_type, **fixture} if isinstance(fixture, dict) else {}
+
+    async def irs_collection_risk(
+        self,
+        issue_type: str,
+        limit: int = 5,
+        user_id: str = "mcp_service",
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        fixture = self.risk_fixture.get("irs_collection_risk", {})
+        return {"status": "ok", "issue_type": issue_type, **fixture} if isinstance(fixture, dict) else {}
+
 
 def base_state(message: str = "Are there any suspicious vendors this month?") -> dict:
     return {
@@ -542,6 +704,7 @@ def base_state(message: str = "Are there any suspicious vendors this month?") ->
         "findings": [],
         "investigative_synthesis": {},
         "recommended_actions": [],
+        "irs_answer": None,
         "errors": [],
         "steps": [],
     }

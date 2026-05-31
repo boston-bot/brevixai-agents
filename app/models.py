@@ -183,6 +183,7 @@ class BrevixAgentState(TypedDict, total=False):
     investigative_synthesis: dict[str, Any]
     recommended_actions: list[dict[str, Any]]
     final_response: str | None
+    irs_answer: str | None
     degraded_tools: Annotated[list[dict[str, Any]], add]
     errors: list[str]
     steps: Annotated[list[dict[str, Any]], add]
