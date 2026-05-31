@@ -1,0 +1,90 @@
+[
+  {
+    "id": "notice_cp504_has_reference_and_disclaimer",
+    "input_prompt": "Explain IRS notice CP504.",
+    "expected_tool": "irs_notice_type",
+    "expected_query": "CP504",
+    "expected_irm_reference": "5.19.1.6",
+    "tool_fixture": {
+      "irs_notice_type": {
+        "results": [
+          {
+            "irm_reference": "5.19.1.6",
+            "title": "Balance Due Notices",
+            "summary": "CP504 is returned as a source-backed notice result for unpaid balance collection procedure."
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "collection_levy_has_reference_and_disclaimer",
+    "input_prompt": "What is the IRS levy collection process?",
+    "expected_tool": "irs_collection_risk",
+    "expected_query": "levy",
+    "expected_irm_reference": "5.11.1.1",
+    "tool_fixture": {
+      "irs_collection_risk": {
+        "results": [
+          {
+            "irm_reference": "5.11.1.1",
+            "title": "Notice of Levy",
+            "summary": "The retrieved section describes procedural levy actions and source-backed collection context."
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "records_request_has_reference_and_disclaimer",
+    "input_prompt": "What records should I gather for a levy notice?",
+    "expected_tool": "irs_records_checklist",
+    "expected_query": "levy",
+    "expected_irm_reference": "5.1.10.3",
+    "tool_fixture": {
+      "irs_records_checklist": {
+        "recommended_records": [
+          "IRS notice",
+          "account transcript",
+          "payment history"
+        ],
+        "results": [
+          {
+            "irm_reference": "5.1.10.3",
+            "title": "Taxpayer Contact and Case Documentation",
+            "summary": "The retrieved section supports gathering notice, transcript, and payment records for procedural review."
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "empty_unknown_notice_does_not_fabricate_guidance",
+    "input_prompt": "Explain IRS notice CP9999.",
+    "expected_tool": "irs_notice_type",
+    "expected_query": "CP9999",
+    "expected_irm_reference": null,
+    "expect_empty": true,
+    "tool_fixture": {
+      "irs_notice_type": {
+        "results": []
+      }
+    }
+  },
+  {
+    "id": "exact_section_returns_requested_reference",
+    "input_prompt": "Look up IRM 5.11.1.1.",
+    "expected_tool": "irm_section",
+    "expected_query": "5.11.1.1",
+    "expected_irm_reference": "5.11.1.1",
+    "tool_fixture": {
+      "irm_section": {
+        "result": {
+          "irm_reference": "5.11.1.1",
+          "title": "Notice of Levy",
+          "summary": "The exact requested IRM section was returned."
+        }
+      }
+    }
+  }
+]
