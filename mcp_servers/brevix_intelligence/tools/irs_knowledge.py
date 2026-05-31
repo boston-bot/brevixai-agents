@@ -19,6 +19,14 @@ async def search_irm(
     return await client.irm_search(topic=topic, limit=limit, user_id=user_id)
 
 
+async def get_irm_section(
+    client: LaravelToolClient,
+    reference: str,
+    user_id: str = "mcp_service",
+) -> dict:
+    return await client.irm_section(reference=reference, user_id=user_id)
+
+
 async def explain_notice_type(
     client: LaravelToolClient,
     notice_code: str,

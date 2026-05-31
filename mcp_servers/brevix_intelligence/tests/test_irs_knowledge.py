@@ -6,6 +6,7 @@ import pytest
 
 from mcp_servers.brevix_intelligence.tools.irs_knowledge import (
     explain_notice_type,
+    get_irm_section,
     recommend_records_to_gather,
     search_irm,
     summarize_collection_risk,
@@ -19,6 +20,10 @@ class FakeIrmClient:
     async def irm_search(self, topic: str, limit: int, user_id: str) -> dict:
         self.calls.append(("irm_search", {"topic": topic, "limit": limit, "user_id": user_id}))
         return {"status": "ok", "query": topic, "results": [{"irm_reference": "5.11.1.1"}]}
+
+    async def irm_section(self, reference: str, user_id: str) -> dict:
+        self.calls.append(("irm_section", {"reference": reference, "user_id": user_id}))
+        return {"status": "ok", "reference": reference, "result": {"irm_reference": reference}}
 
     async def irs_notice_type(self, code: str, limit: int, user_id: str) -> dict:
         self.calls.append(("irs_notice_type", {"code": code, "limit": limit, "user_id": user_id}))
@@ -41,6 +46,16 @@ async def test_search_irm_delegates_to_laravel_client() -> None:
 
     assert result["query"] == "levy notice"
     assert client.calls == [("irm_search", {"topic": "levy notice", "limit": 3, "user_id": "user-1"})]
+
+
+@pytest.mark.asyncio
+async def test_get_irm_section_delegates_exact_reference_to_laravel_client() -> None:
+    client = FakeIrmClient()
+
+    result = await get_irm_section(client, "5.11.1.1", user_id="user-1")
+
+    assert result["result"]["irm_reference"] == "5.11.1.1"
+    assert client.calls == [("irm_section", {"reference": "5.11.1.1", "user_id": "user-1"})]
 
 
 @pytest.mark.asyncio

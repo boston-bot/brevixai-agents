@@ -10,6 +10,12 @@ from langgraph.graph import END, START, StateGraph
 
 from app.config import Settings, get_settings
 from app.investigation_synthesis import synthesize_investigation
+from app.irs_procedural import (
+    IRS_INTENT,
+    classify_irs_tool_request,
+    is_irs_procedural_question,
+    synthesize_irs_answer,
+)
 from app.models import AgentFinding, BrevixAgentState, RecommendedAction
 from app.observability import instrument_node
 from app.prompts import load_prompt
@@ -71,6 +77,8 @@ def build_graph(
             "what is needed", "what's needed",
         )):
             intent = "guided_intake"
+        elif is_irs_procedural_question(state["user_message"]):
+            intent = IRS_INTENT
         elif any(term in message for term in (
             "financial health", "overview", "dashboard", "current health",
             "spend summary", "budget", "expense", "expenses",
@@ -115,6 +123,22 @@ def build_graph(
         }
 
     async def context_loader_node(state: BrevixAgentState) -> dict[str, Any]:
+        if state.get("intent") == IRS_INTENT:
+            context = {
+                "company_id": state["company_id"],
+                "available_data_sources": [],
+                "user_role": "unknown",
+            }
+            return {
+                "company_context": context,
+                "steps": [
+                    step(
+                        "context_loader",
+                        output_payload={"skipped": True, "reason": f"{IRS_INTENT}_intent"},
+                    )
+                ],
+            }
+
         transaction_filters = (
             transaction_filters_from_message(state["user_message"])
             if state.get("intent") == "transaction_lookup"
@@ -539,7 +563,94 @@ def build_graph(
         )
         return findings_dicts, [], [tool_step]
 
+    async def _irs_procedural_analysis(state: BrevixAgentState) -> dict[str, Any]:
+        request = classify_irs_tool_request(state["user_message"])
+        trace_metadata = {
+            "intent": IRS_INTENT,
+            "irs_tool": request.tool_name,
+        }
+
+        try:
+            if request.tool_name == "irm_section":
+                payload = await tool_client.irm_section(
+                    request.query,
+                    user_id=state["user_id"],
+                    trace_id=state.get("agent_run_id"),
+                    trace_metadata=trace_metadata,
+                )
+            elif request.tool_name == "irs_notice_type":
+                payload = await tool_client.irs_notice_type(
+                    request.query,
+                    limit=request.limit,
+                    user_id=state["user_id"],
+                    trace_id=state.get("agent_run_id"),
+                    trace_metadata=trace_metadata,
+                )
+            elif request.tool_name == "irs_records_checklist":
+                payload = await tool_client.irs_records_checklist(
+                    request.query,
+                    limit=request.limit,
+                    user_id=state["user_id"],
+                    trace_id=state.get("agent_run_id"),
+                    trace_metadata=trace_metadata,
+                )
+            elif request.tool_name == "irs_collection_risk":
+                payload = await tool_client.irs_collection_risk(
+                    request.query,
+                    limit=request.limit,
+                    user_id=state["user_id"],
+                    trace_id=state.get("agent_run_id"),
+                    trace_metadata=trace_metadata,
+                )
+            else:
+                payload = await tool_client.irm_search(
+                    request.query,
+                    limit=request.limit,
+                    user_id=state["user_id"],
+                    trace_id=state.get("agent_run_id"),
+                    trace_metadata=trace_metadata,
+                )
+        except Exception as exc:
+            logger.warning("IRS procedural tool failed: %s", exc)
+            answer = synthesize_irs_answer(request, {})
+            return {
+                "tool_results": {
+                    "irs_knowledge": {
+                        "status": "error",
+                        "tool": request.tool_name,
+                        "query": request.query,
+                        "error": str(exc),
+                    }
+                },
+                "irs_answer": answer,
+                "findings": [],
+                "degraded_tools": [degraded_tool(request.tool_name, exc)],
+                "steps": [failed_tool_step("irs_knowledge", request.tool_name, exc)],
+            }
+
+        answer = synthesize_irs_answer(request, payload)
+        return {
+            "tool_results": {"irs_knowledge": payload},
+            "irs_answer": answer,
+            "findings": [],
+            "steps": [
+                step(
+                    "irs_knowledge",
+                    step_type="tool_call",
+                    input_payload={"tool": request.tool_name, "query": request.query, "limit": request.limit},
+                    output_payload={
+                        "status": payload.get("status", "ok") if isinstance(payload, dict) else "ok",
+                        "answer_has_disclaimer": "Disclaimer:" in answer,
+                        "answer_has_irm_reference": "irm_reference:" in answer,
+                    },
+                )
+            ],
+        }
+
     async def fraud_analyzer_node(state: BrevixAgentState) -> dict[str, Any]:
+        if state.get("intent") == IRS_INTENT:
+            return await _irs_procedural_analysis(state)
+
         if state.get("intent") == "guided_intake":
             return await _guided_intake_analysis(state)
 
@@ -941,6 +1052,17 @@ def build_graph(
         }
 
     async def investigation_synthesis_node(state: BrevixAgentState) -> dict[str, Any]:
+        if state.get("intent") == IRS_INTENT:
+            return {
+                "investigative_synthesis": {},
+                "steps": [
+                    step(
+                        "investigation_synthesis",
+                        output_payload={"skipped": True, "reason": f"{IRS_INTENT}_intent"},
+                    )
+                ],
+            }
+
         start = time.perf_counter()
         tool_results = state.get("tool_results", {})
         synthesis = synthesize_investigation(tool_results, state.get("findings", []))
@@ -976,6 +1098,29 @@ def build_graph(
         }
 
     async def explanation_node(state: BrevixAgentState) -> dict[str, Any]:
+        if state.get("intent") == IRS_INTENT:
+            answer = state.get("irs_answer") or synthesize_irs_answer(
+                classify_irs_tool_request(state["user_message"]),
+                {},
+            )
+            return {
+                "final_response": answer,
+                "steps": [
+                    step(
+                        "explanation",
+                        output_payload={
+                            "message": answer,
+                            "finding_count": 0,
+                            "provider_name": "deterministic",
+                            "model_name": "irs-procedural-synthesis-v1",
+                            "provider_latency_ms": 0.0,
+                            "tokens_input": 0,
+                            "tokens_output": 0,
+                        },
+                    )
+                ],
+            }
+
         context = _build_context(state)
         findings_text = (
             "\n".join(
@@ -1370,7 +1515,12 @@ def intelligence_finding_to_agent_finding(finding: IntelligenceFinding) -> Agent
 
 
 def suggested_actions(state: BrevixAgentState) -> list[RecommendedAction]:
-    if state.get("errors") or state.get("intent") in {"unknown_or_unsupported", "transaction_lookup", "dashboard_health"}:
+    if state.get("errors") or state.get("intent") in {
+        "unknown_or_unsupported",
+        "transaction_lookup",
+        "dashboard_health",
+        IRS_INTENT,
+    }:
         return []
 
     if state.get("intent") == "guided_intake":

@@ -1,0 +1,80 @@
+[
+  {
+    "id": "levy_notice",
+    "request": {
+      "tool_name": "irm_search",
+      "query": "levy notice",
+      "limit": 5
+    },
+    "passed": true,
+    "failures": [],
+    "latency_ms": 225.46,
+    "payload_status": "ok",
+    "answer_preview": "IRM search summary for levy notice: 1. Attorneys, Certified Public Accountants, Enrollees, Limited Practice, and Special Appearance Authorizations: Taxpayers have the right to retain an authorized representative of their choice to represent"
+  },
+  {
+    "id": "cp504",
+    "request": {
+      "tool_name": "irs_notice_type",
+      "query": "CP504",
+      "limit": 5
+    },
+    "passed": true,
+    "failures": [],
+    "latency_ms": 45.71,
+    "payload_status": "ok",
+    "answer_preview": "IRS notice CP504 procedural summary: 1. Program Scope and Objectives: Purpose: This IRM provides information for IRS Independent Office of Appeals (Appeals) employees on practice before Appeals, disclosure, third-party contacts, and multili"
+  },
+  {
+    "id": "lt11",
+    "request": {
+      "tool_name": "irs_notice_type",
+      "query": "LT11",
+      "limit": 5
+    },
+    "passed": true,
+    "failures": [],
+    "latency_ms": 52.8,
+    "payload_status": "ok",
+    "answer_preview": "IRS notice LT11 procedural summary: 1. Program Scope and Objectives: Purpose: This IRM provides information for IRS Independent Office of Appeals (Appeals) employees on practice before Appeals, disclosure, third-party contacts, and multilin"
+  },
+  {
+    "id": "cp2000",
+    "request": {
+      "tool_name": "irs_notice_type",
+      "query": "CP2000",
+      "limit": 5
+    },
+    "passed": true,
+    "failures": [],
+    "latency_ms": 53.8,
+    "payload_status": "ok",
+    "answer_preview": "IRS notice CP2000 procedural summary: 1. Representatives Qualified to Practice Before Appeals: Qualifications to practice before the IRS are defined in Treasury Department Circular No. 230, (Circular 230) Regulations Governing Practice befo"
+  },
+  {
+    "id": "trust_fund_recovery_penalty",
+    "request": {
+      "tool_name": "irs_collection_risk",
+      "query": "trust fund recovery penalty",
+      "limit": 5
+    },
+    "passed": true,
+    "failures": [],
+    "latency_ms": 46.43,
+    "payload_status": "ok",
+    "answer_preview": "IRS collection process summary for trust fund recovery penalty: 1. Program Scope and Objectives: Purpose: This IRM provides information for IRS Independent Office of Appeals (Appeals) employees on practice before Appeals, disclosure, third-"
+  },
+  {
+    "id": "unknown_notice_code",
+    "request": {
+      "tool_name": "irs_notice_type",
+      "query": "CP9999",
+      "limit": 5
+    },
+    "passed": true,
+    "failures": [],
+    "latency_ms": 43.19,
+    "payload_status": "no_results",
+    "answer_preview": "No source-backed IRM result was returned for 'CP9999'. I do not have enough retrieved IRM support to give procedural guidance for that request. irm_reference: none returned. Disclaimer: This is general IRS procedural information based on re"
+  }
+]

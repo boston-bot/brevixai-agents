@@ -50,6 +50,7 @@ def _build_initial_state(request: AgentRunRequest) -> dict:
         "findings": [],
         "investigative_synthesis": {},
         "recommended_actions": [],
+        "irs_answer": None,
         "degraded_tools": [],
         "errors": [],
         "steps": [],
