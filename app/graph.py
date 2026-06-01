@@ -9,6 +9,7 @@ from typing import Any
 from langgraph.graph import END, START, StateGraph
 
 from app.config import Settings, get_settings
+from app.duplicate_payment_workflow import build_duplicate_payment_review_workflow
 from app.investigation_synthesis import synthesize_investigation
 from app.irs_procedural import (
     IRS_INTENT,
@@ -1088,11 +1089,45 @@ def build_graph(
         if case_rec_data:
             tool_results.setdefault("case_recommendations", case_rec_data)
 
+        duplicate_payment_workflow = build_duplicate_payment_review_workflow(all_findings)
+        next_best_action = None
+        evidence_gaps: list[dict[str, Any]] = []
+        scope_limitations: list[str] = []
+        readiness_summary = None
+        recommended_workflow = None
+        if duplicate_payment_workflow.get("duplicate_count", 0) > 0:
+            tool_results["duplicate_payment_workflow"] = duplicate_payment_workflow
+            next_best_action = duplicate_payment_workflow.get("recommended_action")
+            evidence_gaps = duplicate_payment_workflow.get("evidence_gaps", [])
+            scope_limitations = duplicate_payment_workflow.get("scope_limitations", [])
+            readiness_summary = duplicate_payment_workflow.get("readiness_summary")
+            recommended_workflow = duplicate_payment_workflow.get("workflow_type")
+            steps_list.append(
+                step(
+                    "duplicate_payment_workflow",
+                    step_type="workflow_synthesis",
+                    input_payload={"finding_count": duplicate_payment_workflow.get("duplicate_count", 0)},
+                    output_payload={
+                        "workflow_type": duplicate_payment_workflow.get("workflow_type"),
+                        "review_priority": duplicate_payment_workflow.get("review_priority"),
+                        "duplicate_count": duplicate_payment_workflow.get("duplicate_count", 0),
+                        "transaction_count": len(duplicate_payment_workflow.get("transaction_ids", [])),
+                        "evidence_gap_count": len(duplicate_payment_workflow.get("evidence_gaps", [])),
+                        "escalation_count": len(duplicate_payment_workflow.get("escalation_criteria", [])),
+                    },
+                )
+            )
+
         return {
             "tool_results": tool_results,
             "alert_recommendations": alert_rec_data,
             "case_recommendations": case_rec_data,
             "findings": all_findings,
+            "next_best_action": next_best_action,
+            "evidence_gaps": evidence_gaps,
+            "scope_limitations": scope_limitations,
+            "readiness_summary": readiness_summary,
+            "recommended_workflow": recommended_workflow,
             "degraded_tools": degraded_tools,
             "steps": steps_list,
         }
@@ -1601,6 +1636,17 @@ def suggested_actions(state: BrevixAgentState) -> list[RecommendedAction]:
                     payload={"evidence_gap_count": len(state.get("evidence_gaps", []))},
                 )
             ]
+
+    next_action = state.get("next_best_action")
+    if isinstance(next_action, dict) and next_action.get("type"):
+        return [
+            RecommendedAction(
+                type=str(next_action["type"]),
+                label=str(next_action.get("label", "Review workflow evidence")),
+                requires_approval=bool(next_action.get("requires_approval", False)),
+                payload=dict(next_action.get("payload") or {}),
+            )
+        ]
 
     findings = state.get("findings", [])
     if not findings:

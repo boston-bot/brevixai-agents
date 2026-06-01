@@ -1,4 +1,4 @@
-"""Workflow MCP tools — Phase 4 (not yet implemented).
+"""Workflow MCP tools.
 
 These tools will convert alerts into guided investigations with step-by-step
 evidence requests, escalation paths, and remediation workflows.
@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.duplicate_payment_workflow import build_duplicate_payment_review_workflow
 from app.irs_notice_workflow import build_irs_notice_workflow
 
 
@@ -18,8 +19,9 @@ def create_irs_notice_review(extraction_payload: dict[str, Any]) -> dict[str, An
     return build_irs_notice_workflow(extraction_payload)
 
 
-def create_duplicate_payment_review(alert_id: str) -> dict:
-    raise NotImplementedError("Workflow tools are planned for Phase 4.")
+def create_duplicate_payment_review(findings: list[dict[str, Any]]) -> dict[str, Any]:
+    """Create a guided duplicate payment review workflow from finding evidence."""
+    return build_duplicate_payment_review_workflow(findings)
 
 
 def create_vendor_verification_workflow(vendor_id: str) -> dict:

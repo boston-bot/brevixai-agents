@@ -28,7 +28,7 @@ from .tools.irs_knowledge import (
     summarize_collection_risk,
 )
 from .tools.vendor_concentration import analyze_vendor_concentration
-from .tools.workflows import create_irs_notice_review
+from .tools.workflows import create_duplicate_payment_review, create_irs_notice_review
 
 mcp = FastMCP(
     "brevix_intelligence",
@@ -338,6 +338,33 @@ async def create_irs_notice_review_tool(extraction_payload: dict[str, Any], user
 
     log_tool_call(
         tool_name="create_irs_notice_review",
+        company_id="global",
+        user_id=user_id,
+        execution_time_ms=(time.perf_counter() - start) * 1000,
+        status=result.get("status", "ok"),
+    )
+    return result
+
+
+@mcp.tool()
+async def create_duplicate_payment_review_tool(findings: list[dict[str, Any]], user_id: str = "") -> dict[str, Any]:
+    """Create a guided duplicate payment review workflow from finding evidence.
+
+    Consumes existing duplicate-payment findings and returns reviewer-facing
+    next steps, evidence requests, escalation criteria, and a non-mutating
+    recommended action. This tool does not create alerts, cases, emails, or
+    transaction changes.
+
+    Args:
+        findings: Duplicate payment findings with transaction evidence.
+        user_id: Optional caller identity for audit logging.
+    """
+    start = time.perf_counter()
+
+    result = create_duplicate_payment_review(findings)
+
+    log_tool_call(
+        tool_name="create_duplicate_payment_review",
         company_id="global",
         user_id=user_id,
         execution_time_ms=(time.perf_counter() - start) * 1000,
