@@ -18,6 +18,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.config import get_settings
+from app.relational_contract_adoption import build_relational_contract_adoption_report
 from app.relational_readiness import build_relational_readiness_audit, synthesize_relational_readiness_answer
 from app.tools.laravel import LaravelToolClient
 
@@ -58,6 +59,7 @@ async def run_contract_gate(
         tool_failures.append(_tool_failure("entity_relationship_risk", exc))
 
     audit = build_relational_readiness_audit(data_sources)
+    adoption_report = build_relational_contract_adoption_report(audit, tool_failures=tool_failures)
     passed = bool(audit.get("phase_5_ready")) and not tool_failures
     return {
         "passed": passed,
@@ -67,6 +69,7 @@ async def run_contract_gate(
         "latency_ms": round((time.perf_counter() - started) * 1000, 2),
         "tool_failures": tool_failures,
         "audit": audit,
+        "adoption_report": adoption_report,
         "answer": synthesize_relational_readiness_answer(audit),
     }
 
@@ -100,6 +103,15 @@ def _print_report(result: dict[str, Any]) -> None:
         missing = ", ".join(str(field) for field in blocker.get("missing_required_fields", []))
         missing_text = f" missing: {missing}" if missing else ""
         print(f"[BLOCKED] {blocker.get('contract')} ({blocker.get('status')}){missing_text}")
+
+    adoption = result.get("adoption_report") if isinstance(result.get("adoption_report"), dict) else {}
+    if adoption:
+        adoption_label = "READY" if adoption.get("status") == "ready" else "BLOCKED"
+        print(f"Laravel payload adoption: {adoption_label}")
+        for task in adoption.get("api_remediation_tasks", [])[:6]:
+            fields = ", ".join(str(field) for field in task.get("missing_fields", []))
+            fields_text = f" missing: {fields}" if fields else ""
+            print(f"[API TASK] {task.get('endpoint')} ({task.get('priority')}){fields_text}")
 
     print(result.get("answer", ""))
 

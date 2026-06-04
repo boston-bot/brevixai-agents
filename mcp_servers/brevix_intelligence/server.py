@@ -27,7 +27,7 @@ from .tools.irs_knowledge import (
     search_irm,
     summarize_collection_risk,
 )
-from .tools.relational_readiness import audit_relational_readiness
+from .tools.relational_readiness import audit_relational_readiness, build_relational_contract_adoption
 from .tools.vendor_concentration import analyze_vendor_concentration
 from .tools.workflows import (
     create_duplicate_payment_review,
@@ -345,6 +345,39 @@ async def audit_relational_readiness_tool(data_sources: dict[str, Any], user_id:
 
     log_tool_call(
         tool_name="audit_relational_readiness",
+        company_id="global",
+        user_id=user_id,
+        execution_time_ms=(time.perf_counter() - start) * 1000,
+        status=result.get("status", "ok"),
+    )
+    return result
+
+
+@mcp.tool()
+async def build_relational_contract_adoption_report_tool(
+    data_sources: dict[str, Any],
+    tool_failures: list[dict[str, Any]] | None = None,
+    user_id: str = "",
+) -> dict[str, Any]:
+    """Build endpoint-level Laravel payload adoption tasks for Phase 5 graph readiness.
+
+    Consumes the same payload bundle as audit_relational_readiness_tool, runs the
+    deterministic readiness audit, and maps any blockers to the agent-tool
+    endpoints Laravel needs to update. This tool is read-only and does not create
+    graph infrastructure, alerts, cases, records, migrations, or data changes.
+
+    Args:
+        data_sources: Payload bundle with optional transaction_lookup, transactions,
+            vendor_risk, entity_relationship_risk, and company_context keys.
+        tool_failures: Optional failed agent-tool calls from a smoke run.
+        user_id: Optional caller identity for audit logging.
+    """
+    start = time.perf_counter()
+
+    result = build_relational_contract_adoption(data_sources, tool_failures=tool_failures)
+
+    log_tool_call(
+        tool_name="build_relational_contract_adoption_report",
         company_id="global",
         user_id=user_id,
         execution_time_ms=(time.perf_counter() - start) * 1000,

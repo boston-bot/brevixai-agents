@@ -85,6 +85,8 @@ async def test_contract_gate_passes_when_payloads_satisfy_phase_5b_contract() ->
     assert result["passed"] is True
     assert result["tool_failures"] == []
     assert result["audit"]["phase_5_ready"] is True
+    assert result["adoption_report"]["status"] == "ready"
+    assert result["adoption_report"]["api_remediation_tasks"] == []
 
 
 @pytest.mark.asyncio
@@ -102,6 +104,11 @@ async def test_contract_gate_fails_when_payload_identifiers_are_missing() -> Non
     assert "payments" in blockers
     assert "vendor_id" in blockers["payments"]["missing_required_fields"]
     assert "document_id" in blockers["payments"]["missing_required_fields"]
+    assert result["adoption_report"]["status"] == "blocked"
+    assert any(
+        task["endpoint"] == "transaction_lookup"
+        for task in result["adoption_report"]["api_remediation_tasks"]
+    )
 
 
 @pytest.mark.asyncio
@@ -115,6 +122,7 @@ async def test_contract_gate_fails_when_optional_payload_fetch_fails() -> None:
     assert result["passed"] is False
     assert result["tool_failures"][0]["tool"] == "vendor_risk"
     assert result["audit"]["phase_5_ready"] is True
+    assert result["adoption_report"]["phase_5_ready"] is False
 
 
 def test_contract_gate_cli_requires_tool_key(monkeypatch: pytest.MonkeyPatch) -> None:
