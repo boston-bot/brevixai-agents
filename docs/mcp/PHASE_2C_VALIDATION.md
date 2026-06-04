@@ -97,3 +97,65 @@ Phase 2D should:
 4. Re-run the six Phase 2C smoke prompts and require useful source relevance, not only citations/disclaimers.
 
 Only consider vector embeddings after Phase 2D proves that a complete enough corpus plus deterministic lexical ranking still misses semantically obvious procedural sections.
+
+---
+
+# Phase 2D Results
+
+Date: 2026-05-31
+
+## Changes Shipped
+
+### Laravel API
+
+- Replaced `orderBy('irm_reference')` in `IrmKnowledgeService::searchSections()` with a computed `relevance_score` built from `CASE WHEN` SQL expressions.
+- Added `QUERY_PREFIX_BOOSTS` constant mapping query phrases to procedural IRM part prefixes:
+  - levy / CP504 / LT11 / 1058 → `5.11.*`, `5.19.*`
+  - lien → `5.12.*`
+  - trust fund / TFRP / payroll → `5.7.*`, `8.25.*`, `20.1.*`
+  - installment / balance due → `5.14.*`, `5.19.*`
+  - CP2000 / underreporter → `4.19.*`, `20.1.*`, `4.10.*`
+- Added `php artisan irm:coverage-check` command. Checks that all eight required procedural prefixes are present in the seeded corpus. Supports `--json` for automation.
+- Added 7 relevance-focused tests to `IrmKnowledgeToolTest.php`. Each test seeds a low-numbered noise section and a correctly-prefixed target section and asserts the target ranks first. Total Laravel IRM tests: 19.
+
+### Agent Service
+
+- Added `expect_prefixes` per case in `scripts/smoke_irs_knowledge.py`.
+- `_checks()` now asserts the top returned `irm_reference` matches the expected prefix group for every non-empty case.
+
+## Validation Results
+
+### Automated Tests
+
+- `brevixai-api`: `php artisan test tests/Feature/IrmKnowledgeToolTest.php`
+  - Result: 19 passed, 58 assertions
+- `brevixai-agents`: `python -m pytest mcp_servers/brevix_intelligence/tests/test_irs_knowledge.py`
+  - Result: 5 passed
+
+### Local Smoke Script
+
+Command:
+
+```bash
+python scripts/smoke_irs_knowledge.py \
+  --base-url http://127.0.0.1:8000 \
+  --tool-key local-dev-key \
+  --json-output reports/smoke_irs_knowledge_phase2d.json
+```
+
+Result: 6/6 passed (relevance assertions enabled).
+
+| Case | Status | Top `irm_reference` prefix |
+|---|---|---|
+| `levy_notice` | PASS | `5.11.*` |
+| `cp504` | PASS | `5.11.*` |
+| `lt11` | PASS | `5.11.*` |
+| `cp2000` | PASS | `4.19.*` |
+| `trust_fund_recovery_penalty` | PASS | `5.7.*` |
+| `unknown_notice_code` | PASS | empty, safe no-source response |
+
+## Outcome
+
+Deterministic ranking against the fully seeded local corpus passes all relevance checks. Vector embeddings and a `tsvector` pass are not needed at this stage.
+
+**Next phase: Phase 3 — IRS notice extraction.** Extracted notice fields (notice code, tax year, balance, deadline) will feed directly into the existing IRM search tools.
