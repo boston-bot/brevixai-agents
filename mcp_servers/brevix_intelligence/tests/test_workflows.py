@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from mcp_servers.brevix_intelligence.tools.workflows import create_duplicate_payment_review, create_irs_notice_review
+from mcp_servers.brevix_intelligence.tools.workflows import (
+    create_duplicate_payment_review,
+    create_irs_notice_review,
+    create_vendor_verification_workflow,
+)
 
 
 def test_create_irs_notice_review_delegates_to_workflow_builder() -> None:
@@ -38,3 +42,23 @@ def test_create_duplicate_payment_review_delegates_to_workflow_builder() -> None
     assert result["workflow_type"] == "duplicate_payment_review"
     assert result["recommended_action"]["type"] == "review_duplicate_payment_evidence"
     assert result["transaction_ids"] == ["txn-1", "txn-2"]
+
+
+def test_create_vendor_verification_workflow_delegates_to_workflow_builder() -> None:
+    result = create_vendor_verification_workflow(
+        {
+            "vendor_name": "Overlap Vendor LLC",
+            "vendor_id": "vendor-overlap-001",
+            "vendor_risk_score": 84,
+            "risk_level": "high",
+            "triggered_rules": ["high vendor risk", "employee-vendor overlap"],
+            "supporting_evidence": [
+                {"type": "vendor", "id": "vendor-overlap-001", "vendor_id": "vendor-overlap-001"},
+            ],
+        },
+        {"entity_relationship_risk_score": 82},
+    )
+
+    assert result["workflow_type"] == "vendor_verification"
+    assert result["recommended_action"]["type"] == "review_vendor_verification_evidence"
+    assert result["vendors"] == ["Overlap Vendor LLC"]

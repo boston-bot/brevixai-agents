@@ -151,7 +151,20 @@ async def test_synthesis_triggers_no_autonomous_actions() -> None:
     assert "create_alert" not in action_types
     assert "create_case" not in action_types
     assert result["recommended_actions"] == [
-        {"type": "review_findings", "label": "Review findings", "requires_approval": False, "payload": {"finding_count": 3}}
+        {
+            "type": "review_vendor_verification_evidence",
+            "label": "Review urgent vendor verification evidence",
+            "requires_approval": False,
+            "payload": {
+                "workflow_type": "vendor_verification",
+                "review_priority": "high",
+                "vendor_count": 1,
+                "vendor_ids": ["vendor-overlap-001"],
+                "highest_vendor_risk_score": 84,
+                "entity_relationship_risk_score": 82,
+                "supporting_evidence_count": 5,
+            },
+        }
     ]
 
 
