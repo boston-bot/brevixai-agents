@@ -27,6 +27,7 @@ from .tools.irs_knowledge import (
     search_irm,
     summarize_collection_risk,
 )
+from .tools.relational_readiness import audit_relational_readiness
 from .tools.vendor_concentration import analyze_vendor_concentration
 from .tools.workflows import (
     create_duplicate_payment_review,
@@ -316,6 +317,34 @@ async def extract_irs_notice_tool(notice_text: str, limit: int = 5, user_id: str
 
     log_tool_call(
         tool_name="extract_irs_notice",
+        company_id="global",
+        user_id=user_id,
+        execution_time_ms=(time.perf_counter() - start) * 1000,
+        status=result.get("status", "ok"),
+    )
+    return result
+
+
+@mcp.tool()
+async def audit_relational_readiness_tool(data_sources: dict[str, Any], user_id: str = "") -> dict[str, Any]:
+    """Audit whether agent-visible payloads are ready for Phase 5 graph intelligence.
+
+    Consumes transaction samples, vendor-risk payloads, entity-relationship payloads,
+    and company context, then reports which entities and relationships have stable
+    identifiers. This tool is read-only and does not create graph infrastructure,
+    alerts, cases, records, or data changes.
+
+    Args:
+        data_sources: Payload bundle with optional transaction_lookup, transactions,
+            vendor_risk, entity_relationship_risk, and company_context keys.
+        user_id: Optional caller identity for audit logging.
+    """
+    start = time.perf_counter()
+
+    result = audit_relational_readiness(data_sources)
+
+    log_tool_call(
+        tool_name="audit_relational_readiness",
         company_id="global",
         user_id=user_id,
         execution_time_ms=(time.perf_counter() - start) * 1000,

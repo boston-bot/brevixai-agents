@@ -6,6 +6,29 @@ from app.graph import build_graph
 from tests.fakes import FakeLaravelToolClient, base_state
 
 
+class RelationalReadinessToolClient(FakeLaravelToolClient):
+    async def transaction_lookup(
+        self,
+        company_id: str,
+        user_id: str,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        limit: int | None = None,
+        vendor: str | None = None,
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        self.transaction_lookup_calls.append({"company_id": company_id, "user_id": user_id, "limit": limit})
+        return {
+            "company_id": company_id,
+            "total": 1,
+            "returned_count": 1,
+            "transactions": [
+                {"id": "txn-1", "vendor": "ABC Supply", "amount": 1000.0, "date": "2026-05-01"}
+            ],
+        }
+
+
 @pytest.mark.asyncio
 async def test_router_classifies_fraud_request() -> None:
     graph = build_graph(FakeLaravelToolClient())
@@ -52,6 +75,24 @@ async def test_router_classifies_financial_health_as_dashboard_health() -> None:
     assert result["findings"][0]["title"] == "Financial health summary"
     assert result["findings"][0]["evidence"][0]["type"] == "dashboard_metric"
     assert "Your current financial health score is 42/100" in result["final_response"]
+
+
+@pytest.mark.asyncio
+async def test_router_builds_relational_readiness_audit_without_risk_summary() -> None:
+    tool_client = RelationalReadinessToolClient()
+    graph = build_graph(tool_client)
+
+    result = await graph.ainvoke(base_state("Is relational data ready to begin Phase 5 graph intelligence?"))
+
+    assert result["intent"] == "relational_readiness_audit"
+    assert tool_client.risk_summary_calls == []
+    assert tool_client.transaction_lookup_calls[0]["limit"] == 100
+    assert result["tool_results"]["relational_readiness_audit"]["phase_5_ready"] is False
+    assert result["readiness_summary"]["critical_blocker_count"] > 0
+    assert result["next_best_action"]["type"] == "prepare_relational_data_contracts"
+    assert result["recommended_actions"][0]["type"] == "prepare_relational_data_contracts"
+    assert "Phase 5 relational readiness audit: not ready" in result["final_response"]
+    assert any(step["step_name"] == "relational_readiness_audit" for step in result["steps"])
 
 
 @pytest.mark.asyncio

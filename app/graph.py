@@ -20,6 +20,7 @@ from app.irs_procedural import (
     synthesize_irs_notice_workflow,
     synthesize_payroll_tax_workflow,
 )
+from app.relational_readiness import build_relational_readiness_audit, synthesize_relational_readiness_answer
 from app.vendor_verification_workflow import build_vendor_verification_workflow
 from app.models import AgentFinding, BrevixAgentState, RecommendedAction
 from app.observability import instrument_node
@@ -35,6 +36,8 @@ from mcp_servers.brevix_intelligence.tools.duplicate_payments import _analyze_du
 from mcp_servers.brevix_intelligence.tools.vendor_concentration import _analyze_concentration
 
 logger = logging.getLogger("brevix.agent.graph")
+
+RELATIONAL_READINESS_INTENT = "relational_readiness_audit"
 
 SENSITIVE_ACTION_TYPES = {
     "create_alert",
@@ -74,7 +77,9 @@ def build_graph(
         message = state["user_message"].lower()
         intent = "unknown_or_unsupported"
 
-        if any(term in message for term in (
+        if is_relational_readiness_request(message):
+            intent = RELATIONAL_READINESS_INTENT
+        elif any(term in message for term in (
             "action plan", "first snapshot", "first review",
             "evidence checklist", "evidence gap", "data readiness", "evidence readiness",
             "what do i need", "where do i start", "get started",
@@ -701,9 +706,147 @@ def build_graph(
             )
         return result
 
+    async def _relational_readiness_analysis(state: BrevixAgentState) -> dict[str, Any]:
+        degraded_tools: list[dict[str, Any]] = []
+        steps_list: list[dict[str, Any]] = []
+        data_sources: dict[str, Any] = {"company_context": state.get("company_context", {})}
+
+        try:
+            transaction_payload = await tool_client.transaction_lookup(
+                state["company_id"],
+                state["user_id"],
+                limit=100,
+                trace_id=state.get("agent_run_id"),
+                trace_metadata={
+                    "intent": RELATIONAL_READINESS_INTENT,
+                    "request_source": state.get("page_context", {}).get("source"),
+                },
+            )
+            data_sources["transaction_lookup"] = transaction_payload
+            steps_list.append(
+                step(
+                    "relational_readiness_transaction_sample",
+                    step_type="tool_call",
+                    input_payload={"tool": "transaction_lookup", "limit": 100},
+                    output_payload={
+                        "returned_count": transaction_payload.get("returned_count"),
+                        "transaction_count": len(transaction_payload.get("transactions", [])),
+                    },
+                )
+            )
+        except Exception as exc:
+            logger.warning("Failed to retrieve transaction sample for relational readiness: %s", exc)
+            degraded_tools.append(degraded_tool("transaction_lookup", exc))
+            steps_list.append(failed_tool_step("relational_readiness_transaction_sample", "transaction_lookup", exc))
+
+        try:
+            vendor_risk_payload = await tool_client.vendor_risk(
+                state["company_id"],
+                state["user_id"],
+                trace_id=state.get("agent_run_id"),
+                trace_metadata={
+                    "intent": RELATIONAL_READINESS_INTENT,
+                    "request_source": state.get("page_context", {}).get("source"),
+                },
+            )
+            data_sources["vendor_risk"] = vendor_risk_payload
+            steps_list.append(
+                step(
+                    "relational_readiness_vendor_contracts",
+                    step_type="tool_call",
+                    input_payload={"tool": "vendor_risk"},
+                    output_payload={
+                        "status": vendor_risk_payload.get("status", "ok"),
+                        "has_vendors": bool(vendor_risk_payload.get("vendors") or vendor_risk_payload.get("vendor_id")),
+                    },
+                )
+            )
+        except Exception as exc:
+            logger.warning("Failed to retrieve vendor risk payload for relational readiness: %s", exc)
+            degraded_tools.append(degraded_tool("vendor_risk", exc))
+            steps_list.append(failed_tool_step("relational_readiness_vendor_contracts", "vendor_risk", exc))
+
+        try:
+            entity_relationship_payload = await tool_client.entity_relationship_risk(
+                state["company_id"],
+                state["user_id"],
+                trace_id=state.get("agent_run_id"),
+                trace_metadata={
+                    "intent": RELATIONAL_READINESS_INTENT,
+                    "request_source": state.get("page_context", {}).get("source"),
+                },
+            )
+            data_sources["entity_relationship_risk"] = entity_relationship_payload
+            steps_list.append(
+                step(
+                    "relational_readiness_entity_contracts",
+                    step_type="tool_call",
+                    input_payload={"tool": "entity_relationship_risk"},
+                    output_payload={
+                        "status": entity_relationship_payload.get("status", "ok"),
+                        "supporting_evidence_count": len(entity_relationship_payload.get("supporting_evidence", [])),
+                        "related_entity_count": len(entity_relationship_payload.get("related_entities", [])),
+                    },
+                )
+            )
+        except Exception as exc:
+            logger.warning("Failed to retrieve entity relationship payload for relational readiness: %s", exc)
+            degraded_tools.append(degraded_tool("entity_relationship_risk", exc))
+            steps_list.append(failed_tool_step("relational_readiness_entity_contracts", "entity_relationship_risk", exc))
+
+        audit = build_relational_readiness_audit(data_sources)
+        severity = "low" if audit.get("phase_5_ready") else "high" if audit.get("status") == "blocked" else "medium"
+        finding = AgentFinding(
+            title="Phase 5 relational readiness audit",
+            severity=severity,
+            confidence=1.0,
+            summary=(
+                f"Phase 5 ready: {audit.get('phase_5_ready')}. "
+                f"Readiness status: {audit.get('status')} "
+                f"({audit.get('readiness_score')} score)."
+            ),
+            evidence=[
+                {
+                    "type": "relational_readiness_audit",
+                    "phase_5_ready": audit.get("phase_5_ready"),
+                    "readiness_score": audit.get("readiness_score"),
+                    "critical_blocker_count": len(audit.get("critical_blockers", [])),
+                }
+            ],
+        )
+        steps_list.append(
+            step(
+                "relational_readiness_audit",
+                step_type="workflow_synthesis",
+                input_payload={
+                    "source_keys": sorted(data_sources.keys()),
+                },
+                output_payload={
+                    "status": audit.get("status"),
+                    "phase_5_ready": audit.get("phase_5_ready"),
+                    "readiness_score": audit.get("readiness_score"),
+                    "critical_blocker_count": len(audit.get("critical_blockers", [])),
+                },
+            )
+        )
+
+        return {
+            "tool_results": {"relational_readiness_audit": audit},
+            "findings": [finding.model_dump()],
+            "next_best_action": audit.get("recommended_action"),
+            "evidence_gaps": audit.get("critical_blockers", []),
+            "scope_limitations": audit.get("scope_limitations", []),
+            "readiness_summary": audit.get("readiness_summary"),
+            "degraded_tools": degraded_tools,
+            "steps": steps_list,
+        }
+
     async def fraud_analyzer_node(state: BrevixAgentState) -> dict[str, Any]:
         if state.get("intent") == IRS_INTENT:
             return await _irs_procedural_analysis(state)
+
+        if state.get("intent") == RELATIONAL_READINESS_INTENT:
+            return await _relational_readiness_analysis(state)
 
         if state.get("intent") == "guided_intake":
             return await _guided_intake_analysis(state)
@@ -1173,13 +1316,13 @@ def build_graph(
         }
 
     async def investigation_synthesis_node(state: BrevixAgentState) -> dict[str, Any]:
-        if state.get("intent") == IRS_INTENT:
+        if state.get("intent") in {IRS_INTENT, RELATIONAL_READINESS_INTENT}:
             return {
                 "investigative_synthesis": {},
                 "steps": [
                     step(
                         "investigation_synthesis",
-                        output_payload={"skipped": True, "reason": f"{IRS_INTENT}_intent"},
+                        output_payload={"skipped": True, "reason": f"{state.get('intent')}_intent"},
                     )
                 ],
             }
@@ -1234,6 +1377,27 @@ def build_graph(
                             "finding_count": 0,
                             "provider_name": "deterministic",
                             "model_name": "irs-procedural-synthesis-v1",
+                            "provider_latency_ms": 0.0,
+                            "tokens_input": 0,
+                            "tokens_output": 0,
+                        },
+                    )
+                ],
+            }
+
+        if state.get("intent") == RELATIONAL_READINESS_INTENT:
+            audit = state.get("tool_results", {}).get("relational_readiness_audit", {})
+            answer = synthesize_relational_readiness_answer(audit)
+            return {
+                "final_response": answer,
+                "steps": [
+                    step(
+                        "explanation",
+                        output_payload={
+                            "message": answer,
+                            "finding_count": len(state.get("findings", [])),
+                            "provider_name": "deterministic",
+                            "model_name": "relational-readiness-synthesis-v1",
                             "provider_latency_ms": 0.0,
                             "tokens_input": 0,
                             "tokens_output": 0,
@@ -1439,6 +1603,33 @@ def _irs_workflow_step_output(workflow: dict[str, Any]) -> dict[str, Any]:
 def selected_period(page_context: dict[str, Any]) -> str | None:
     period = page_context.get("selected_period") or page_context.get("period")
     return str(period) if period else None
+
+
+def is_relational_readiness_request(message: str) -> bool:
+    normalized = message.lower()
+    graph_terms = (
+        "phase 5",
+        "graph intelligence",
+        "entity graph",
+        "relationship graph",
+        "relational readiness",
+        "relational data",
+        "stable identifiers",
+        "clean entities",
+        "normalized data",
+    )
+    readiness_terms = (
+        "ready",
+        "readiness",
+        "clean",
+        "stable",
+        "audit",
+        "begin",
+        "start",
+        "blocker",
+        "blocked",
+    )
+    return any(term in normalized for term in graph_terms) and any(term in normalized for term in readiness_terms)
 
 
 def is_transaction_lookup(message: str) -> bool:
