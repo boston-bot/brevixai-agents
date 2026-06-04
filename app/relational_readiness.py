@@ -233,17 +233,23 @@ def _bank_accounts_contract(transactions: list[dict[str, Any]], entity_evidence:
 
 
 def _payments_contract(transactions: list[dict[str, Any]]) -> dict[str, Any]:
-    required = ("id", "date", "amount")
+    base_required = ("id", "date", "amount")
+    graph_required = ("company_id", "vendor_id", "approved_by", "document_id", "bank_account_id", "company_user_id")
+    required = (*base_required, *graph_required)
     missing = [field for field in required if _records_with_any_field(transactions, (field,)) == 0]
-    status = "ready" if transactions and not missing else "missing"
+    missing_base = [field for field in base_required if field in missing]
+    status = "ready" if transactions and not missing else "partial" if transactions and not missing_base else "missing"
     return _contract(
         "payments",
         status=status,
         required_for_phase_5=True,
-        present_fields=_present_fields(transactions, ("id", "transaction_id", "date", "amount", "status")),
+        present_fields=_present_fields(
+            transactions,
+            ("id", "transaction_id", "company_id", "vendor_id", "date", "amount", "approved_by", "document_id", "bank_account_id", "company_user_id", "status"),
+        ),
         missing_required_fields=missing,
         evidence_count=len(transactions),
-        notes=_status_note(status, "Payment transaction sample has stable id, date, and amount.", "Payment transaction sample is missing required fields."),
+        notes=_status_note(status, "Payment sample includes required graph identifiers.", "Payment sample is missing required graph identifiers."),
     )
 
 

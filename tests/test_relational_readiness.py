@@ -21,7 +21,7 @@ def test_relational_readiness_blocks_when_core_identifiers_are_missing() -> None
 
     assert audit["status"] == "blocked"
     assert audit["phase_5_ready"] is False
-    assert contracts["payments"]["status"] == "ready"
+    assert contracts["payments"]["status"] == "partial"
     assert contracts["vendors"]["status"] == "partial"
     assert contracts["approvers"]["status"] == "missing"
     assert contracts["documents"]["status"] == "missing"
