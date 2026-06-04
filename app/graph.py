@@ -18,6 +18,7 @@ from app.irs_procedural import (
     synthesize_irs_answer,
     synthesize_irs_notice_workflow,
 )
+from app.vendor_verification_workflow import build_vendor_verification_workflow
 from app.models import AgentFinding, BrevixAgentState, RecommendedAction
 from app.observability import instrument_node
 from app.prompts import load_prompt
@@ -1089,19 +1090,11 @@ def build_graph(
         if case_rec_data:
             tool_results.setdefault("case_recommendations", case_rec_data)
 
+        active_workflows: list[dict[str, Any]] = []
         duplicate_payment_workflow = build_duplicate_payment_review_workflow(all_findings)
-        next_best_action = None
-        evidence_gaps: list[dict[str, Any]] = []
-        scope_limitations: list[str] = []
-        readiness_summary = None
-        recommended_workflow = None
         if duplicate_payment_workflow.get("duplicate_count", 0) > 0:
             tool_results["duplicate_payment_workflow"] = duplicate_payment_workflow
-            next_best_action = duplicate_payment_workflow.get("recommended_action")
-            evidence_gaps = duplicate_payment_workflow.get("evidence_gaps", [])
-            scope_limitations = duplicate_payment_workflow.get("scope_limitations", [])
-            readiness_summary = duplicate_payment_workflow.get("readiness_summary")
-            recommended_workflow = duplicate_payment_workflow.get("workflow_type")
+            active_workflows.append(duplicate_payment_workflow)
             steps_list.append(
                 step(
                     "duplicate_payment_workflow",
@@ -1117,6 +1110,47 @@ def build_graph(
                     },
                 )
             )
+
+        vendor_verification_workflow = build_vendor_verification_workflow(
+            vendor_risk_data,
+            entity_relationship_risk_data,
+        )
+        if vendor_verification_workflow.get("status") == "ok" and vendor_verification_workflow.get("vendor_count", 0) > 0:
+            tool_results["vendor_verification_workflow"] = vendor_verification_workflow
+            active_workflows.append(vendor_verification_workflow)
+            steps_list.append(
+                step(
+                    "vendor_verification_workflow",
+                    step_type="workflow_synthesis",
+                    input_payload={
+                        "vendor_count": vendor_verification_workflow.get("vendor_count", 0),
+                        "entity_relationship_risk_score": vendor_verification_workflow.get(
+                            "entity_relationship_risk_score"
+                        ),
+                    },
+                    output_payload={
+                        "workflow_type": vendor_verification_workflow.get("workflow_type"),
+                        "review_priority": vendor_verification_workflow.get("review_priority"),
+                        "vendor_count": vendor_verification_workflow.get("vendor_count", 0),
+                        "supporting_evidence_count": vendor_verification_workflow.get("supporting_evidence_count", 0),
+                        "evidence_gap_count": len(vendor_verification_workflow.get("evidence_gaps", [])),
+                        "escalation_count": len(vendor_verification_workflow.get("escalation_criteria", [])),
+                    },
+                )
+            )
+
+        primary_workflow = _select_primary_workflow(active_workflows)
+        next_best_action = None
+        evidence_gaps: list[dict[str, Any]] = []
+        scope_limitations: list[str] = []
+        readiness_summary = None
+        recommended_workflow = None
+        if primary_workflow:
+            next_best_action = primary_workflow.get("recommended_action")
+            evidence_gaps = primary_workflow.get("evidence_gaps", [])
+            scope_limitations = primary_workflow.get("scope_limitations", [])
+            readiness_summary = primary_workflow.get("readiness_summary")
+            recommended_workflow = primary_workflow.get("workflow_type")
 
         return {
             "tool_results": tool_results,
@@ -1592,6 +1626,22 @@ def intelligence_finding_to_agent_finding(finding: IntelligenceFinding) -> Agent
         confidence=finding.confidence,
         summary=finding.summary,
         evidence=evidence,
+    )
+
+
+def _select_primary_workflow(workflows: list[dict[str, Any]]) -> dict[str, Any] | None:
+    if not workflows:
+        return None
+    priority_rank = {
+        "info": 0,
+        "low": 1,
+        "medium": 2,
+        "high": 3,
+        "critical": 4,
+    }
+    return max(
+        workflows,
+        key=lambda workflow: priority_rank.get(str(workflow.get("review_priority") or "info").lower(), 0),
     )
 
 

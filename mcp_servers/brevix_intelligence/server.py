@@ -28,7 +28,11 @@ from .tools.irs_knowledge import (
     summarize_collection_risk,
 )
 from .tools.vendor_concentration import analyze_vendor_concentration
-from .tools.workflows import create_duplicate_payment_review, create_irs_notice_review
+from .tools.workflows import (
+    create_duplicate_payment_review,
+    create_irs_notice_review,
+    create_vendor_verification_workflow,
+)
 
 mcp = FastMCP(
     "brevix_intelligence",
@@ -365,6 +369,38 @@ async def create_duplicate_payment_review_tool(findings: list[dict[str, Any]], u
 
     log_tool_call(
         tool_name="create_duplicate_payment_review",
+        company_id="global",
+        user_id=user_id,
+        execution_time_ms=(time.perf_counter() - start) * 1000,
+        status=result.get("status", "ok"),
+    )
+    return result
+
+
+@mcp.tool()
+async def create_vendor_verification_workflow_tool(
+    vendor_risk_payload: dict[str, Any],
+    entity_relationship_payload: dict[str, Any] | None = None,
+    user_id: str = "",
+) -> dict[str, Any]:
+    """Create a guided vendor verification workflow from deterministic risk evidence.
+
+    Consumes vendor-risk payloads with optional entity-relationship risk evidence
+    and returns reviewer-facing evidence requests, next steps, escalation criteria,
+    and a non-mutating recommended action. This tool does not create alerts, cases,
+    emails, vendor updates, or payment changes.
+
+    Args:
+        vendor_risk_payload: Structured vendor risk payload from the deterministic risk service.
+        entity_relationship_payload: Optional entity relationship risk payload for reinforcement.
+        user_id: Optional caller identity for audit logging.
+    """
+    start = time.perf_counter()
+
+    result = create_vendor_verification_workflow(vendor_risk_payload, entity_relationship_payload)
+
+    log_tool_call(
+        tool_name="create_vendor_verification_workflow",
         company_id="global",
         user_id=user_id,
         execution_time_ms=(time.perf_counter() - start) * 1000,

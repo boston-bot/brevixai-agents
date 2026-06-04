@@ -45,6 +45,50 @@ class DuplicatePaymentToolClient(FakeLaravelToolClient):
         }
 
 
+class VendorRiskToolClient(FakeLaravelToolClient):
+    async def vendor_risk(
+        self,
+        company_id: str,
+        user_id: str,
+        vendor: str | None = None,
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        self.vendor_risk_calls.append({"company_id": company_id, "user_id": user_id, "vendor": vendor})
+        return {
+            "company_id": company_id,
+            "vendor_name": "Overlap Vendor LLC",
+            "vendor_id": "vendor-overlap-001",
+            "vendor_risk_score": 84,
+            "risk_level": "high",
+            "triggered_rules": ["high vendor risk", "employee-vendor overlap"],
+            "supporting_evidence": [
+                {"type": "vendor", "id": "vendor-overlap-001", "vendor_id": "vendor-overlap-001"},
+                {"type": "transaction", "id": "txn-overlap-001", "vendor_id": "vendor-overlap-001"},
+            ],
+            "recommended_next_action": "Review vendor relationship evidence.",
+        }
+
+    async def entity_relationship_risk(
+        self,
+        company_id: str,
+        user_id: str,
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        self.entity_relationship_risk_calls.append({"company_id": company_id, "user_id": user_id})
+        return {
+            "company_id": company_id,
+            "entity_relationship_risk_score": 82,
+            "risk_level": "high",
+            "triggered_rules": ["employee-vendor overlap"],
+            "supporting_evidence": [
+                {"type": "employee_record", "id": "emp-overlap-001", "vendor_id": "vendor-overlap-001"},
+            ],
+            "recommended_next_action": "Validate relationship and approval chain.",
+        }
+
+
 @pytest.mark.asyncio
 async def test_graph_routes_fraud_request_through_deterministic_risk_tool() -> None:
     graph = build_graph(FakeLaravelToolClient())
@@ -100,3 +144,17 @@ async def test_graph_builds_duplicate_payment_review_workflow() -> None:
     assert result["recommended_actions"][0]["type"] == "review_duplicate_payment_evidence"
     assert result["tool_results"]["duplicate_payment_workflow"]["transaction_ids"] == ["txn-1", "txn-2"]
     assert any(step["step_name"] == "duplicate_payment_workflow" for step in result["steps"])
+
+
+@pytest.mark.asyncio
+async def test_graph_builds_vendor_verification_workflow() -> None:
+    graph = build_graph(VendorRiskToolClient())
+
+    result = await graph.ainvoke(base_state("Review high vendor risk with entity overlap."))
+
+    assert result["recommended_workflow"] == "vendor_verification"
+    assert result["next_best_action"]["type"] == "review_vendor_verification_evidence"
+    assert result["recommended_actions"][0]["type"] == "review_vendor_verification_evidence"
+    assert result["tool_results"]["vendor_verification_workflow"]["vendors"] == ["Overlap Vendor LLC"]
+    assert result["tool_results"]["vendor_verification_workflow"]["vendor_ids"] == ["vendor-overlap-001"]
+    assert any(step["step_name"] == "vendor_verification_workflow" for step in result["steps"])

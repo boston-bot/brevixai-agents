@@ -12,6 +12,7 @@ from typing import Any
 
 from app.duplicate_payment_workflow import build_duplicate_payment_review_workflow
 from app.irs_notice_workflow import build_irs_notice_workflow
+from app.vendor_verification_workflow import build_vendor_verification_workflow
 
 
 def create_irs_notice_review(extraction_payload: dict[str, Any]) -> dict[str, Any]:
@@ -24,8 +25,12 @@ def create_duplicate_payment_review(findings: list[dict[str, Any]]) -> dict[str,
     return build_duplicate_payment_review_workflow(findings)
 
 
-def create_vendor_verification_workflow(vendor_id: str) -> dict:
-    raise NotImplementedError("Workflow tools are planned for Phase 4.")
+def create_vendor_verification_workflow(
+    vendor_risk_payload: dict[str, Any],
+    entity_relationship_payload: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Create a guided vendor verification workflow from deterministic risk evidence."""
+    return build_vendor_verification_workflow(vendor_risk_payload, entity_relationship_payload)
 
 
 def create_payroll_tax_review(company_id: str) -> dict:
