@@ -3,6 +3,7 @@ from __future__ import annotations
 from mcp_servers.brevix_intelligence.tools.workflows import (
     create_duplicate_payment_review,
     create_irs_notice_review,
+    create_payroll_tax_review,
     create_vendor_verification_workflow,
 )
 
@@ -62,3 +63,18 @@ def test_create_vendor_verification_workflow_delegates_to_workflow_builder() -> 
     assert result["workflow_type"] == "vendor_verification"
     assert result["recommended_action"]["type"] == "review_vendor_verification_evidence"
     assert result["vendors"] == ["Overlap Vendor LLC"]
+
+
+def test_create_payroll_tax_review_delegates_to_workflow_builder() -> None:
+    result = create_payroll_tax_review(
+        {
+            "issue_type": "payroll tax",
+            "recommended_records": ["IRS notice", "EFTPS deposit history"],
+            "results": [{"irm_reference": "5.7.1.1"}],
+        },
+        issue_type="payroll tax",
+    )
+
+    assert result["workflow_type"] == "payroll_tax_review"
+    assert result["recommended_action"]["type"] == "review_payroll_tax_evidence"
+    assert result["source_references"] == ["5.7.1.1"]

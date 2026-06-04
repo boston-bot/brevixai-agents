@@ -15,8 +15,10 @@ from app.irs_procedural import (
     IRS_INTENT,
     classify_irs_tool_request,
     is_irs_procedural_question,
+    should_create_payroll_tax_workflow,
     synthesize_irs_answer,
     synthesize_irs_notice_workflow,
+    synthesize_payroll_tax_workflow,
 )
 from app.vendor_verification_workflow import build_vendor_verification_workflow
 from app.models import AgentFinding, BrevixAgentState, RecommendedAction
@@ -640,9 +642,22 @@ def build_graph(
             }
 
         workflow: dict[str, Any] | None = None
+        workflow_result_key: str | None = None
+        workflow_step_name: str | None = None
         response_payload = payload
         if request.tool_name == "irs_notice_extract" and isinstance(payload, dict):
             workflow = synthesize_irs_notice_workflow(payload)
+            workflow_result_key = "irs_notice_workflow"
+            workflow_step_name = "irs_notice_workflow"
+            response_payload = {**payload, "workflow": workflow}
+        elif (
+            request.tool_name in {"irs_collection_risk", "irs_records_checklist"}
+            and isinstance(payload, dict)
+            and should_create_payroll_tax_workflow(payload, issue_type=request.query)
+        ):
+            workflow = synthesize_payroll_tax_workflow(payload, issue_type=request.query)
+            workflow_result_key = "payroll_tax_workflow"
+            workflow_step_name = "payroll_tax_workflow"
             response_payload = {**payload, "workflow": workflow}
 
         answer = synthesize_irs_answer(request, response_payload)
@@ -666,7 +681,7 @@ def build_graph(
             "steps": steps,
         }
         if workflow:
-            tool_results["irs_notice_workflow"] = workflow
+            tool_results[workflow_result_key or "workflow"] = workflow
             result.update(
                 {
                     "next_best_action": workflow.get("recommended_action"),
@@ -678,19 +693,10 @@ def build_graph(
             )
             steps.append(
                 step(
-                    "irs_notice_workflow",
+                    workflow_step_name or "workflow_synthesis",
                     step_type="workflow_synthesis",
-                    input_payload={
-                        "notice_type": workflow.get("notice_type"),
-                        "issue_family": workflow.get("issue_family"),
-                    },
-                    output_payload={
-                        "workflow_type": workflow.get("workflow_type"),
-                        "review_priority": workflow.get("review_priority"),
-                        "deadline_urgency": workflow.get("deadline_urgency"),
-                        "evidence_gap_count": len(workflow.get("evidence_gaps", [])),
-                        "escalation_count": len(workflow.get("escalation_criteria", [])),
-                    },
+                    input_payload=_irs_workflow_step_input(workflow),
+                    output_payload=_irs_workflow_step_output(workflow),
                 )
             )
         return result
@@ -1402,6 +1408,32 @@ def failed_tool_step(step_name: str, tool: str, exc: Exception) -> dict[str, Any
         status="failed",
         error_message=str(exc),
     )
+
+
+def _irs_workflow_step_input(workflow: dict[str, Any]) -> dict[str, Any]:
+    if workflow.get("workflow_type") == "payroll_tax_review":
+        return {
+            "issue_type": workflow.get("issue_type"),
+            "responsible_person_review_required": workflow.get("responsible_person_review_required"),
+        }
+    return {
+        "notice_type": workflow.get("notice_type"),
+        "issue_family": workflow.get("issue_family"),
+    }
+
+
+def _irs_workflow_step_output(workflow: dict[str, Any]) -> dict[str, Any]:
+    output = {
+        "workflow_type": workflow.get("workflow_type"),
+        "review_priority": workflow.get("review_priority"),
+        "evidence_gap_count": len(workflow.get("evidence_gaps", [])),
+        "escalation_count": len(workflow.get("escalation_criteria", [])),
+    }
+    if workflow.get("deadline_urgency"):
+        output["deadline_urgency"] = workflow.get("deadline_urgency")
+    if workflow.get("source_references") is not None:
+        output["source_reference_count"] = len(workflow.get("source_references", []))
+    return output
 
 
 def selected_period(page_context: dict[str, Any]) -> str | None:

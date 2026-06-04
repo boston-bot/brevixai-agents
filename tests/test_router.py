@@ -94,6 +94,25 @@ async def test_router_prefers_records_tool_for_notice_records_request() -> None:
 
 
 @pytest.mark.asyncio
+async def test_router_builds_payroll_tax_review_workflow_for_tfrp_request() -> None:
+    tool_client = FakeLaravelToolClient()
+    graph = build_graph(tool_client)
+
+    result = await graph.ainvoke(base_state("Explain trust fund recovery penalty collection process."))
+
+    assert result["intent"] == "irs_procedural_question"
+    assert tool_client.risk_summary_calls == []
+    assert tool_client.irs_collection_risk_calls[0]["issue_type"] == "trust fund recovery penalty"
+    assert result["recommended_workflow"] == "payroll_tax_review"
+    assert result["next_best_action"]["type"] == "review_payroll_tax_evidence"
+    assert result["recommended_actions"][0]["type"] == "review_payroll_tax_evidence"
+    assert result["tool_results"]["payroll_tax_workflow"]["issue_type"] == "trust_fund_recovery_penalty"
+    assert result["tool_results"]["payroll_tax_workflow"]["responsible_person_review_required"] is True
+    assert "Workflow next steps:" in result["final_response"]
+    assert any(step["step_name"] == "payroll_tax_workflow" for step in result["steps"])
+
+
+@pytest.mark.asyncio
 async def test_router_does_not_route_tax_advice_positioning_to_irs_tools() -> None:
     tool_client = FakeLaravelToolClient()
     graph = build_graph(tool_client)
