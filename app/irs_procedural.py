@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from app.irs_notice_workflow import build_irs_notice_workflow
+from app.payroll_tax_workflow import build_payroll_tax_review_workflow, is_payroll_tax_issue
 
 IRS_INTENT = "irs_procedural_question"
 
@@ -33,6 +34,10 @@ _IRS_ANCHOR_TERMS = (
     "trust fund recovery penalty",
     "tfrp",
     "payroll tax",
+    "employment tax",
+    "form 941",
+    "941",
+    "eftps",
 )
 
 _PROCEDURAL_TERMS = (
@@ -142,7 +147,21 @@ def classify_irs_tool_request(message: str) -> IrsToolRequest:
     if notice_match:
         return IrsToolRequest(tool_name="irs_notice_type", query=notice_match.group(1).replace(" ", "").upper())
 
-    if any(term in normalized for term in ("levy", "lien", "collection", "collections", "trust fund recovery penalty", "tfrp")):
+    if any(
+        term in normalized
+        for term in (
+            "levy",
+            "lien",
+            "collection",
+            "collections",
+            "trust fund recovery penalty",
+            "tfrp",
+            "payroll tax",
+            "employment tax",
+            "form 941",
+            "eftps",
+        )
+    ):
         return IrsToolRequest(tool_name="irs_collection_risk", query=_issue_type_from_message(message))
 
     return IrsToolRequest(tool_name="irm_search", query=message.strip())
@@ -195,6 +214,11 @@ def synthesize_irs_answer(request: IrsToolRequest, payload: dict[str, Any]) -> s
     checklist = _records_checklist(payload)
     if checklist:
         lines.append("Records to gather: " + "; ".join(checklist[:6]) + ".")
+
+    workflow = payload.get("workflow")
+    if isinstance(workflow, dict):
+        workflow_lines = _workflow_summary_lines(workflow)
+        lines.extend(workflow_lines)
 
     references_text = ", ".join(references) if references else "none returned"
     lines.append(f"IRM references: {references_text}.")
@@ -263,6 +287,14 @@ def _synthesize_notice_extraction(payload: dict[str, Any]) -> str:
 
 def synthesize_irs_notice_workflow(payload: dict[str, Any]) -> dict[str, Any]:
     return build_irs_notice_workflow(payload)
+
+
+def synthesize_payroll_tax_workflow(payload: dict[str, Any], issue_type: str | None = None) -> dict[str, Any]:
+    return build_payroll_tax_review_workflow(payload, issue_type=issue_type)
+
+
+def should_create_payroll_tax_workflow(payload: dict[str, Any], issue_type: str | None = None) -> bool:
+    return is_payroll_tax_issue(payload, issue_type=issue_type)
 
 
 def _opening_for_request(request: IrsToolRequest) -> str:
@@ -341,6 +373,12 @@ def _issue_type_from_message(message: str) -> str:
     normalized = _normalize(message)
     if "trust fund recovery penalty" in normalized or "tfrp" in normalized:
         return "trust fund recovery penalty"
+    if "employment tax" in normalized:
+        return "employment tax"
+    if "form 941" in normalized or "941" in normalized:
+        return "payroll tax"
+    if "eftps" in normalized:
+        return "payroll tax"
     if "levy" in normalized:
         return "levy"
     if "lien" in normalized:
@@ -381,6 +419,25 @@ def _workflow_text_items(value: Any, max_length: int) -> list[str]:
     if not isinstance(value, list):
         return []
     return [_clean_text(str(item), max_length=max_length) for item in value if str(item).strip()]
+
+
+def _workflow_summary_lines(workflow: dict[str, Any]) -> list[str]:
+    lines: list[str] = []
+    next_steps = _workflow_text_items(workflow.get("next_steps"), max_length=180)
+    evidence_to_gather = [
+        _clean_text(str(item.get("label")), max_length=120)
+        for item in workflow.get("evidence_requests", [])
+        if isinstance(item, dict) and item.get("status") in {"missing", "incomplete"} and item.get("label")
+    ]
+    escalation_criteria = _workflow_text_items(workflow.get("escalation_criteria"), max_length=160)
+
+    if next_steps:
+        lines.append("Workflow next steps: " + "; ".join(next_steps[:4]) + ".")
+    if evidence_to_gather:
+        lines.append("Evidence to gather: " + "; ".join(evidence_to_gather[:5]) + ".")
+    if escalation_criteria:
+        lines.append("Escalation criteria: " + "; ".join(escalation_criteria[:4]) + ".")
+    return lines
 
 
 def _coerce_float(value: Any) -> float | None:

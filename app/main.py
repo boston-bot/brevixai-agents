@@ -58,6 +58,7 @@ def _build_initial_state(request: AgentRunRequest) -> dict:
         "evidence_gaps": [],
         "scope_limitations": [],
         "readiness_summary": None,
+        "relationship_insights": [],
         "suggested_answers": [],
         "recommended_workflow": None,
     }
@@ -198,6 +199,7 @@ def create_app() -> FastAPI:
             evidence_gaps=result.get("evidence_gaps", []),
             scope_limitations=result.get("scope_limitations", []),
             readiness_summary=result.get("readiness_summary"),
+            relationship_insights=result.get("relationship_insights", []),
             suggested_answers=result.get("suggested_answers", []),
             recommended_workflow=result.get("recommended_workflow"),
         )
@@ -232,6 +234,7 @@ def create_app() -> FastAPI:
             accumulated_evidence_gaps: list[dict] = []
             accumulated_scope_limitations: list[str] = []
             accumulated_readiness_summary: dict | None = None
+            accumulated_relationship_insights: list[dict] = []
             accumulated_suggested_answers: list[dict] = []
             accumulated_recommended_workflow: str | None = None
             final_intent: str | None = None
@@ -261,6 +264,8 @@ def create_app() -> FastAPI:
                                 accumulated_scope_limitations = node_output.get("scope_limitations") or []
                             if "readiness_summary" in node_output:
                                 accumulated_readiness_summary = node_output.get("readiness_summary")
+                            if "relationship_insights" in node_output:
+                                accumulated_relationship_insights = node_output.get("relationship_insights") or []
                             if "suggested_answers" in node_output:
                                 accumulated_suggested_answers = node_output.get("suggested_answers") or []
                             if "recommended_workflow" in node_output:
@@ -326,6 +331,7 @@ def create_app() -> FastAPI:
                 "evidenceGaps": accumulated_evidence_gaps,
                 "scopeLimitations": accumulated_scope_limitations,
                 "readinessSummary": accumulated_readiness_summary,
+                "relationshipInsights": accumulated_relationship_insights,
                 "suggestedAnswers": accumulated_suggested_answers,
                 "recommendedWorkflow": accumulated_recommended_workflow,
             })

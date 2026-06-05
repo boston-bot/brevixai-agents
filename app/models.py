@@ -158,6 +158,7 @@ class AgentRunResponse(BaseModel):
     evidence_gaps: list[dict[str, Any]] = Field(default_factory=list)
     scope_limitations: list[str] = Field(default_factory=list)
     readiness_summary: dict[str, Any] | None = None
+    relationship_insights: list[dict[str, Any]] = Field(default_factory=list)
     suggested_answers: list[dict[str, Any]] = Field(default_factory=list)
     recommended_workflow: str | None = None
 
@@ -192,5 +193,6 @@ class BrevixAgentState(TypedDict, total=False):
     evidence_gaps: list[dict[str, Any]]
     scope_limitations: list[str]
     readiness_summary: dict[str, Any] | None
+    relationship_insights: list[dict[str, Any]]
     suggested_answers: list[dict[str, Any]]
     recommended_workflow: str | None

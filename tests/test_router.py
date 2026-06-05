@@ -6,6 +6,112 @@ from app.graph import build_graph
 from tests.fakes import FakeLaravelToolClient, base_state
 
 
+class RelationalReadinessToolClient(FakeLaravelToolClient):
+    async def transaction_lookup(
+        self,
+        company_id: str,
+        user_id: str,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        limit: int | None = None,
+        vendor: str | None = None,
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        self.transaction_lookup_calls.append({"company_id": company_id, "user_id": user_id, "limit": limit})
+        return {
+            "company_id": company_id,
+            "total": 1,
+            "returned_count": 1,
+            "transactions": [
+                {"id": "txn-1", "vendor": "ABC Supply", "amount": 1000.0, "date": "2026-05-01"}
+            ],
+        }
+
+
+class GraphReadyRelationalToolClient(RelationalReadinessToolClient):
+    async def company_context(
+        self,
+        company_id: str,
+        user_id: str,
+        dashboard_context: bool = False,
+        transaction_filters: dict | None = None,
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        self.company_context_calls.append({
+            "company_id": company_id,
+            "user_id": user_id,
+            "dashboard_context": dashboard_context,
+            "transaction_filters": transaction_filters,
+        })
+        return {"company_id": company_id, "company_name": "Brevix Test Co", "user_id": user_id}
+
+    async def transaction_lookup(
+        self,
+        company_id: str,
+        user_id: str,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        limit: int | None = None,
+        vendor: str | None = None,
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        self.transaction_lookup_calls.append({"company_id": company_id, "user_id": user_id, "limit": limit})
+        return {
+            "company_id": company_id,
+            "total": 1,
+            "returned_count": 1,
+            "transactions": [
+                {
+                    "id": "txn-1",
+                    "company_id": company_id,
+                    "company_user_id": user_id,
+                    "vendor_id": "vendor-1",
+                    "vendor": "ABC Supply",
+                    "bank_account_id": "bank-1",
+                    "approved_by": "employee-1",
+                    "document_id": "doc-1",
+                    "amount": 1000.0,
+                    "date": "2026-05-01",
+                }
+            ],
+        }
+
+    async def vendor_risk(
+        self,
+        company_id: str,
+        user_id: str,
+        vendor: str | None = None,
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        self.vendor_risk_calls.append({"company_id": company_id, "user_id": user_id, "vendor": vendor})
+        return {"vendor_id": "vendor-1", "vendor_name": "ABC Supply", "vendor_risk_score": 42}
+
+    async def entity_relationship_risk(
+        self,
+        company_id: str,
+        user_id: str,
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        self.entity_relationship_risk_calls.append({"company_id": company_id, "user_id": user_id})
+        return {
+            "supporting_evidence": [
+                {
+                    "id": "rel-1",
+                    "employee_id": "employee-1",
+                    "vendor_id": "vendor-1",
+                    "bank_account_id": "bank-1",
+                    "related_vendor_id": "vendor-2",
+                    "relationship_type": "shared_address",
+                }
+            ]
+        }
+
+
 @pytest.mark.asyncio
 async def test_router_classifies_fraud_request() -> None:
     graph = build_graph(FakeLaravelToolClient())
@@ -55,6 +161,89 @@ async def test_router_classifies_financial_health_as_dashboard_health() -> None:
 
 
 @pytest.mark.asyncio
+async def test_router_builds_relational_readiness_audit_without_risk_summary() -> None:
+    tool_client = RelationalReadinessToolClient()
+    graph = build_graph(tool_client)
+
+    result = await graph.ainvoke(base_state("Is relational data ready to begin Phase 5 graph intelligence?"))
+
+    assert result["intent"] == "relational_readiness_audit"
+    assert tool_client.risk_summary_calls == []
+    assert tool_client.transaction_lookup_calls[0]["limit"] == 100
+    assert result["tool_results"]["relational_readiness_audit"]["phase_5_ready"] is False
+    assert result["readiness_summary"]["critical_blocker_count"] > 0
+    assert result["next_best_action"]["type"] == "prepare_relational_data_contracts"
+    assert result["recommended_actions"][0]["type"] == "prepare_relational_data_contracts"
+    assert "Phase 5 relational readiness audit: not ready" in result["final_response"]
+    assert any(step["step_name"] == "relational_readiness_audit" for step in result["steps"])
+
+
+@pytest.mark.asyncio
+async def test_router_builds_relational_graph_projection_when_contract_is_ready() -> None:
+    tool_client = GraphReadyRelationalToolClient()
+    graph = build_graph(tool_client)
+
+    result = await graph.ainvoke(base_state("Is relational data ready to begin Phase 5 graph intelligence?"))
+
+    projection = result["tool_results"]["relational_graph_projection"]
+
+    assert result["tool_results"]["relational_readiness_audit"]["phase_5_ready"] is True
+    assert projection["status"] == "ready"
+    assert projection["graph_summary"]["edge_count"] > 0
+    assert result["next_best_action"]["type"] == "review_relational_graph_projection"
+    assert result["recommended_actions"][0]["type"] == "review_relational_graph_projection"
+    assert "Read-only relational graph projection:" in result["final_response"]
+    assert any(step["step_name"] == "relational_graph_projection" for step in result["steps"])
+
+
+@pytest.mark.asyncio
+async def test_router_classifies_relationship_graph_prompt_without_risk_summary() -> None:
+    tool_client = GraphReadyRelationalToolClient()
+    graph = build_graph(tool_client)
+
+    result = await graph.ainvoke(base_state("Show me the entity graph for related vendors sharing bank accounts."))
+
+    assert result["intent"] == "relational_graph_intelligence"
+    assert tool_client.risk_summary_calls == []
+    assert result["tool_results"]["relational_graph_projection"]["status"] == "ready"
+
+
+@pytest.mark.asyncio
+async def test_graph_intelligence_blocks_projection_when_contract_is_not_ready() -> None:
+    tool_client = RelationalReadinessToolClient()
+    graph = build_graph(tool_client)
+
+    result = await graph.ainvoke(base_state("Show me the relationship graph for vendor relationships."))
+    projection = result["tool_results"]["relational_graph_projection"]
+
+    assert result["intent"] == "relational_graph_intelligence"
+    assert projection["status"] == "blocked"
+    assert projection["nodes"] == []
+    assert projection["edges"] == []
+    assert result["relationship_insights"] == []
+    assert result["next_best_action"]["type"] == "prepare_relational_data_contracts"
+    assert "Relational graph intelligence is blocked" in result["final_response"]
+
+
+@pytest.mark.asyncio
+async def test_graph_intelligence_surfaces_ready_projection_and_relationship_insights() -> None:
+    tool_client = GraphReadyRelationalToolClient()
+    graph = build_graph(tool_client)
+
+    result = await graph.ainvoke(base_state("Review relationship insights for employee-vendor overlap."))
+    projection = result["tool_results"]["relational_graph_projection"]
+
+    assert result["intent"] == "relational_graph_intelligence"
+    assert projection["status"] == "ready"
+    assert projection["graph_summary"]["edge_count"] > 0
+    assert result["relationship_insights"]
+    assert result["next_best_action"]["type"] == "review_relational_graph_projection"
+    assert result["recommended_actions"][0]["type"] == "review_relational_graph_projection"
+    assert "Relationship insights:" in result["final_response"]
+    assert "No graph database, alerts, cases, records, or data changes were created." in result["final_response"]
+
+
+@pytest.mark.asyncio
 async def test_router_classifies_irs_notice_explanation_without_risk_tool_call() -> None:
     tool_client = FakeLaravelToolClient()
     graph = build_graph(tool_client)
@@ -91,6 +280,25 @@ async def test_router_prefers_records_tool_for_notice_records_request() -> None:
     assert result["intent"] == "irs_procedural_question"
     assert tool_client.irs_notice_type_calls == []
     assert tool_client.irs_records_checklist_calls[0]["issue_type"] == "CP504"
+
+
+@pytest.mark.asyncio
+async def test_router_builds_payroll_tax_review_workflow_for_tfrp_request() -> None:
+    tool_client = FakeLaravelToolClient()
+    graph = build_graph(tool_client)
+
+    result = await graph.ainvoke(base_state("Explain trust fund recovery penalty collection process."))
+
+    assert result["intent"] == "irs_procedural_question"
+    assert tool_client.risk_summary_calls == []
+    assert tool_client.irs_collection_risk_calls[0]["issue_type"] == "trust fund recovery penalty"
+    assert result["recommended_workflow"] == "payroll_tax_review"
+    assert result["next_best_action"]["type"] == "review_payroll_tax_evidence"
+    assert result["recommended_actions"][0]["type"] == "review_payroll_tax_evidence"
+    assert result["tool_results"]["payroll_tax_workflow"]["issue_type"] == "trust_fund_recovery_penalty"
+    assert result["tool_results"]["payroll_tax_workflow"]["responsible_person_review_required"] is True
+    assert "Workflow next steps:" in result["final_response"]
+    assert any(step["step_name"] == "payroll_tax_workflow" for step in result["steps"])
 
 
 @pytest.mark.asyncio
