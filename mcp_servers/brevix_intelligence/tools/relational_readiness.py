@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.relational_contract_adoption import build_relational_contract_adoption_report
+from app.relational_graph_projection import build_relational_graph_projection
 from app.relational_readiness import build_relational_readiness_audit
 
 
@@ -18,3 +19,8 @@ def build_relational_contract_adoption(
     """Create endpoint-level Laravel payload adoption tasks from agent-visible payloads."""
     audit = build_relational_readiness_audit(data_sources)
     return build_relational_contract_adoption_report(audit, tool_failures=tool_failures)
+
+
+def build_relational_projection(data_sources: dict[str, Any]) -> dict[str, Any]:
+    """Build a read-only graph-shaped projection from graph-ready payloads."""
+    return build_relational_graph_projection(data_sources)

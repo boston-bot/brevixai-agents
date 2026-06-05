@@ -26,6 +26,7 @@ async def test_mcp_server_registers_intelligence_tools() -> None:
         "extract_irs_notice_tool",
         "audit_relational_readiness_tool",
         "build_relational_contract_adoption_report_tool",
+        "build_relational_graph_projection_tool",
         "create_irs_notice_review_tool",
         "create_duplicate_payment_review_tool",
         "create_vendor_verification_workflow_tool",

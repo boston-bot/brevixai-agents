@@ -27,7 +27,11 @@ from .tools.irs_knowledge import (
     search_irm,
     summarize_collection_risk,
 )
-from .tools.relational_readiness import audit_relational_readiness, build_relational_contract_adoption
+from .tools.relational_readiness import (
+    audit_relational_readiness,
+    build_relational_contract_adoption,
+    build_relational_projection,
+)
 from .tools.vendor_concentration import analyze_vendor_concentration
 from .tools.workflows import (
     create_duplicate_payment_review,
@@ -378,6 +382,35 @@ async def build_relational_contract_adoption_report_tool(
 
     log_tool_call(
         tool_name="build_relational_contract_adoption_report",
+        company_id="global",
+        user_id=user_id,
+        execution_time_ms=(time.perf_counter() - start) * 1000,
+        status=result.get("status", "ok"),
+    )
+    return result
+
+
+@mcp.tool()
+async def build_relational_graph_projection_tool(data_sources: dict[str, Any], user_id: str = "") -> dict[str, Any]:
+    """Build a read-only graph-shaped projection from Phase 5-ready payloads.
+
+    Runs the Phase 5 readiness gate first. If payloads are not graph-ready, the
+    result is blocked and no nodes or edges are returned. When ready, it returns
+    deterministic nodes, edges, relationship insights, and a non-mutating review
+    action. This tool does not create graph infrastructure, alerts, cases,
+    records, migrations, or data changes.
+
+    Args:
+        data_sources: Payload bundle with optional transaction_lookup, transactions,
+            vendor_risk, entity_relationship_risk, and company_context keys.
+        user_id: Optional caller identity for audit logging.
+    """
+    start = time.perf_counter()
+
+    result = build_relational_projection(data_sources)
+
+    log_tool_call(
+        tool_name="build_relational_graph_projection",
         company_id="global",
         user_id=user_id,
         execution_time_ms=(time.perf_counter() - start) * 1000,

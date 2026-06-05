@@ -20,6 +20,10 @@ from app.irs_procedural import (
     synthesize_irs_notice_workflow,
     synthesize_payroll_tax_workflow,
 )
+from app.relational_graph_projection import (
+    build_relational_graph_projection,
+    synthesize_relational_graph_projection_answer,
+)
 from app.relational_readiness import build_relational_readiness_audit, synthesize_relational_readiness_answer
 from app.vendor_verification_workflow import build_vendor_verification_workflow
 from app.models import AgentFinding, BrevixAgentState, RecommendedAction
@@ -38,6 +42,7 @@ from mcp_servers.brevix_intelligence.tools.vendor_concentration import _analyze_
 logger = logging.getLogger("brevix.agent.graph")
 
 RELATIONAL_READINESS_INTENT = "relational_readiness_audit"
+RELATIONAL_GRAPH_INTENT = "relational_graph_intelligence"
 
 SENSITIVE_ACTION_TYPES = {
     "create_alert",
@@ -79,6 +84,8 @@ def build_graph(
 
         if is_relational_readiness_request(message):
             intent = RELATIONAL_READINESS_INTENT
+        elif is_relational_graph_request(message):
+            intent = RELATIONAL_GRAPH_INTENT
         elif any(term in message for term in (
             "action plan", "first snapshot", "first review",
             "evidence checklist", "evidence gap", "data readiness", "evidence readiness",
@@ -706,7 +713,12 @@ def build_graph(
             )
         return result
 
-    async def _relational_readiness_analysis(state: BrevixAgentState) -> dict[str, Any]:
+    async def _collect_relational_data_sources(
+        state: BrevixAgentState,
+        *,
+        intent_name: str,
+        step_prefix: str,
+    ) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
         degraded_tools: list[dict[str, Any]] = []
         steps_list: list[dict[str, Any]] = []
         data_sources: dict[str, Any] = {"company_context": state.get("company_context", {})}
@@ -718,14 +730,14 @@ def build_graph(
                 limit=100,
                 trace_id=state.get("agent_run_id"),
                 trace_metadata={
-                    "intent": RELATIONAL_READINESS_INTENT,
+                    "intent": intent_name,
                     "request_source": state.get("page_context", {}).get("source"),
                 },
             )
             data_sources["transaction_lookup"] = transaction_payload
             steps_list.append(
                 step(
-                    "relational_readiness_transaction_sample",
+                    f"{step_prefix}_transaction_sample",
                     step_type="tool_call",
                     input_payload={"tool": "transaction_lookup", "limit": 100},
                     output_payload={
@@ -735,9 +747,9 @@ def build_graph(
                 )
             )
         except Exception as exc:
-            logger.warning("Failed to retrieve transaction sample for relational readiness: %s", exc)
+            logger.warning("Failed to retrieve transaction sample for %s: %s", intent_name, exc)
             degraded_tools.append(degraded_tool("transaction_lookup", exc))
-            steps_list.append(failed_tool_step("relational_readiness_transaction_sample", "transaction_lookup", exc))
+            steps_list.append(failed_tool_step(f"{step_prefix}_transaction_sample", "transaction_lookup", exc))
 
         try:
             vendor_risk_payload = await tool_client.vendor_risk(
@@ -745,14 +757,14 @@ def build_graph(
                 state["user_id"],
                 trace_id=state.get("agent_run_id"),
                 trace_metadata={
-                    "intent": RELATIONAL_READINESS_INTENT,
+                    "intent": intent_name,
                     "request_source": state.get("page_context", {}).get("source"),
                 },
             )
             data_sources["vendor_risk"] = vendor_risk_payload
             steps_list.append(
                 step(
-                    "relational_readiness_vendor_contracts",
+                    f"{step_prefix}_vendor_contracts",
                     step_type="tool_call",
                     input_payload={"tool": "vendor_risk"},
                     output_payload={
@@ -762,9 +774,9 @@ def build_graph(
                 )
             )
         except Exception as exc:
-            logger.warning("Failed to retrieve vendor risk payload for relational readiness: %s", exc)
+            logger.warning("Failed to retrieve vendor risk payload for %s: %s", intent_name, exc)
             degraded_tools.append(degraded_tool("vendor_risk", exc))
-            steps_list.append(failed_tool_step("relational_readiness_vendor_contracts", "vendor_risk", exc))
+            steps_list.append(failed_tool_step(f"{step_prefix}_vendor_contracts", "vendor_risk", exc))
 
         try:
             entity_relationship_payload = await tool_client.entity_relationship_risk(
@@ -772,14 +784,14 @@ def build_graph(
                 state["user_id"],
                 trace_id=state.get("agent_run_id"),
                 trace_metadata={
-                    "intent": RELATIONAL_READINESS_INTENT,
+                    "intent": intent_name,
                     "request_source": state.get("page_context", {}).get("source"),
                 },
             )
             data_sources["entity_relationship_risk"] = entity_relationship_payload
             steps_list.append(
                 step(
-                    "relational_readiness_entity_contracts",
+                    f"{step_prefix}_entity_contracts",
                     step_type="tool_call",
                     input_payload={"tool": "entity_relationship_risk"},
                     output_payload={
@@ -790,11 +802,23 @@ def build_graph(
                 )
             )
         except Exception as exc:
-            logger.warning("Failed to retrieve entity relationship payload for relational readiness: %s", exc)
+            logger.warning("Failed to retrieve entity relationship payload for %s: %s", intent_name, exc)
             degraded_tools.append(degraded_tool("entity_relationship_risk", exc))
-            steps_list.append(failed_tool_step("relational_readiness_entity_contracts", "entity_relationship_risk", exc))
+            steps_list.append(failed_tool_step(f"{step_prefix}_entity_contracts", "entity_relationship_risk", exc))
+
+        return data_sources, degraded_tools, steps_list
+
+    async def _relational_readiness_analysis(state: BrevixAgentState) -> dict[str, Any]:
+        data_sources, degraded_tools, steps_list = await _collect_relational_data_sources(
+            state,
+            intent_name=RELATIONAL_READINESS_INTENT,
+            step_prefix="relational_readiness",
+        )
 
         audit = build_relational_readiness_audit(data_sources)
+        projection = None
+        if audit.get("phase_5_ready"):
+            projection = build_relational_graph_projection(data_sources, readiness_audit=audit)
         severity = "low" if audit.get("phase_5_ready") else "high" if audit.get("status") == "blocked" else "medium"
         finding = AgentFinding(
             title="Phase 5 relational readiness audit",
@@ -829,14 +853,129 @@ def build_graph(
                 },
             )
         )
+        if projection:
+            steps_list.append(
+                step(
+                    "relational_graph_projection",
+                    step_type="workflow_synthesis",
+                    input_payload={"source_keys": sorted(data_sources.keys())},
+                    output_payload={
+                        "status": projection.get("status"),
+                        "node_count": projection.get("graph_summary", {}).get("node_count"),
+                        "edge_count": projection.get("graph_summary", {}).get("edge_count"),
+                        "relationship_insight_count": projection.get("graph_summary", {}).get("relationship_insight_count"),
+                    },
+                )
+            )
+
+        tool_results = {"relational_readiness_audit": audit}
+        if projection:
+            tool_results["relational_graph_projection"] = projection
+        next_best_action = (
+            projection.get("recommended_action")
+            if projection and projection.get("status") == "ready"
+            else audit.get("recommended_action")
+        )
+        scope_limitations = list(audit.get("scope_limitations", []))
+        if projection:
+            scope_limitations.extend(
+                limitation
+                for limitation in projection.get("scope_limitations", [])
+                if limitation not in scope_limitations
+            )
 
         return {
-            "tool_results": {"relational_readiness_audit": audit},
+            "tool_results": tool_results,
             "findings": [finding.model_dump()],
-            "next_best_action": audit.get("recommended_action"),
+            "next_best_action": next_best_action,
             "evidence_gaps": audit.get("critical_blockers", []),
-            "scope_limitations": audit.get("scope_limitations", []),
+            "scope_limitations": scope_limitations,
             "readiness_summary": audit.get("readiness_summary"),
+            "degraded_tools": degraded_tools,
+            "steps": steps_list,
+        }
+
+    async def _relational_graph_analysis(state: BrevixAgentState) -> dict[str, Any]:
+        data_sources, degraded_tools, steps_list = await _collect_relational_data_sources(
+            state,
+            intent_name=RELATIONAL_GRAPH_INTENT,
+            step_prefix="relational_graph",
+        )
+
+        audit = build_relational_readiness_audit(data_sources)
+        projection = build_relational_graph_projection(data_sources, readiness_audit=audit)
+        ready = projection.get("status") == "ready"
+        relationship_insights = projection.get("relationship_insights", []) if ready else []
+        severity = "medium" if ready and relationship_insights else "low" if ready else "high"
+        finding = AgentFinding(
+            title="Relational graph intelligence",
+            severity=severity,
+            confidence=1.0,
+            summary=(
+                "Relational graph projection is ready."
+                if ready
+                else "Relational graph projection is blocked by Phase 5 readiness requirements."
+            ),
+            evidence=[
+                {
+                    "type": "relational_graph_projection",
+                    "status": projection.get("status"),
+                    "phase_5_ready": projection.get("phase_5_ready"),
+                    "node_count": projection.get("graph_summary", {}).get("node_count", 0),
+                    "edge_count": projection.get("graph_summary", {}).get("edge_count", 0),
+                    "relationship_insight_count": len(relationship_insights),
+                }
+            ],
+        )
+        steps_list.extend(
+            [
+                step(
+                    "relational_graph_readiness_gate",
+                    step_type="workflow_synthesis",
+                    input_payload={"source_keys": sorted(data_sources.keys())},
+                    output_payload={
+                        "status": audit.get("status"),
+                        "phase_5_ready": audit.get("phase_5_ready"),
+                        "readiness_score": audit.get("readiness_score"),
+                        "critical_blocker_count": len(audit.get("critical_blockers", [])),
+                    },
+                ),
+                step(
+                    "relational_graph_projection",
+                    step_type="workflow_synthesis",
+                    input_payload={"source_keys": sorted(data_sources.keys())},
+                    output_payload={
+                        "status": projection.get("status"),
+                        "node_count": projection.get("graph_summary", {}).get("node_count"),
+                        "edge_count": projection.get("graph_summary", {}).get("edge_count"),
+                        "relationship_insight_count": len(relationship_insights),
+                    },
+                ),
+            ]
+        )
+
+        next_best_action = projection.get("recommended_action") if ready else audit.get("recommended_action")
+        scope_limitations = list(audit.get("scope_limitations", []))
+        scope_limitations.extend(
+            limitation
+            for limitation in projection.get("scope_limitations", [])
+            if limitation not in scope_limitations
+        )
+
+        return {
+            "tool_results": {
+                "relational_readiness_audit": audit,
+                "relational_graph_projection": projection,
+            },
+            "findings": [finding.model_dump()],
+            "next_best_action": next_best_action,
+            "evidence_gaps": [] if ready else audit.get("critical_blockers", []),
+            "relationship_insights": relationship_insights,
+            "scope_limitations": scope_limitations,
+            "readiness_summary": {
+                **(audit.get("readiness_summary") or {}),
+                "graph_summary": projection.get("graph_summary"),
+            },
             "degraded_tools": degraded_tools,
             "steps": steps_list,
         }
@@ -847,6 +986,9 @@ def build_graph(
 
         if state.get("intent") == RELATIONAL_READINESS_INTENT:
             return await _relational_readiness_analysis(state)
+
+        if state.get("intent") == RELATIONAL_GRAPH_INTENT:
+            return await _relational_graph_analysis(state)
 
         if state.get("intent") == "guided_intake":
             return await _guided_intake_analysis(state)
@@ -1316,7 +1458,7 @@ def build_graph(
         }
 
     async def investigation_synthesis_node(state: BrevixAgentState) -> dict[str, Any]:
-        if state.get("intent") in {IRS_INTENT, RELATIONAL_READINESS_INTENT}:
+        if state.get("intent") in {IRS_INTENT, RELATIONAL_READINESS_INTENT, RELATIONAL_GRAPH_INTENT}:
             return {
                 "investigative_synthesis": {},
                 "steps": [
@@ -1386,8 +1528,14 @@ def build_graph(
             }
 
         if state.get("intent") == RELATIONAL_READINESS_INTENT:
-            audit = state.get("tool_results", {}).get("relational_readiness_audit", {})
+            tool_results = state.get("tool_results", {})
+            tool_results = tool_results if isinstance(tool_results, dict) else {}
+            audit = tool_results.get("relational_readiness_audit", {})
+            projection = tool_results.get("relational_graph_projection", {})
             answer = synthesize_relational_readiness_answer(audit)
+            projection_answer = synthesize_relational_graph_projection_answer(projection)
+            if projection_answer:
+                answer = f"{answer} {projection_answer}"
             return {
                 "final_response": answer,
                 "steps": [
@@ -1398,6 +1546,30 @@ def build_graph(
                             "finding_count": len(state.get("findings", [])),
                             "provider_name": "deterministic",
                             "model_name": "relational-readiness-synthesis-v1",
+                            "provider_latency_ms": 0.0,
+                            "tokens_input": 0,
+                            "tokens_output": 0,
+                        },
+                    )
+                ],
+            }
+
+        if state.get("intent") == RELATIONAL_GRAPH_INTENT:
+            tool_results = state.get("tool_results", {})
+            tool_results = tool_results if isinstance(tool_results, dict) else {}
+            audit = tool_results.get("relational_readiness_audit", {})
+            projection = tool_results.get("relational_graph_projection", {})
+            answer = synthesize_relational_graph_intelligence_answer(audit, projection)
+            return {
+                "final_response": answer,
+                "steps": [
+                    step(
+                        "explanation",
+                        output_payload={
+                            "message": answer,
+                            "finding_count": len(state.get("findings", [])),
+                            "provider_name": "deterministic",
+                            "model_name": "relational-graph-synthesis-v1",
                             "provider_latency_ms": 0.0,
                             "tokens_input": 0,
                             "tokens_output": 0,
@@ -1630,6 +1802,72 @@ def is_relational_readiness_request(message: str) -> bool:
         "blocked",
     )
     return any(term in normalized for term in graph_terms) and any(term in normalized for term in readiness_terms)
+
+
+def is_relational_graph_request(message: str) -> bool:
+    normalized = message.lower()
+    graph_phrases = (
+        "show entity graph",
+        "entity graph",
+        "relationship graph",
+        "relational graph",
+        "graph projection",
+        "relationship map",
+        "graph intelligence",
+    )
+    relationship_phrases = (
+        "related vendors",
+        "vendor relationships",
+        "vendor relationship",
+        "relationship insights",
+        "vendors sharing bank account",
+        "vendors sharing bank accounts",
+        "shared bank account",
+        "shared bank accounts",
+        "approval relationship",
+        "approval relationships",
+        "approval path",
+    )
+    overlap_phrases = (
+        "employee vendor overlap",
+        "employee/vendor overlap",
+        "employee-vendor overlap",
+    )
+    graph_output_terms = ("show", "graph", "map", "insight", "projection")
+    return (
+        any(term in normalized for term in (*graph_phrases, *relationship_phrases))
+        or (
+            any(term in normalized for term in overlap_phrases)
+            and any(term in normalized for term in graph_output_terms)
+        )
+    )
+
+
+def synthesize_relational_graph_intelligence_answer(audit: dict[str, Any], projection: dict[str, Any]) -> str:
+    if not isinstance(projection, dict) or projection.get("status") != "ready":
+        answer = synthesize_relational_readiness_answer(audit if isinstance(audit, dict) else {})
+        return (
+            f"{answer} Relational graph intelligence is blocked until the payload contract smoke gate passes. "
+            "No graph projection nodes or edges were returned."
+        )
+
+    summary = projection.get("graph_summary") if isinstance(projection.get("graph_summary"), dict) else {}
+    insights = projection.get("relationship_insights") if isinstance(projection.get("relationship_insights"), list) else []
+    answer = synthesize_relational_graph_projection_answer(projection)
+    if insights:
+        insight_text = "; ".join(
+            str(insight.get("summary"))
+            for insight in insights[:3]
+            if isinstance(insight, dict) and insight.get("summary")
+        )
+        if insight_text:
+            answer = f"{answer} Relationship insights: {insight_text}."
+    else:
+        answer = f"{answer} No relationship insights were flagged from the projected edges."
+    return (
+        f"{answer} Projection status: ready; node types: {', '.join(sorted(summary.get('nodes_by_type', {}).keys()))}. "
+        "No graph database, alerts, cases, records, or data changes were created."
+    )
 
 
 def is_transaction_lookup(message: str) -> bool:
