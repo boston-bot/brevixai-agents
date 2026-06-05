@@ -27,10 +27,16 @@ from .tools.irs_knowledge import (
     search_irm,
     summarize_collection_risk,
 )
+from .tools.relational_readiness import (
+    audit_relational_readiness,
+    build_relational_contract_adoption,
+    build_relational_projection,
+)
 from .tools.vendor_concentration import analyze_vendor_concentration
 from .tools.workflows import (
     create_duplicate_payment_review,
     create_irs_notice_review,
+    create_payroll_tax_review,
     create_vendor_verification_workflow,
 )
 
@@ -324,6 +330,96 @@ async def extract_irs_notice_tool(notice_text: str, limit: int = 5, user_id: str
 
 
 @mcp.tool()
+async def audit_relational_readiness_tool(data_sources: dict[str, Any], user_id: str = "") -> dict[str, Any]:
+    """Audit whether agent-visible payloads are ready for Phase 5 graph intelligence.
+
+    Consumes transaction samples, vendor-risk payloads, entity-relationship payloads,
+    and company context, then reports which entities and relationships have stable
+    identifiers. This tool is read-only and does not create graph infrastructure,
+    alerts, cases, records, or data changes.
+
+    Args:
+        data_sources: Payload bundle with optional transaction_lookup, transactions,
+            vendor_risk, entity_relationship_risk, and company_context keys.
+        user_id: Optional caller identity for audit logging.
+    """
+    start = time.perf_counter()
+
+    result = audit_relational_readiness(data_sources)
+
+    log_tool_call(
+        tool_name="audit_relational_readiness",
+        company_id="global",
+        user_id=user_id,
+        execution_time_ms=(time.perf_counter() - start) * 1000,
+        status=result.get("status", "ok"),
+    )
+    return result
+
+
+@mcp.tool()
+async def build_relational_contract_adoption_report_tool(
+    data_sources: dict[str, Any],
+    tool_failures: list[dict[str, Any]] | None = None,
+    user_id: str = "",
+) -> dict[str, Any]:
+    """Build endpoint-level Laravel payload adoption tasks for Phase 5 graph readiness.
+
+    Consumes the same payload bundle as audit_relational_readiness_tool, runs the
+    deterministic readiness audit, and maps any blockers to the agent-tool
+    endpoints Laravel needs to update. This tool is read-only and does not create
+    graph infrastructure, alerts, cases, records, migrations, or data changes.
+
+    Args:
+        data_sources: Payload bundle with optional transaction_lookup, transactions,
+            vendor_risk, entity_relationship_risk, and company_context keys.
+        tool_failures: Optional failed agent-tool calls from a smoke run.
+        user_id: Optional caller identity for audit logging.
+    """
+    start = time.perf_counter()
+
+    result = build_relational_contract_adoption(data_sources, tool_failures=tool_failures)
+
+    log_tool_call(
+        tool_name="build_relational_contract_adoption_report",
+        company_id="global",
+        user_id=user_id,
+        execution_time_ms=(time.perf_counter() - start) * 1000,
+        status=result.get("status", "ok"),
+    )
+    return result
+
+
+@mcp.tool()
+async def build_relational_graph_projection_tool(data_sources: dict[str, Any], user_id: str = "") -> dict[str, Any]:
+    """Build a read-only graph-shaped projection from Phase 5-ready payloads.
+
+    Runs the Phase 5 readiness gate first. If payloads are not graph-ready, the
+    result is blocked and no nodes or edges are returned. When ready, it returns
+    deterministic nodes, edges, relationship insights, and a non-mutating review
+    action. This tool does not create graph infrastructure, alerts, cases,
+    records, migrations, or data changes.
+
+    Args:
+        data_sources: Payload bundle with optional transaction_lookup, transactions,
+            vendor_risk, entity_relationship_risk, and company_context keys.
+        user_id: Optional caller identity for audit logging.
+    """
+    start = time.perf_counter()
+
+    result = build_relational_projection(data_sources)
+
+    log_tool_call(
+        tool_name="build_relational_graph_projection",
+        company_id="global",
+        user_id=user_id,
+        execution_time_ms=(time.perf_counter() - start) * 1000,
+        status=result.get("status", "ok"),
+    )
+    return result
+
+
+@mcp.tool()
 async def create_irs_notice_review_tool(extraction_payload: dict[str, Any], user_id: str = "") -> dict[str, Any]:
     """Create a guided IRS notice review workflow from extracted notice fields.
 
@@ -401,6 +497,39 @@ async def create_vendor_verification_workflow_tool(
 
     log_tool_call(
         tool_name="create_vendor_verification_workflow",
+        company_id="global",
+        user_id=user_id,
+        execution_time_ms=(time.perf_counter() - start) * 1000,
+        status=result.get("status", "ok"),
+    )
+    return result
+
+
+@mcp.tool()
+async def create_payroll_tax_review_tool(
+    procedural_payload: dict[str, Any],
+    issue_type: str | None = None,
+    user_id: str = "",
+) -> dict[str, Any]:
+    """Create a guided payroll tax review workflow from IRS procedural evidence.
+
+    Consumes source-backed IRS procedural payloads for payroll tax, employment tax,
+    Form 941, EFTPS deposit, or TFRP issues and returns reviewer-facing evidence
+    requests, next steps, escalation criteria, and a non-mutating recommended
+    action. This tool does not create cases, alerts, correspondence, IRS submissions,
+    vendor updates, payroll changes, or payment changes.
+
+    Args:
+        procedural_payload: Structured IRS procedural payload from collection-risk or records tools.
+        issue_type: Optional issue label such as payroll tax or trust fund recovery penalty.
+        user_id: Optional caller identity for audit logging.
+    """
+    start = time.perf_counter()
+
+    result = create_payroll_tax_review(procedural_payload, issue_type=issue_type)
+
+    log_tool_call(
+        tool_name="create_payroll_tax_review",
         company_id="global",
         user_id=user_id,
         execution_time_ms=(time.perf_counter() - start) * 1000,

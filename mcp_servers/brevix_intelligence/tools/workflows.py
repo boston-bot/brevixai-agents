@@ -12,6 +12,7 @@ from typing import Any
 
 from app.duplicate_payment_workflow import build_duplicate_payment_review_workflow
 from app.irs_notice_workflow import build_irs_notice_workflow
+from app.payroll_tax_workflow import build_payroll_tax_review_workflow
 from app.vendor_verification_workflow import build_vendor_verification_workflow
 
 
@@ -33,8 +34,12 @@ def create_vendor_verification_workflow(
     return build_vendor_verification_workflow(vendor_risk_payload, entity_relationship_payload)
 
 
-def create_payroll_tax_review(company_id: str) -> dict:
-    raise NotImplementedError("Workflow tools are planned for Phase 4.")
+def create_payroll_tax_review(
+    procedural_payload: dict[str, Any],
+    issue_type: str | None = None,
+) -> dict[str, Any]:
+    """Create a guided payroll tax review workflow from IRS procedural evidence."""
+    return build_payroll_tax_review_workflow(procedural_payload, issue_type=issue_type)
 
 
 def create_missing_document_request(alert_id: str) -> dict:

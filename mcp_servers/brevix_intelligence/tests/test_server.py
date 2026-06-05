@@ -24,7 +24,11 @@ async def test_mcp_server_registers_intelligence_tools() -> None:
         "summarize_collection_risk_tool",
         "recommend_records_to_gather_tool",
         "extract_irs_notice_tool",
+        "audit_relational_readiness_tool",
+        "build_relational_contract_adoption_report_tool",
+        "build_relational_graph_projection_tool",
         "create_irs_notice_review_tool",
         "create_duplicate_payment_review_tool",
         "create_vendor_verification_workflow_tool",
+        "create_payroll_tax_review_tool",
     }.issubset(tool_names)
