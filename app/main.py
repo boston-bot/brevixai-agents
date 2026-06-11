@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
@@ -27,8 +28,13 @@ _STREAM_TOOL_NODES: frozenset[str] = frozenset({
 })
 
 
-def _sse(event_type: str, payload: dict) -> str:
-    return f"data: {json.dumps({'type': event_type, 'payload': payload})}\n\n"
+_SSE_HEARTBEAT = ":\n\n"
+_SSE_HEARTBEAT_INTERVAL = 15.0
+
+
+def _sse(event_type: str, payload: dict, eid: int | None = None) -> str:
+    id_line = f"id: {eid}\n" if eid is not None else ""
+    return f"{id_line}data: {json.dumps({'type': event_type, 'payload': payload})}\n\n"
 
 
 def _build_initial_state(request: AgentRunRequest) -> dict:
@@ -219,11 +225,7 @@ def create_app() -> FastAPI:
         }
 
         async def generate():
-            yield _sse("run.started", {
-                "agent_run_id": state.get("agent_run_id"),
-                "company_id": state["company_id"],
-            })
-
+            event_id = 0
             accumulated_findings: list[dict] = []
             accumulated_actions: list[dict] = []
             accumulated_steps: list[dict] = []
@@ -240,6 +242,18 @@ def create_app() -> FastAPI:
             final_intent: str | None = None
             final_message = ""
 
+            yield _sse("run.started", {
+                "agent_run_id": state.get("agent_run_id"),
+                "company_id": state["company_id"],
+            }, eid=event_id)
+            event_id += 1
+
+            def _emit(event_type: str, payload: dict) -> str:
+                nonlocal event_id
+                result = _sse(event_type, payload, eid=event_id)
+                event_id += 1
+                return result
+
             try:
                 with tracing_context(
                     project_name=settings.langchain_project,
@@ -247,32 +261,60 @@ def create_app() -> FastAPI:
                     tags=["brevix-ai", "agent-request", settings.graph_version],
                     enabled=settings.langsmith_enabled,
                 ):
-                    async for chunk in graph.astream(state, config=graph_config, stream_mode="updates"):
-                        for node_name, node_output in chunk.items():
+                    # Use astream_events (v2) so tool.started fires BEFORE node execution,
+                    # not back-to-back with tool.completed in the same iteration.
+                    async def _next_event(aiter):
+                        """Await next event or return None after heartbeat interval."""
+                        try:
+                            return await asyncio.wait_for(aiter.__anext__(), timeout=_SSE_HEARTBEAT_INTERVAL)
+                        except asyncio.TimeoutError:
+                            return None
+                        except StopAsyncIteration:
+                            raise
+
+                    events_iter = graph.astream_events(state, config=graph_config, version="v2")
+                    while True:
+                        try:
+                            event = await _next_event(events_iter)
+                        except StopAsyncIteration:
+                            break
+
+                        if event is None:
+                            yield _SSE_HEARTBEAT
+                            continue
+
+                        ev_type = event.get("event", "")
+                        node_name = event.get("name", "")
+
+                        # Node is about to start — emit tool.started BEFORE it runs
+                        if ev_type == "on_chain_start" and node_name in _STREAM_TOOL_NODES:
+                            yield _emit("tool.started", {"toolName": node_name})
+
+                        # Node completed — extract output and emit downstream events
+                        elif ev_type == "on_chain_end" and node_name in (
+                            _STREAM_TOOL_NODES | {"router", "investigation_synthesis", "explanation", "action_gate"}
+                        ):
+                            node_output = event.get("data", {}).get("output") or {}
                             if not isinstance(node_output, dict):
                                 continue
 
-                            # Accumulate shared list fields before emitting events
                             accumulated_steps.extend(node_output.get("steps") or [])
                             accumulated_degraded.extend(node_output.get("degraded_tools") or [])
                             accumulated_errors.extend(node_output.get("errors") or [])
                             if "next_best_action" in node_output:
                                 accumulated_next_best_action = node_output.get("next_best_action")
                             if "evidence_gaps" in node_output:
-                                accumulated_evidence_gaps = node_output.get("evidence_gaps") or []
+                                accumulated_evidence_gaps[:] = node_output.get("evidence_gaps") or []
                             if "scope_limitations" in node_output:
-                                accumulated_scope_limitations = node_output.get("scope_limitations") or []
+                                accumulated_scope_limitations[:] = node_output.get("scope_limitations") or []
                             if "readiness_summary" in node_output:
                                 accumulated_readiness_summary = node_output.get("readiness_summary")
                             if "relationship_insights" in node_output:
-                                accumulated_relationship_insights = node_output.get("relationship_insights") or []
+                                accumulated_relationship_insights[:] = node_output.get("relationship_insights") or []
                             if "suggested_answers" in node_output:
-                                accumulated_suggested_answers = node_output.get("suggested_answers") or []
+                                accumulated_suggested_answers[:] = node_output.get("suggested_answers") or []
                             if "recommended_workflow" in node_output:
                                 accumulated_recommended_workflow = node_output.get("recommended_workflow")
-
-                            if node_name in _STREAM_TOOL_NODES:
-                                yield _sse("tool.started", {"toolName": node_name})
 
                             if node_name == "router":
                                 final_intent = node_output.get("intent")
@@ -280,7 +322,7 @@ def create_app() -> FastAPI:
                             elif node_name == "fraud_analyzer":
                                 for finding in (node_output.get("findings") or []):
                                     accumulated_findings.append(finding)
-                                    yield _sse("artifact.upsert", finding)
+                                    yield _emit("artifact.upsert", finding)
 
                             elif node_name == "investigation_synthesis":
                                 accumulated_synthesis = node_output.get("investigative_synthesis") or {}
@@ -288,23 +330,24 @@ def create_app() -> FastAPI:
                             elif node_name == "explanation":
                                 final_message = node_output.get("final_response") or ""
                                 if final_message:
-                                    yield _sse("message.delta", {"content": final_message})
+                                    yield _emit("message.delta", {"content": final_message})
 
                             elif node_name == "action_gate":
                                 for action in (node_output.get("recommended_actions") or []):
                                     accumulated_actions.append(action)
                                     if action.get("requires_approval"):
-                                        yield _sse("confirmation.requested", action)
+                                        yield _emit("confirmation.requested", action)
 
                             if node_name in _STREAM_TOOL_NODES:
-                                yield _sse("tool.completed", {
-                                    "toolName": node_name,
-                                    "success": True,
-                                })
+                                yield _emit("tool.completed", {"toolName": node_name, "success": True})
 
             except Exception as exc:
                 logger.exception("Streaming agent run failed: %s", exc)
-                yield _sse("run.error", {"message": "Agent run failed. No actions were taken."})
+                yield _emit("run.error", {
+                    "message": "Agent run failed. No actions were taken.",
+                    "partialFindings": accumulated_findings,
+                    "partialErrors": accumulated_errors,
+                })
                 return
 
             request_latency_ms = round((time.perf_counter() - start) * 1000, 2)
@@ -314,7 +357,7 @@ def create_app() -> FastAPI:
                 settings,
             )
 
-            yield _sse("message.completed", {
+            yield _emit("message.completed", {
                 "agentRunId": state.get("agent_run_id"),
                 "intent": final_intent,
                 "message": final_message or "I could not complete the risk review right now.",

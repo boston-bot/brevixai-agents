@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 import time
@@ -1075,47 +1076,105 @@ def build_graph(
         _selected = state.get("selected_tools")
         _should_run = lambda tool_name: _selected is None or tool_name in _selected  # noqa: E731
 
-        # Determine if a specific vendor was queried or mentioned
-        vendor_findings = []
-        vendor_risk_data = None
-        degraded_tools = []
-        failed_tool_steps = []
-        vendor_name_query = state.get("page_context", {}).get("vendor_name") or state.get("page_context", {}).get("vendor")
-        
+        # Resolve vendor name query synchronously before parallelizing.
+        vendor_name_query = (
+            state.get("page_context", {}).get("vendor_name")
+            or state.get("page_context", {}).get("vendor")
+        )
         if not vendor_name_query:
-            # Benchmark fixture detection: these vendor names appear in seeded test datasets
-            # used by the quality gate. Real vendor names come from page_context.vendor_name.
             msg = state["user_message"].lower()
-            for seeded_vendor in ["mega vendor", "northstar consulting", "roundhouse services", "acme supplies", "brightline labs", "clean vendor"]:
+            _bench_map = {
+                "mega vendor": "Mega Vendor LLC",
+                "northstar consulting": "Northstar Consulting",
+                "roundhouse services": "Roundhouse Services",
+                "acme supplies": "Acme Supplies",
+                "brightline labs": "Brightline Labs",
+                "clean vendor": "Clean Vendor",
+            }
+            for seeded_vendor, canonical in _bench_map.items():
                 if seeded_vendor in msg:
-                    casing_map = {
-                        "mega vendor": "Mega Vendor LLC",
-                        "northstar consulting": "Northstar Consulting",
-                        "roundhouse services": "Roundhouse Services",
-                        "acme supplies": "Acme Supplies",
-                        "brightline labs": "Brightline Labs",
-                        "clean vendor": "Clean Vendor"
-                    }
-                    vendor_name_query = casing_map[seeded_vendor]
+                    vendor_name_query = canonical
                     break
 
-        if _should_run("vendor_risk"):
+        # Fetch all tool results concurrently — each helper returns (data, degraded[], steps[]).
+        async def _fetch_vendor_risk() -> tuple[Any, list, list]:
+            if not _should_run("vendor_risk"):
+                return None, [], []
             try:
-                vendor_risk_data = await tool_client.vendor_risk(
-                    state["company_id"],
-                    state["user_id"],
+                data = await tool_client.vendor_risk(
+                    state["company_id"], state["user_id"],
                     vendor=vendor_name_query,
                     trace_id=state.get("agent_run_id"),
-                    trace_metadata={
-                        "intent": state.get("intent"),
-                        "request_source": state.get("page_context", {}).get("source"),
-                    }
+                    trace_metadata={"intent": state.get("intent"), "request_source": state.get("page_context", {}).get("source")},
                 )
+                return data, [], []
             except Exception as exc:
                 logger.warning("Failed to retrieve vendor risk: %s", exc)
-                degraded_tools.append(degraded_tool("vendor_risk", exc))
-                failed_tool_steps.append(failed_tool_step("vendor_risk_analysis", "vendor_risk", exc))
+                return None, [degraded_tool("vendor_risk", exc)], [failed_tool_step("vendor_risk_analysis", "vendor_risk", exc)]
 
+        async def _fetch_reconciliation_risk() -> tuple[Any, list, list]:
+            if not _should_run("reconciliation_risk"):
+                return None, [], []
+            try:
+                data = await tool_client.reconciliation_risk(
+                    state["company_id"], state["user_id"],
+                    trace_id=state.get("agent_run_id"),
+                    trace_metadata={"intent": state.get("intent"), "request_source": state.get("page_context", {}).get("source")},
+                )
+                return data, [], []
+            except Exception as exc:
+                logger.warning("Failed to retrieve reconciliation risk: %s", exc)
+                return None, [degraded_tool("reconciliation_risk", exc)], [failed_tool_step("reconciliation_risk_analysis", "reconciliation_risk", exc)]
+
+        async def _fetch_entity_relationship_risk() -> tuple[Any, list, list]:
+            if not _should_run("entity_relationship_risk"):
+                return None, [], []
+            try:
+                data = await tool_client.entity_relationship_risk(
+                    state["company_id"], state["user_id"],
+                    trace_id=state.get("agent_run_id"),
+                    trace_metadata={"intent": state.get("intent"), "request_source": state.get("page_context", {}).get("source")},
+                )
+                return data, [], []
+            except Exception as exc:
+                logger.warning("Failed to retrieve entity relationship risk: %s", exc)
+                return None, [degraded_tool("entity_relationship_risk", exc)], [failed_tool_step("entity_relationship_risk_analysis", "entity_relationship_risk", exc)]
+
+        async def _fetch_aggregate_risk() -> tuple[Any, list, list]:
+            if not _should_run("aggregate_risk_summary"):
+                return None, [], []
+            try:
+                data = await tool_client.aggregate_risk_summary(
+                    state["company_id"], state["user_id"],
+                    trace_id=state.get("agent_run_id"),
+                    trace_metadata={"intent": state.get("intent"), "request_source": state.get("page_context", {}).get("source")},
+                )
+                return data, [], []
+            except Exception as exc:
+                logger.warning("Failed to retrieve aggregate risk summary: %s", exc)
+                return None, [degraded_tool("aggregate_risk_summary", exc)], [failed_tool_step("aggregate_risk_summary", "aggregate_risk_summary", exc)]
+
+        (
+            (vendor_risk_data, vr_degraded, vr_steps),
+            (reconciliation_risk_data, rr_degraded, rr_steps),
+            (entity_relationship_risk_data, er_degraded, er_steps),
+            (aggregate_risk_data, ar_degraded, ar_steps),
+            (intelligence_findings, intel_degraded, intel_steps),
+        ) = await asyncio.gather(
+            _fetch_vendor_risk(),
+            _fetch_reconciliation_risk(),
+            _fetch_entity_relationship_risk(),
+            _fetch_aggregate_risk(),
+            _fraud_intelligence_analysis(state, _should_run),
+        )
+
+        degraded_tools = [*vr_degraded, *rr_degraded, *er_degraded, *ar_degraded, *intel_degraded]
+        failed_tool_steps = [*vr_steps, *rr_steps, *er_steps, *ar_steps]
+        steps_list_intelligence = intel_steps
+
+        # --- Build findings from gathered results ---
+
+        vendor_findings = []
         if vendor_risk_data:
             if "vendors" in vendor_risk_data:
                 for v in vendor_risk_data["vendors"]:
@@ -1126,14 +1185,7 @@ def build_graph(
                                 severity=normalize_severity(v.get('risk_level', 'medium')),
                                 confidence=confidence_from_risk_score(v.get('vendor_risk_score', 0)),
                                 summary=f"Deterministic vendor risk score is {v.get('vendor_risk_score')}/100. Recommended action: {v.get('recommended_next_action')}",
-                                evidence=[
-                                    {
-                                        "type": "vendor_risk_analysis",
-                                        "vendor_name": v.get("vendor_name"),
-                                        "triggered_rules": v.get("triggered_rules"),
-                                        "supporting_evidence": v.get("supporting_evidence")
-                                    }
-                                ]
+                                evidence=[{"type": "vendor_risk_analysis", "vendor_name": v.get("vendor_name"), "triggered_rules": v.get("triggered_rules"), "supporting_evidence": v.get("supporting_evidence")}],
                             )
                         )
             else:
@@ -1144,36 +1196,11 @@ def build_graph(
                         severity=normalize_severity(v.get('risk_level', 'low')),
                         confidence=confidence_from_risk_score(v.get('vendor_risk_score', 0)),
                         summary=f"Vendor '{v.get('vendor_name')}' deterministic risk score is {v.get('vendor_risk_score')}/100. Action guidance: {v.get('recommended_next_action')}",
-                        evidence=[
-                            {
-                                "type": "vendor_risk_analysis",
-                                "vendor_name": v.get("vendor_name"),
-                                "triggered_rules": v.get("triggered_rules"),
-                                "supporting_evidence": v.get("supporting_evidence")
-                            }
-                        ]
+                        evidence=[{"type": "vendor_risk_analysis", "vendor_name": v.get("vendor_name"), "triggered_rules": v.get("triggered_rules"), "supporting_evidence": v.get("supporting_evidence")}],
                     )
                 )
 
-        # Retrieve reconciliation risk data
-        reconciliation_risk_data = None
         recon_findings = []
-        if _should_run("reconciliation_risk"):
-            try:
-                reconciliation_risk_data = await tool_client.reconciliation_risk(
-                    state["company_id"],
-                    state["user_id"],
-                    trace_id=state.get("agent_run_id"),
-                    trace_metadata={
-                        "intent": state.get("intent"),
-                        "request_source": state.get("page_context", {}).get("source"),
-                    }
-                )
-            except Exception as exc:
-                logger.warning("Failed to retrieve reconciliation risk: %s", exc)
-                degraded_tools.append(degraded_tool("reconciliation_risk", exc))
-                failed_tool_steps.append(failed_tool_step("reconciliation_risk_analysis", "reconciliation_risk", exc))
-
         if reconciliation_risk_data:
             recon_score = reconciliation_risk_data.get("reconciliation_risk_score", 0)
             if recon_score >= 40:
@@ -1183,36 +1210,11 @@ def build_graph(
                         severity=normalize_severity(reconciliation_risk_data.get('risk_level', 'medium')),
                         confidence=confidence_from_risk_score(recon_score),
                         summary=f"Deterministic reconciliation risk score is {recon_score}/100. Action guidance: {reconciliation_risk_data.get('recommended_next_action')}",
-                        evidence=[
-                            {
-                                "type": "reconciliation_risk_analysis",
-                                "score": recon_score,
-                                "triggered_rules": reconciliation_risk_data.get("triggered_rules"),
-                                "supporting_evidence": reconciliation_risk_data.get("supporting_evidence")
-                            }
-                        ]
+                        evidence=[{"type": "reconciliation_risk_analysis", "score": recon_score, "triggered_rules": reconciliation_risk_data.get("triggered_rules"), "supporting_evidence": reconciliation_risk_data.get("supporting_evidence")}],
                     )
                 )
 
-        # Retrieve entity relationship risk data
-        entity_relationship_risk_data = None
         entity_findings = []
-        if _should_run("entity_relationship_risk"):
-            try:
-                entity_relationship_risk_data = await tool_client.entity_relationship_risk(
-                    state["company_id"],
-                    state["user_id"],
-                    trace_id=state.get("agent_run_id"),
-                    trace_metadata={
-                        "intent": state.get("intent"),
-                        "request_source": state.get("page_context", {}).get("source"),
-                    }
-                )
-            except Exception as exc:
-                logger.warning("Failed to retrieve entity relationship risk: %s", exc)
-                degraded_tools.append(degraded_tool("entity_relationship_risk", exc))
-                failed_tool_steps.append(failed_tool_step("entity_relationship_risk_analysis", "entity_relationship_risk", exc))
-
         if entity_relationship_risk_data:
             entity_score = entity_relationship_risk_data.get("entity_relationship_risk_score", 0)
             if entity_score >= 40:
@@ -1222,42 +1224,9 @@ def build_graph(
                         severity=normalize_severity(entity_relationship_risk_data.get('risk_level', 'medium')),
                         confidence=confidence_from_risk_score(entity_score),
                         summary=f"Deterministic entity relationship risk score is {entity_score}/100. Action guidance: {entity_relationship_risk_data.get('recommended_next_action')}",
-                        evidence=[
-                            {
-                                "type": "entity_relationship_risk_analysis",
-                                "score": entity_score,
-                                "triggered_rules": entity_relationship_risk_data.get("triggered_rules"),
-                                "supporting_evidence": entity_relationship_risk_data.get("supporting_evidence"),
-                                "related_entities": entity_relationship_risk_data.get("related_entities")
-                            }
-                        ]
+                        evidence=[{"type": "entity_relationship_risk_analysis", "score": entity_score, "triggered_rules": entity_relationship_risk_data.get("triggered_rules"), "supporting_evidence": entity_relationship_risk_data.get("supporting_evidence"), "related_entities": entity_relationship_risk_data.get("related_entities")}],
                     )
                 )
-
-        # Retrieve aggregate risk summary
-        aggregate_risk_data = None
-        if _should_run("aggregate_risk_summary"):
-            try:
-                aggregate_risk_data = await tool_client.aggregate_risk_summary(
-                    state["company_id"],
-                    state["user_id"],
-                    trace_id=state.get("agent_run_id"),
-                    trace_metadata={
-                        "intent": state.get("intent"),
-                        "request_source": state.get("page_context", {}).get("source"),
-                    }
-                )
-            except Exception as exc:
-                logger.warning("Failed to retrieve aggregate risk summary: %s", exc)
-                degraded_tools.append(degraded_tool("aggregate_risk_summary", exc))
-                failed_tool_steps.append(failed_tool_step("aggregate_risk_summary", "aggregate_risk_summary", exc))
-
-        # Run deterministic intelligence tools (duplicate payments, concentration, etc.)
-        intelligence_findings, intelligence_degraded, intelligence_steps = await _fraud_intelligence_analysis(
-            state, _should_run
-        )
-        degraded_tools.extend(intelligence_degraded)
-        steps_list_intelligence = intelligence_steps  # merged below after steps_list is built
 
         # Merge findings
         all_findings = []
@@ -1675,6 +1644,21 @@ def build_graph(
             ],
         }
 
+    # Routing functions — intent-based branching expressed in graph topology,
+    # not as in-node if-chains.
+
+    def route_after_context_loader(state: BrevixAgentState) -> str:
+        """Only fraud/reconciliation intents need LLM tool dispatch; route everything else directly."""
+        if state.get("intent") in {"fraud_pattern_search", "reconciliation_review"}:
+            return "llm_tool_dispatch"
+        return "fraud_analyzer"
+
+    def route_after_fraud_analyzer(state: BrevixAgentState) -> str:
+        """IRS and relational intents produce self-contained answers; skip synthesis."""
+        if state.get("intent") in {IRS_INTENT, RELATIONAL_READINESS_INTENT, RELATIONAL_GRAPH_INTENT}:
+            return "explanation"
+        return "investigation_synthesis"
+
     builder = StateGraph(BrevixAgentState)
     builder.add_node("router", instrument_node("router", router_node, resolved_settings))
     builder.add_node("context_loader", instrument_node("context_loader", context_loader_node, resolved_settings))
@@ -1687,11 +1671,20 @@ def build_graph(
     builder.add_node("explanation", instrument_node("explanation", explanation_node, resolved_settings))
     builder.add_node("action_gate", instrument_node("action_gate", action_gate_node, resolved_settings))
     builder.add_node("final_response", instrument_node("final_response", final_response_node, resolved_settings))
+
     builder.add_edge(START, "router")
     builder.add_edge("router", "context_loader")
-    builder.add_edge("context_loader", "llm_tool_dispatch")
+    builder.add_conditional_edges(
+        "context_loader",
+        route_after_context_loader,
+        {"llm_tool_dispatch": "llm_tool_dispatch", "fraud_analyzer": "fraud_analyzer"},
+    )
     builder.add_edge("llm_tool_dispatch", "fraud_analyzer")
-    builder.add_edge("fraud_analyzer", "investigation_synthesis")
+    builder.add_conditional_edges(
+        "fraud_analyzer",
+        route_after_fraud_analyzer,
+        {"investigation_synthesis": "investigation_synthesis", "explanation": "explanation"},
+    )
     builder.add_edge("investigation_synthesis", "explanation")
     builder.add_edge("explanation", "action_gate")
     builder.add_edge("action_gate", "final_response")

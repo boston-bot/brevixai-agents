@@ -25,9 +25,13 @@ Do not provide legal, tax, accounting, audit-opinion, CPA, investment, law-enfor
 Never execute or claim to execute alerts, cases, emails, reports, or other actions.
 End user-facing explanations with: No alerts or cases were created."""
 
-# Tool definitions for function-calling dispatch. Each describes what the tool
-# surfaces so GPT-4o can select the minimal relevant set for a given query.
+# Tool definitions for function-calling dispatch.
+# There are two groups:
+#   API tools         — call the Laravel risk-scoring endpoints (network round-trip)
+#   Intelligence tools — run in-process deterministic analyzers on raw transactions
+# Both groups share the same _should_run gate, so both must appear here.
 _DISPATCH_TOOL_DEFINITIONS: list[dict[str, Any]] = [
+    # --- API tools ---
     {
         "type": "function",
         "function": {
@@ -73,6 +77,47 @@ _DISPATCH_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "function": {
             "name": "case_recommendations",
             "description": "Retrieve AI-generated investigation case recommendations awaiting human approval.",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    # --- Intelligence tools (in-process deterministic analyzers) ---
+    {
+        "type": "function",
+        "function": {
+            "name": "duplicate_payments",
+            "description": "Detect likely duplicate vendor payments by comparing amount, date proximity, invoice number, and memo similarity across all transactions.",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "vendor_concentration",
+            "description": "Flag vendors receiving an unusually high share of total spend (default threshold: 30%), indicating concentration risk.",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "dormant_vendor",
+            "description": "Identify vendors inactive for 90+ days that were then reactivated — a common ghost-vendor or unauthorized-payment signal.",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "cash_burn",
+            "description": "Detect month-over-month acceleration in cash outflows that may indicate unusual spend, financial stress, or unauthorized activity.",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "control_weaknesses",
+            "description": "Summarize internal control weaknesses: missing approvals, missing supporting documents, and single-approver dominance patterns.",
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
