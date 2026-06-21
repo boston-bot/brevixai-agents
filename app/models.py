@@ -79,6 +79,19 @@ class InvestigationSynthesis(BaseModel):
     evidence_summary: list[dict[str, Any]] = Field(default_factory=list)
 
 
+class InvestigationPlaybook(BaseModel):
+    id: int
+    title: str
+    category: str
+    description: str | None = None
+    symptoms: list[str] | None = Field(default_factory=list)
+    red_flags: list[str] | None = Field(default_factory=list)
+    tests: list[str] | None = Field(default_factory=list)
+    document_requests: list[str] | None = Field(default_factory=list)
+    intent_key: str | None = None
+    is_active: bool = True
+
+
 class AgentRunRequest(BaseModel):
     agent_run_id: str | None = None
     company_id: str
@@ -186,7 +199,7 @@ class BrevixAgentState(TypedDict, total=False):
     final_response: str | None
     irs_answer: str | None
     degraded_tools: Annotated[list[dict[str, Any]], add]
-    errors: list[str]
+    errors: Annotated[list[str], add]
     steps: Annotated[list[dict[str, Any]], add]
     usage: dict[str, Any]
     next_best_action: dict[str, Any] | None

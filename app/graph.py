@@ -11,6 +11,7 @@ from langgraph.graph import END, START, StateGraph
 
 from app.config import Settings, get_settings
 from app.duplicate_payment_workflow import build_duplicate_payment_review_workflow
+from app.fraud_discovery_workflow import build_fraud_discovery_workflow
 from app.investigation_synthesis import synthesize_investigation
 from app.irs_procedural import (
     IRS_INTENT,
@@ -79,6 +80,10 @@ def build_graph(
     _explanation_prompt = load_prompt("explanation", "v2")
     _action_gate_prompt = load_prompt("action_gate", "v2")
 
+    fraud_discovery_workflow_node = build_fraud_discovery_workflow(
+        tool_client, resolved_settings, resolved_provider
+    )
+
     async def router_node(state: BrevixAgentState) -> dict[str, Any]:
         message = state["user_message"].lower()
         intent = "unknown_or_unsupported"
@@ -118,6 +123,33 @@ def build_graph(
             )
         ):
             intent = "recommendation_review"
+        elif any(
+            term in message
+            for term in (
+                # Anomaly observations
+                "went up", "gone up", "increased", "decreased", "looks wrong",
+                "doesn't match", "doesn't make sense", "suspicious activity",
+                "something is off", "unexplained", "headcount", "payroll anomaly",
+                # Concern language — the trust-before-evidence entry points
+                "could my", "could someone", "might my", "might someone",
+                "is it possible", "worried about", "concerned about",
+                "feels wrong", "something feels", "something wrong",
+                "how do i know if", "how can i tell", "what should i look for",
+                "how do i detect", "what does it mean if", "what does it mean when",
+                "why would", "explain why", "what would cause",
+                # Common fraud scheme entry points
+                "stealing", "theft", "embezzlement", "misappropriation",
+                "ghost employee", "ghost vendor", "fictitious vendor",
+                "unauthorized transfer", "missing money", "missing funds",
+                "books are off", "books don't balance", "bookkeeper quit",
+                # Education / general investigation questions
+                "what are signs of", "red flags for", "how does fraud",
+                "common fraud", "fraud scheme", "fraud types", "fraud pattern",
+                "what is payroll fraud", "what is vendor fraud",
+                "investigate", "suspect fraud",
+            )
+        ):
+            intent = "fraud_discovery"
         elif any(
             term in message
             for term in (
@@ -1081,20 +1113,7 @@ def build_graph(
             state.get("page_context", {}).get("vendor_name")
             or state.get("page_context", {}).get("vendor")
         )
-        if not vendor_name_query:
-            msg = state["user_message"].lower()
-            _bench_map = {
-                "mega vendor": "Mega Vendor LLC",
-                "northstar consulting": "Northstar Consulting",
-                "roundhouse services": "Roundhouse Services",
-                "acme supplies": "Acme Supplies",
-                "brightline labs": "Brightline Labs",
-                "clean vendor": "Clean Vendor",
-            }
-            for seeded_vendor, canonical in _bench_map.items():
-                if seeded_vendor in msg:
-                    vendor_name_query = canonical
-                    break
+        # vendor_name_query comes only from page_context — no hardcoded test fixtures here.
 
         # Fetch all tool results concurrently — each helper returns (data, degraded[], steps[]).
         async def _fetch_vendor_risk() -> tuple[Any, list, list]:
@@ -1566,7 +1585,7 @@ def build_graph(
         except (ProviderConfigError, ProviderRuntimeError) as exc:
             fallback = "I could not complete the risk review right now. No alerts or cases were created."
             return {
-                "errors": [*state.get("errors", []), str(exc)],
+                "errors": [str(exc)],
                 "final_response": fallback,
                 "steps": [
                     step(
@@ -1659,8 +1678,14 @@ def build_graph(
             return "explanation"
         return "investigation_synthesis"
 
+    def route_after_router(state: BrevixAgentState) -> str:
+        if state.get("intent") == "fraud_discovery":
+            return "fraud_discovery_workflow"
+        return "context_loader"
+
     builder = StateGraph(BrevixAgentState)
     builder.add_node("router", instrument_node("router", router_node, resolved_settings))
+    builder.add_node("fraud_discovery_workflow", instrument_node("fraud_discovery_workflow", fraud_discovery_workflow_node, resolved_settings))
     builder.add_node("context_loader", instrument_node("context_loader", context_loader_node, resolved_settings))
     builder.add_node("llm_tool_dispatch", instrument_node("llm_tool_dispatch", llm_tool_dispatch_node, resolved_settings))
     builder.add_node("fraud_analyzer", instrument_node("fraud_analyzer", fraud_analyzer_node, resolved_settings))
@@ -1673,7 +1698,8 @@ def build_graph(
     builder.add_node("final_response", instrument_node("final_response", final_response_node, resolved_settings))
 
     builder.add_edge(START, "router")
-    builder.add_edge("router", "context_loader")
+    builder.add_conditional_edges("router", route_after_router)
+    builder.add_edge("fraud_discovery_workflow", "final_response")
     builder.add_conditional_edges(
         "context_loader",
         route_after_context_loader,

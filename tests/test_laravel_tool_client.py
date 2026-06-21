@@ -39,6 +39,75 @@ async def test_laravel_tool_client_uses_internal_agent_tool_endpoints(monkeypatc
 
 
 @pytest.mark.asyncio
+async def test_laravel_tool_client_posts_canonical_finding_payload(monkeypatch: pytest.MonkeyPatch) -> None:
+    requests: list[dict] = []
+
+    class FakeAsyncClient:
+        def __init__(self, timeout: float) -> None:
+            self.timeout = timeout
+
+        async def __aenter__(self) -> "FakeAsyncClient":
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb) -> None:
+            return None
+
+        async def post(self, url: str, headers: dict, json: dict | None = None) -> httpx.Response:
+            requests.append({"url": url, "headers": headers, "json": json})
+            return httpx.Response(201, json={"stored": 1, "finding_ids": ["finding-1"]})
+
+    monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
+
+    client = LaravelToolClient("http://laravel.test", "tool-key", timeout_seconds=3)
+
+    result = await client.store_findings(
+        "company-1",
+        "user-1",
+        findings=[{
+            "title": "Duplicate Payment Pattern",
+            "severity": "high",
+            "confidence": 0.82,
+            "summary": "Rex found a duplicate-payment pattern.",
+            "sourceModule": "rex_agent",
+            "sourceRecordType": "duplicate_payment",
+            "sourceRecordId": "agent-finding-1",
+            "evidence": [{"type": "transaction", "id": "txn-1", "summary": "Matched duplicate indicators."}],
+            "suggestedRecords": [{"recordType": "invoice_register", "label": "Invoice register"}],
+        }],
+        agent_run_id="run-1",
+        trace_id="trace-1",
+    )
+
+    assert result == {"stored": 1, "finding_ids": ["finding-1"]}
+    assert requests[0]["url"] == "http://laravel.test/api/internal/agent-tools/company/company-1/findings"
+    assert requests[0]["headers"]["Authorization"] == "Bearer tool-key"
+    assert requests[0]["headers"]["X-Brevix-User-Id"] == "user-1"
+    assert requests[0]["headers"]["X-Brevix-Agent-Request-Id"] == "trace-1"
+    assert requests[0]["json"]["agent_run_id"] == "run-1"
+    assert requests[0]["json"]["findings"][0]["sourceModule"] == "rex_agent"
+    assert requests[0]["json"]["findings"][0]["suggestedRecords"][0]["recordType"] == "invoice_register"
+
+
+@pytest.mark.asyncio
+async def test_laravel_tool_client_store_findings_skips_empty_payload(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeAsyncClient:
+        def __init__(self, timeout: float) -> None:
+            self.timeout = timeout
+
+        async def __aenter__(self) -> "FakeAsyncClient":
+            raise AssertionError("empty findings should not open an HTTP client")
+
+    monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
+
+    client = LaravelToolClient("http://laravel.test", "tool-key", timeout_seconds=3)
+
+    assert await client.store_findings("company-1", "user-1", findings=[]) == {
+        "stored": 0,
+        "finding_ids": [],
+    }
+
+
+@pytest.mark.asyncio
 async def test_laravel_tool_client_wraps_connection_errors(monkeypatch: pytest.MonkeyPatch) -> None:
     class FakeAsyncClient:
         def __init__(self, timeout: float) -> None:

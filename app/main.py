@@ -188,6 +188,19 @@ def create_app() -> FastAPI:
         request_latency_ms = round((time.perf_counter() - start) * 1000, 2)
         usage = summarize_usage(result, request_latency_ms, settings)
 
+        findings = result.get("findings") or []
+        if findings:
+            try:
+                await tool_client.store_findings(
+                    company_id=state["company_id"],
+                    user_id=state.get("user_id", ""),
+                    findings=findings,
+                    agent_run_id=state.get("agent_run_id"),
+                    trace_id=state.get("agent_run_id"),
+                )
+            except Exception:
+                logger.warning("store_findings failed for run %s", state.get("agent_run_id"), exc_info=True)
+
         return AgentRunResponse(
             trace_id=request.agent_run_id,
             intent=result.get("intent"),
@@ -349,6 +362,18 @@ def create_app() -> FastAPI:
                     "partialErrors": accumulated_errors,
                 })
                 return
+
+            if accumulated_findings:
+                try:
+                    await tool_client.store_findings(
+                        company_id=state["company_id"],
+                        user_id=state.get("user_id", ""),
+                        findings=accumulated_findings,
+                        agent_run_id=state.get("agent_run_id"),
+                        trace_id=state.get("agent_run_id"),
+                    )
+                except Exception:
+                    logger.warning("store_findings failed for run %s", state.get("agent_run_id"), exc_info=True)
 
             request_latency_ms = round((time.perf_counter() - start) * 1000, 2)
             usage = summarize_usage(

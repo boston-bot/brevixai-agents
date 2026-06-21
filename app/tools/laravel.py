@@ -691,6 +691,28 @@ class LaravelToolClient:
             ),
         )
 
+    async def store_findings(
+        self,
+        company_id: str,
+        user_id: str,
+        findings: list[dict[str, Any]],
+        agent_run_id: str | None = None,
+        trace_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Persist agent findings into Laravel's canonical finding contract."""
+        if not findings:
+            return {"stored": 0, "finding_ids": []}
+        return await self._post(
+            f"/api/internal/agent-tools/company/{company_id}/findings",
+            user_id,
+            json_body={"agent_run_id": agent_run_id, "findings": findings},
+            trace_id=trace_id,
+            trace_metadata={
+                "tool_name": "store_findings",
+                "company_id": company_id,
+            },
+        )
+
     async def irs_notice_extract(
         self,
         text: str,
@@ -706,6 +728,59 @@ class LaravelToolClient:
             trace_id=trace_id,
             trace_metadata={
                 "tool_name": "irs_notice_extract",
+                **(trace_metadata or {}),
+            },
+        )
+
+    async def fraud_playbook_search(
+        self,
+        query: str,
+        limit: int = 5,
+        user_id: str = "mcp_service",
+        trace_id: str | None = None,
+        trace_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return await self._get(
+            "/api/internal/agent-tools/fraud/playbooks/search",
+            user_id,
+            params={"query": query, "limit": limit},
+            trace_id=trace_id,
+            trace_metadata={
+                "tool_name": "fraud_playbook_search",
+                **(trace_metadata or {}),
+            },
+            langsmith_extra=self._langsmith_extra(
+                "fraud_playbook_search",
+                "",
+                user_id,
+                trace_id,
+                trace_metadata,
+            ),
+        )
+
+    async def submit_retrieval_feedback(
+        self,
+        playbook_id: int,
+        query_text: str,
+        relevance_score: int,
+        user_feedback: str | None = None,
+        user_id: str = "mcp_service",
+        trace_id: str | None = None,
+        trace_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        body = {
+            "playbook_id": playbook_id,
+            "query_text": query_text,
+            "relevance_score": relevance_score,
+            "user_feedback": user_feedback,
+        }
+        return await self._post(
+            "/api/internal/agent-tools/fraud/playbooks/feedback",
+            user_id,
+            json_body=body,
+            trace_id=trace_id,
+            trace_metadata={
+                "tool_name": "submit_retrieval_feedback",
                 **(trace_metadata or {}),
             },
         )
