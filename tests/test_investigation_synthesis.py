@@ -150,21 +150,28 @@ async def test_synthesis_triggers_no_autonomous_actions() -> None:
     action_types = {action["type"] for action in result["recommended_actions"]}
     assert "create_alert" not in action_types
     assert "create_case" not in action_types
-    assert result["recommended_actions"] == [
-        {
-            "type": "review_vendor_verification_evidence",
-            "label": "Review urgent vendor verification evidence",
-            "requires_approval": False,
-            "payload": {
-                "workflow_type": "vendor_verification",
-                "review_priority": "high",
-                "vendor_count": 1,
-                "vendor_ids": ["vendor-overlap-001"],
-                "highest_vendor_risk_score": 84,
-                "entity_relationship_risk_score": 82,
-                "supporting_evidence_count": 5,
-            },
-        }
+    assert result["recommended_actions"][0] == {
+        "type": "review_vendor_verification_evidence",
+        "label": "Review urgent vendor verification evidence",
+        "requires_approval": False,
+        "payload": {
+            "workflow_type": "vendor_verification",
+            "review_priority": "high",
+            "vendor_count": 1,
+            "vendor_ids": ["vendor-overlap-001"],
+            "highest_vendor_risk_score": 84,
+            "entity_relationship_risk_score": 82,
+            "supporting_evidence_count": 5,
+        },
+    }
+    # The high review priority also yields a create_investigation recommendation,
+    # but it is never autonomous: it must always be approval-gated.
+    gated_actions = [action for action in result["recommended_actions"] if action["type"] == "create_investigation"]
+    assert len(gated_actions) == 1
+    assert gated_actions[0]["requires_approval"] is True
+    assert [action["type"] for action in result["recommended_actions"]] == [
+        "review_vendor_verification_evidence",
+        "create_investigation",
     ]
 
 
