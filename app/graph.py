@@ -47,6 +47,7 @@ RELATIONAL_GRAPH_INTENT = "relational_graph_intelligence"
 SENSITIVE_ACTION_TYPES = {
     "create_alert",
     "create_case",
+    "create_investigation",
     "escalate_review",
     "mark_alert_resolved",
     "suppress_alerts",
@@ -2148,33 +2149,245 @@ def suggested_actions(state: BrevixAgentState) -> list[RecommendedAction]:
                 )
             ]
 
+    actions: list[RecommendedAction] = []
     next_action = state.get("next_best_action")
+    findings = state.get("findings", [])
     if isinstance(next_action, dict) and next_action.get("type"):
-        return [
+        actions.append(
             RecommendedAction(
                 type=str(next_action["type"]),
                 label=str(next_action.get("label", "Review workflow evidence")),
                 requires_approval=bool(next_action.get("requires_approval", False)),
                 payload=dict(next_action.get("payload") or {}),
             )
-        ]
-
-    findings = state.get("findings", [])
-    if not findings:
-        return [
+        )
+    elif not findings:
+        actions.append(
             RecommendedAction(
                 type="review_dashboard",
                 label="Review dashboard",
                 requires_approval=False,
                 payload={"reason": "No specific findings returned"},
             )
+        )
+    else:
+        actions.append(
+            RecommendedAction(
+                type="review_findings",
+                label="Review findings",
+                requires_approval=False,
+                payload={"finding_count": len(findings)},
+            )
+        )
+
+    investigation_action = build_create_investigation_action(state)
+    if investigation_action is not None:
+        actions.append(investigation_action)
+
+    return actions
+
+
+# Deterministic threshold for recommending an approval-gated investigation. Matches the
+# escalation threshold used by the reviewer workflows (escalation_criteria fire at high/critical)
+# and _score_priority (score >= 70 -> high, >= 90 -> critical).
+INVESTIGATION_TRIGGER_PRIORITIES = {"high", "critical"}
+
+_INVESTIGATION_PRIORITY_RANK = {
+    "info": 0,
+    "low": 1,
+    "medium": 2,
+    "high": 3,
+    "critical": 4,
+}
+
+# Maps deterministic workflow types onto Laravel's canonical investigation categories
+# (AgentActionExecutorService::canonicalInvestigationCategory).
+_INVESTIGATION_CATEGORY_BY_WORKFLOW = {
+    "vendor_verification": "vendor_payments",
+    "duplicate_payment_review": "vendor_payments",
+}
+
+_INVESTIGATION_EVIDENCE_REF_KEYS = (
+    "id",
+    "transaction_id",
+    "vendor_id",
+    "employee_id",
+    "relationship_id",
+    "account_id",
+)
+
+_INVESTIGATION_SKIP_INTENTS = {
+    IRS_INTENT,
+    RELATIONAL_READINESS_INTENT,
+    RELATIONAL_GRAPH_INTENT,
+    "guided_intake",
+}
+
+
+def build_create_investigation_action(state: BrevixAgentState) -> RecommendedAction | None:
+    """Deterministically recommend an approval-gated investigation when evidence justifies it.
+
+    Emits when either:
+    - the primary workflow's review priority is high or critical, or
+    - at least one high/critical-severity finding carries supporting evidence.
+
+    The action is always approval-gated (also enforced by SENSITIVE_ACTION_TYPES); Laravel's
+    AgentActionExecutorService.createInvestigation executes it only after human approval.
+    Readiness-style intents are excluded: their high-severity findings describe data-readiness
+    gaps, not risk signals that justify an investigation.
+    """
+    if state.get("intent") in _INVESTIGATION_SKIP_INTENTS:
+        return None
+
+    findings = [finding for finding in state.get("findings", []) if isinstance(finding, dict)]
+    review_priority = _workflow_review_priority(state)
+    qualifying_findings = _high_severity_findings_with_evidence(findings)
+
+    workflow_justifies = review_priority in INVESTIGATION_TRIGGER_PRIORITIES
+    if not workflow_justifies and not qualifying_findings:
+        return None
+
+    reason_codes: list[str] = []
+    if workflow_justifies:
+        reason_codes.append(f"workflow_review_priority_{review_priority}")
+    if qualifying_findings:
+        reason_codes.append("high_severity_finding_with_evidence")
+
+    priority_candidates = [
+        str(finding.get("severity") or "info").strip().lower() for finding in qualifying_findings
+    ]
+    if workflow_justifies:
+        priority_candidates.append(review_priority)
+    priority = max(priority_candidates, key=lambda value: _INVESTIGATION_PRIORITY_RANK.get(value, 0))
+
+    recommended_workflow = str(state.get("recommended_workflow") or "").strip()
+    lead_finding = qualifying_findings[0] if qualifying_findings else None
+    lead_title = str(lead_finding.get("title") or "").strip() if lead_finding else ""
+    if lead_title:
+        title = f"Investigation: {lead_title}"
+    elif recommended_workflow:
+        title = f"Investigation: {recommended_workflow.replace('_', ' ')} review"
+    else:
+        title = "Investigation: elevated risk signal review"
+
+    summary_parts: list[str] = []
+    if workflow_justifies:
+        workflow_label = recommended_workflow.replace("_", " ") if recommended_workflow else "primary"
+        summary_parts.append(
+            f"The {workflow_label} workflow reached {review_priority} review priority."
+        )
+    if qualifying_findings:
+        summary_parts.append(
+            f"{len(qualifying_findings)} high-severity finding(s) carry supporting evidence."
+        )
+    summary_parts.append(
+        "These risk signals justify a scoped review pending human approval; "
+        "this recommendation does not conclude that any improper activity occurred."
+    )
+    summary = " ".join(summary_parts)
+
+    scope_limitations = [
+        str(item).strip() for item in state.get("scope_limitations") or [] if str(item).strip()
+    ]
+    if not scope_limitations:
+        scope_limitations = [
+            "Scope limitation: this recommendation is based on deterministic risk signals "
+            "and finding evidence available to the agent only.",
         ]
 
+    evidence_refs = _finding_evidence_refs(qualifying_findings)
+    if not evidence_refs:
+        next_action = state.get("next_best_action")
+        next_payload = next_action.get("payload") if isinstance(next_action, dict) else None
+        if isinstance(next_payload, dict):
+            seen: set[str] = set()
+            for key in ("transaction_ids", "vendor_ids"):
+                values = next_payload.get(key)
+                if not isinstance(values, list):
+                    continue
+                for value in values:
+                    ref = str(value).strip()
+                    if ref and ref not in seen:
+                        seen.add(ref)
+                        evidence_refs.append(ref)
+
+    payload: dict[str, Any] = {
+        "title": title,
+        "summary": summary,
+        "category": _INVESTIGATION_CATEGORY_BY_WORKFLOW.get(recommended_workflow, "unsure"),
+        "priority": priority,
+        "scope_limitations": scope_limitations,
+        "reason_codes": reason_codes,
+        "evidence_refs": evidence_refs,
+        "review_priority": review_priority,
+        "finding_count": len(findings),
+    }
+    finding_id = _lead_finding_id(qualifying_findings)
+    if finding_id:
+        payload["finding_id"] = finding_id
+
+    return RecommendedAction(
+        type="create_investigation",
+        label="Open an investigation (requires approval)",
+        requires_approval=True,
+        payload=payload,
+    )
+
+
+def _workflow_review_priority(state: BrevixAgentState) -> str:
+    readiness_summary = state.get("readiness_summary")
+    if isinstance(readiness_summary, dict):
+        priority = str(readiness_summary.get("review_priority") or "").strip().lower()
+        if priority:
+            return priority
+
+    next_action = state.get("next_best_action")
+    if isinstance(next_action, dict):
+        payload = next_action.get("payload")
+        if isinstance(payload, dict):
+            priority = str(payload.get("review_priority") or "").strip().lower()
+            if priority:
+                return priority
+
+    return "info"
+
+
+def _high_severity_findings_with_evidence(findings: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [
-        RecommendedAction(
-            type="review_findings",
-            label="Review findings",
-            requires_approval=False,
-            payload={"finding_count": len(findings)},
-        )
+        finding
+        for finding in findings
+        if str(finding.get("severity") or "").strip().lower() in INVESTIGATION_TRIGGER_PRIORITIES
+        and isinstance(finding.get("evidence"), list)
+        and any(isinstance(item, dict) and item for item in finding["evidence"])
     ]
+
+
+def _finding_evidence_refs(findings: list[dict[str, Any]]) -> list[str]:
+    refs: list[str] = []
+    seen: set[str] = set()
+    for finding in findings:
+        evidence = finding.get("evidence")
+        if not isinstance(evidence, list):
+            continue
+        for item in evidence:
+            if not isinstance(item, dict):
+                continue
+            for key in _INVESTIGATION_EVIDENCE_REF_KEYS:
+                value = item.get(key)
+                if value is None or value == "":
+                    continue
+                ref = str(value).strip()
+                if ref and ref not in seen:
+                    seen.add(ref)
+                    refs.append(ref)
+                break
+    return refs
+
+
+def _lead_finding_id(findings: list[dict[str, Any]]) -> str | None:
+    for finding in findings:
+        for key in ("finding_id", "id"):
+            value = finding.get(key)
+            if isinstance(value, (str, int)) and str(value).strip():
+                return str(value).strip()
+    return None
