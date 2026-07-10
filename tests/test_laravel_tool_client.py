@@ -121,3 +121,55 @@ async def test_laravel_tool_client_uses_irs_knowledge_endpoints(monkeypatch: pyt
     assert requests[2]["params"] == {"code": "CP504", "limit": 2}
     assert requests[3]["url"] == "http://laravel.test/api/internal/agent-tools/irs/records-checklist"
     assert requests[4]["url"] == "http://laravel.test/api/internal/agent-tools/irs/collection-risk"
+
+
+@pytest.mark.asyncio
+async def test_laravel_tool_client_uses_fraud_playbook_endpoints(monkeypatch: pytest.MonkeyPatch) -> None:
+    requests: list[dict] = []
+
+    class FakeAsyncClient:
+        def __init__(self, timeout: float) -> None:
+            self.timeout = timeout
+
+        async def __aenter__(self) -> "FakeAsyncClient":
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb) -> None:
+            return None
+
+        async def get(self, url: str, headers: dict, params: dict | None = None) -> httpx.Response:
+            requests.append({"method": "GET", "url": url, "headers": headers, "params": params})
+            return httpx.Response(200, json={"ok": True})
+
+        async def post(self, url: str, headers: dict, json: dict | None = None) -> httpx.Response:
+            requests.append({"method": "POST", "url": url, "headers": headers, "json": json})
+            return httpx.Response(200, json={"ok": True})
+
+    monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
+
+    client = LaravelToolClient("http://laravel.test", "tool-key", timeout_seconds=3)
+
+    await client.fraud_playbook_search("duplicate invoice", limit=3, user_id="user-1", trace_id="run-1")
+    await client.fraud_playbook_feedback(
+        playbook_id=12,
+        query_text="duplicate invoice",
+        relevance_score=4,
+        user_feedback="useful match",
+        user_id="user-1",
+        trace_id="run-1",
+    )
+
+    assert requests[0]["method"] == "GET"
+    assert requests[0]["url"] == "http://laravel.test/api/internal/agent-tools/fraud/playbooks/search"
+    assert requests[0]["params"] == {"query": "duplicate invoice", "limit": 3}
+    assert requests[0]["headers"]["Authorization"] == "Bearer tool-key"
+    assert requests[0]["headers"]["X-Brevix-User-Id"] == "user-1"
+    assert requests[0]["headers"]["X-Brevix-Agent-Request-Id"] == "run-1"
+    assert requests[1]["method"] == "POST"
+    assert requests[1]["url"] == "http://laravel.test/api/internal/agent-tools/fraud/playbooks/feedback"
+    assert requests[1]["json"] == {
+        "playbook_id": 12,
+        "query_text": "duplicate invoice",
+        "relevance_score": 4,
+        "user_feedback": "useful match",
+    }

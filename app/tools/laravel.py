@@ -710,6 +710,60 @@ class LaravelToolClient:
             },
         )
 
+    async def fraud_playbook_search(
+        self,
+        query: str,
+        limit: int = 5,
+        user_id: str = "mcp_service",
+        trace_id: str | None = None,
+        trace_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return await self._get(
+            "/api/internal/agent-tools/fraud/playbooks/search",
+            user_id,
+            params={"query": query, "limit": limit},
+            trace_id=trace_id,
+            trace_metadata={
+                "tool_name": "fraud_playbook_search",
+                **(trace_metadata or {}),
+            },
+            langsmith_extra=self._langsmith_extra(
+                "fraud_playbook_search",
+                "",
+                user_id,
+                trace_id,
+                trace_metadata,
+            ),
+        )
+
+    async def fraud_playbook_feedback(
+        self,
+        playbook_id: int,
+        query_text: str,
+        relevance_score: int,
+        user_feedback: str | None = None,
+        user_id: str = "mcp_service",
+        trace_id: str | None = None,
+        trace_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        json_body: dict[str, Any] = {
+            "playbook_id": playbook_id,
+            "query_text": query_text,
+            "relevance_score": relevance_score,
+        }
+        if user_feedback is not None:
+            json_body["user_feedback"] = user_feedback
+        return await self._post(
+            "/api/internal/agent-tools/fraud/playbooks/feedback",
+            user_id,
+            json_body=json_body,
+            trace_id=trace_id,
+            trace_metadata={
+                "tool_name": "fraud_playbook_feedback",
+                **(trace_metadata or {}),
+            },
+        )
+
     @traceable(
         name="agent.tool.laravel_get",
         run_type="tool",

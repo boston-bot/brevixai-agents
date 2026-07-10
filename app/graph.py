@@ -20,6 +20,7 @@ from app.irs_procedural import (
     synthesize_irs_notice_workflow,
     synthesize_payroll_tax_workflow,
 )
+from app.playbook_retrieval import retrieve_playbook_context
 from app.relational_graph_projection import (
     build_relational_graph_projection,
     synthesize_relational_graph_projection_answer,
@@ -1253,6 +1254,17 @@ def build_graph(
                 degraded_tools.append(degraded_tool("aggregate_risk_summary", exc))
                 failed_tool_steps.append(failed_tool_step("aggregate_risk_summary", "aggregate_risk_summary", exc))
 
+        # Retrieve review-playbook context to frame the fraud-pattern review path.
+        # Optional and non-blocking: analysis continues without playbook guidance.
+        playbook_context = None
+        if state.get("intent") == "fraud_pattern_search" and _should_run("fraud_playbook_search"):
+            try:
+                playbook_context = await retrieve_playbook_context(tool_client, state)
+            except Exception as exc:
+                logger.warning("Failed to retrieve playbook context: %s", exc)
+                degraded_tools.append(degraded_tool("fraud_playbook_search", exc))
+                failed_tool_steps.append(failed_tool_step("playbook_retrieval", "fraud_playbook_search", exc))
+
         # Run deterministic intelligence tools (duplicate payments, concentration, etc.)
         intelligence_findings, intelligence_degraded, intelligence_steps = await _fraud_intelligence_analysis(
             state, _should_run
@@ -1336,6 +1348,23 @@ def build_graph(
                     }
                 )
             )
+        if playbook_context:
+            steps_list.append(
+                step(
+                    "playbook_retrieval",
+                    step_type="tool_call",
+                    input_payload={
+                        "tool": "fraud_playbook_search",
+                        "query": playbook_context.get("retrieval_query"),
+                    },
+                    output_payload={
+                        "status": playbook_context.get("status"),
+                        "result_count": playbook_context.get("result_count"),
+                        "playbook_ref_count": len(playbook_context.get("playbook_refs", [])),
+                        "corpus_version": playbook_context.get("corpus_version"),
+                    },
+                )
+            )
 
         # Fetch alert/case recommendations to enrich fraud analysis context
         alert_rec_data = None
@@ -1381,6 +1410,8 @@ def build_graph(
             tool_results.setdefault("alert_recommendations", alert_rec_data)
         if case_rec_data:
             tool_results.setdefault("case_recommendations", case_rec_data)
+        if playbook_context:
+            tool_results["fraud_playbooks"] = playbook_context
 
         active_workflows: list[dict[str, Any]] = []
         duplicate_payment_workflow = build_duplicate_payment_review_workflow(all_findings)
@@ -1444,7 +1475,21 @@ def build_graph(
             readiness_summary = primary_workflow.get("readiness_summary")
             recommended_workflow = primary_workflow.get("workflow_type")
 
-        return {
+        # Merge playbook guidance into the analysis output. Playbook document
+        # requests become evidence gaps for the reviewer, and the retrieval
+        # disclaimer propagates through scope_limitations the same way the IRS
+        # analysis path surfaces its disclaimers to the caller. Playbook text is
+        # never turned into findings on its own.
+        playbook_refs = playbook_context.get("playbook_refs", []) if playbook_context else []
+        if playbook_refs:
+            playbook_evidence_requests = playbook_context.get("evidence_requests", [])
+            if playbook_evidence_requests:
+                evidence_gaps = [*evidence_gaps, *playbook_evidence_requests]
+            playbook_disclaimer = playbook_context.get("disclaimer")
+            if playbook_disclaimer and playbook_disclaimer not in scope_limitations:
+                scope_limitations = [*scope_limitations, playbook_disclaimer]
+
+        result: dict[str, Any] = {
             "tool_results": tool_results,
             "alert_recommendations": alert_rec_data,
             "case_recommendations": case_rec_data,
@@ -1457,6 +1502,10 @@ def build_graph(
             "degraded_tools": degraded_tools,
             "steps": steps_list,
         }
+        if playbook_refs:
+            result["playbook_refs"] = playbook_refs
+            result["retrieval_query"] = playbook_context.get("retrieval_query")
+        return result
 
     async def investigation_synthesis_node(state: BrevixAgentState) -> dict[str, Any]:
         if state.get("intent") in {IRS_INTENT, RELATIONAL_READINESS_INTENT, RELATIONAL_GRAPH_INTENT}:
@@ -2325,6 +2374,22 @@ def build_create_investigation_action(state: BrevixAgentState) -> RecommendedAct
     finding_id = _lead_finding_id(qualifying_findings)
     if finding_id:
         payload["finding_id"] = finding_id
+
+    # Pinned cross-repo contract: when playbook retrieval matched, carry at most
+    # three high/medium-confidence playbook references and the exact retrieval
+    # query. Both keys are omitted entirely when retrieval matched nothing or
+    # was degraded.
+    playbook_refs = [
+        ref
+        for ref in state.get("playbook_refs") or []
+        if isinstance(ref, dict)
+        and str(ref.get("confidence") or "").strip().lower() in {"high", "medium"}
+    ][:3]
+    if playbook_refs:
+        payload["playbook_refs"] = playbook_refs
+        retrieval_query = str(state.get("retrieval_query") or "").strip()
+        if retrieval_query:
+            payload["retrieval_query"] = retrieval_query
 
     return RecommendedAction(
         type="create_investigation",

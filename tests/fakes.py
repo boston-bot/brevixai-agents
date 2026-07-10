@@ -22,6 +22,8 @@ class FakeLaravelToolClient:
         self.irs_records_checklist_calls: list[dict] = []
         self.irs_collection_risk_calls: list[dict] = []
         self.irs_notice_extract_calls: list[dict] = []
+        self.fraud_playbook_search_calls: list[dict] = []
+        self.fraud_playbook_feedback_calls: list[dict] = []
 
     async def company_context(
         self,
@@ -450,6 +452,154 @@ class FakeLaravelToolClient:
             "disclaimer": "For informational purposes only.",
         }
 
+    async def fraud_playbook_search(
+        self,
+        query: str,
+        limit: int = 5,
+        user_id: str = "mcp_service",
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        self.fraud_playbook_search_calls.append({"query": query, "limit": limit, "user_id": user_id})
+        documents = [
+            {
+                "id": 12,
+                "source_id": "12",
+                "title": "Duplicate invoice payment review",
+                "category": "vendor_payments",
+                "description": "Review pattern for repeated payments recorded against a single invoice.",
+                "symptoms": ["Same invoice number paid more than once", "Matching payment amounts days apart"],
+                "red_flags": ["Vendor with duplicate remit-to accounts", "Manual payment recorded outside the approval flow"],
+                "tests": ["Match invoice numbers across payment batches", "Compare payment dates for identical amounts"],
+                "document_requests": ["Vendor invoice copies", "Payment approval records"],
+                "intent_key": "duplicate_payment_review",
+                "is_active": True,
+            },
+            {
+                "id": 31,
+                "source_id": "31",
+                "title": "Vendor master change review",
+                "category": "vendor_payments",
+                "description": "Review pattern for unverified vendor master data changes before payment.",
+                "symptoms": ["Bank details changed shortly before a payment run"],
+                "red_flags": ["Vendor bank change without a documented callback verification"],
+                "tests": ["Trace vendor bank changes to an approved change request"],
+                "document_requests": ["Vendor change history export"],
+                "intent_key": "vendor_master_change_review",
+                "is_active": True,
+            },
+        ]
+        return {
+            "status": "ok",
+            "corpus_id": "fraud_playbooks",
+            "corpus_version": "fraud_playbooks:v2",
+            "query": query,
+            "result_count": 2,
+            "scoring": {"strategy": "lexical_playbook_v2", "hybrid": False},
+            "results": [
+                {
+                    "source_type": "fraud_playbook",
+                    "source_id": "12",
+                    "title": "Duplicate invoice payment review",
+                    "snippet": "Same invoice number paid more than once.",
+                    "snippet_field": "symptoms",
+                    "relevance_score": 0.91,
+                    "confidence": "high",
+                    "score_components": {"term_overlap": 0.8, "field_weight": 0.11},
+                    "document": documents[0],
+                    "citations": [
+                        {
+                            "source_type": "fraud_playbook",
+                            "source_id": "12",
+                            "title": "Duplicate invoice payment review",
+                            "source_name": "fraud_playbooks",
+                            "source_version": "fraud_playbooks:v2",
+                            "fields": ["symptoms", "tests"],
+                        }
+                    ],
+                },
+                {
+                    "source_type": "fraud_playbook",
+                    "source_id": "31",
+                    "title": "Vendor master change review",
+                    "snippet": "Bank details changed shortly before a payment run.",
+                    "snippet_field": "red_flags",
+                    "relevance_score": 0.62,
+                    "confidence": "medium",
+                    "score_components": {"term_overlap": 0.5, "field_weight": 0.12},
+                    "document": documents[1],
+                    "citations": [
+                        {
+                            "source_type": "fraud_playbook",
+                            "source_id": "31",
+                            "title": "Vendor master change review",
+                            "source_name": "fraud_playbooks",
+                            "source_version": "fraud_playbooks:v2",
+                            "fields": ["red_flags"],
+                        }
+                    ],
+                },
+            ],
+            "citations": [
+                {
+                    "source_type": "fraud_playbook",
+                    "source_id": "12",
+                    "title": "Duplicate invoice payment review",
+                    "source_name": "fraud_playbooks",
+                    "source_version": "fraud_playbooks:v2",
+                    "fields": ["symptoms", "tests"],
+                },
+                {
+                    "source_type": "fraud_playbook",
+                    "source_id": "31",
+                    "title": "Vendor master change review",
+                    "source_name": "fraud_playbooks",
+                    "source_version": "fraud_playbooks:v2",
+                    "fields": ["red_flags"],
+                },
+            ],
+            "metadata": {
+                "terms": ["duplicate", "invoice", "vendor"],
+                "expanded_terms": ["duplicate", "invoice", "vendor", "payment"],
+                "retrieval_stage": "lexical",
+                "feedback_boost_applied": False,
+            },
+            "disclaimer": (
+                "Playbook guidance is informational and supports human review only. "
+                "It does not conclude that any improper activity occurred and is not "
+                "legal, tax, or accounting advice."
+            ),
+            "data": documents,
+        }
+
+    async def fraud_playbook_feedback(
+        self,
+        playbook_id: int,
+        query_text: str,
+        relevance_score: int,
+        user_feedback: str | None = None,
+        user_id: str = "mcp_service",
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        self.fraud_playbook_feedback_calls.append({
+            "playbook_id": playbook_id,
+            "query_text": query_text,
+            "relevance_score": relevance_score,
+            "user_feedback": user_feedback,
+            "user_id": user_id,
+        })
+        return {
+            "message": "Playbook feedback recorded.",
+            "data": {
+                "playbook_id": playbook_id,
+                "query_text": query_text,
+                "relevance_score": relevance_score,
+                "user_feedback": user_feedback,
+            },
+            "disclaimer": "For informational purposes only.",
+        }
+
 
 class FixtureLaravelToolClient:
     """Fake tool client that returns a caller-supplied risk fixture for evaluation runs."""
@@ -726,6 +876,30 @@ class FixtureLaravelToolClient:
         fixture = self.risk_fixture.get("irs_notice_extract", {})
         return {"status": "ok", **fixture} if isinstance(fixture, dict) else {}
 
+    async def fraud_playbook_search(
+        self,
+        query: str,
+        limit: int = 5,
+        user_id: str = "mcp_service",
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        fixture = self.risk_fixture.get("fraud_playbook_search", {})
+        return {"status": "no_results", "query": query, "results": [], **fixture} if isinstance(fixture, dict) else {}
+
+    async def fraud_playbook_feedback(
+        self,
+        playbook_id: int,
+        query_text: str,
+        relevance_score: int,
+        user_feedback: str | None = None,
+        user_id: str = "mcp_service",
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        fixture = self.risk_fixture.get("fraud_playbook_feedback", {})
+        return {"message": "Playbook feedback recorded.", **fixture} if isinstance(fixture, dict) else {}
+
 
 def base_state(message: str = "Are there any suspicious vendors this month?") -> dict:
     return {
@@ -748,4 +922,6 @@ def base_state(message: str = "Are there any suspicious vendors this month?") ->
         "irs_answer": None,
         "errors": [],
         "steps": [],
+        "playbook_refs": [],
+        "retrieval_query": None,
     }

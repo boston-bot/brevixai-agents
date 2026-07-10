@@ -63,6 +63,17 @@ _DISPATCH_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "fraud_playbook_search",
+            "description": (
+                "Retrieve fraud-review playbooks that provide reviewer tests, red flags, "
+                "and document requests relevant to the user's risk question."
+            ),
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "alert_recommendations",
             "description": "Retrieve AI-generated alert recommendations awaiting human approval.",
             "parameters": {"type": "object", "properties": {}, "required": []},
@@ -81,6 +92,7 @@ _DISPATCH_TOOL_DEFINITIONS: list[dict[str, Any]] = [
 _DISPATCH_SYSTEM_PROMPT = (
     "You are selecting the minimal set of financial risk analysis tools needed to accurately answer the user's query. "
     "Choose only tools that are clearly relevant. For general risk or fraud questions, select all domain tools. "
+    "For fraud, suspicious-payment, invoice, vendor, approval, or evidence-review questions, include fraud_playbook_search. "
     "For vendor-specific questions, prioritize vendor_risk. For reconciliation questions, prioritize reconciliation_risk. "
     "For conflict-of-interest or entity questions, prioritize entity_relationship_risk."
 )

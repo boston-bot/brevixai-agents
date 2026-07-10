@@ -196,3 +196,5 @@ class BrevixAgentState(TypedDict, total=False):
     relationship_insights: list[dict[str, Any]]
     suggested_answers: list[dict[str, Any]]
     recommended_workflow: str | None
+    playbook_refs: list[dict[str, Any]]
+    retrieval_query: str | None

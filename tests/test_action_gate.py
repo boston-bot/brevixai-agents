@@ -203,6 +203,42 @@ def test_create_investigation_payload_matches_laravel_contract() -> None:
     assert payload["priority"] == "high"
 
 
+def test_create_investigation_payload_carries_capped_playbook_refs() -> None:
+    state = _high_severity_finding_state()
+    state["playbook_refs"] = [
+        {"playbook_id": "p-1", "title": "High confidence review", "confidence": "high"},
+        {"playbook_id": "p-low", "title": "Low confidence review", "confidence": "low"},
+        {"playbook_id": "p-2", "title": "Medium confidence review", "confidence": "medium"},
+        {"playbook_id": "p-3", "title": "Another high confidence review", "confidence": "high"},
+        {"playbook_id": "p-4", "title": "Excess high confidence review", "confidence": "high"},
+    ]
+    state["retrieval_query"] = "Review duplicate invoice payments."
+
+    action = build_create_investigation_action(state)
+
+    assert action is not None
+    assert action.payload["retrieval_query"] == "Review duplicate invoice payments."
+    assert action.payload["playbook_refs"] == [
+        {"playbook_id": "p-1", "title": "High confidence review", "confidence": "high"},
+        {"playbook_id": "p-2", "title": "Medium confidence review", "confidence": "medium"},
+        {"playbook_id": "p-3", "title": "Another high confidence review", "confidence": "high"},
+    ]
+
+
+def test_create_investigation_payload_omits_playbooks_without_matching_refs() -> None:
+    state = _high_severity_finding_state()
+    state["playbook_refs"] = [
+        {"playbook_id": "p-low", "title": "Low confidence review", "confidence": "low"},
+    ]
+    state["retrieval_query"] = "Review duplicate invoice payments."
+
+    action = build_create_investigation_action(state)
+
+    assert action is not None
+    assert "playbook_refs" not in action.payload
+    assert "retrieval_query" not in action.payload
+
+
 def test_create_investigation_workflow_payload_uses_canonical_category_and_evidence_refs() -> None:
     action = build_create_investigation_action(_high_priority_workflow_state())
 

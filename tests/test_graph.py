@@ -89,6 +89,19 @@ class VendorRiskToolClient(FakeLaravelToolClient):
         }
 
 
+class FailingPlaybookToolClient(FakeLaravelToolClient):
+    async def fraud_playbook_search(
+        self,
+        query: str,
+        limit: int = 5,
+        user_id: str = "mcp_service",
+        trace_id: str | None = None,
+        trace_metadata: dict | None = None,
+    ) -> dict:
+        self.fraud_playbook_search_calls.append({"query": query, "limit": limit, "user_id": user_id})
+        raise RuntimeError("retrieval unavailable")
+
+
 @pytest.mark.asyncio
 async def test_graph_routes_fraud_request_through_deterministic_risk_tool() -> None:
     graph = build_graph(FakeLaravelToolClient())
@@ -103,6 +116,7 @@ async def test_graph_routes_fraud_request_through_deterministic_risk_tool() -> N
         "router",
         "context_loader",
         "fraud_analyzer",
+        "playbook_retrieval",
         "investigation_synthesis",
         "explanation",
         "action_gate",
@@ -158,3 +172,54 @@ async def test_graph_builds_vendor_verification_workflow() -> None:
     assert result["tool_results"]["vendor_verification_workflow"]["vendors"] == ["Overlap Vendor LLC"]
     assert result["tool_results"]["vendor_verification_workflow"]["vendor_ids"] == ["vendor-overlap-001"]
     assert any(step["step_name"] == "vendor_verification_workflow" for step in result["steps"])
+
+
+@pytest.mark.asyncio
+async def test_graph_retrieves_playbook_context_for_fraud_requests() -> None:
+    client = FakeLaravelToolClient()
+    graph = build_graph(client)
+
+    result = await graph.ainvoke(base_state("Review duplicate invoice payments for possible vendor risk."))
+
+    assert client.fraud_playbook_search_calls == [
+        {
+            "query": "Review duplicate invoice payments for possible vendor risk.",
+            "limit": 5,
+            "user_id": "user-1",
+        }
+    ]
+    playbooks = result["tool_results"]["fraud_playbooks"]
+    assert playbooks["status"] == "matched"
+    assert playbooks["retrieval_query"] == "Review duplicate invoice payments for possible vendor risk."
+    assert [ref["playbook_id"] for ref in result["playbook_refs"]] == ["12", "31"]
+    assert any(gap.get("source") == "fraud_playbook" for gap in result["evidence_gaps"])
+    assert any("does not conclude" in limitation for limitation in result["scope_limitations"])
+    assert all(finding["title"] != "Duplicate invoice payment review" for finding in result["findings"])
+    assert any(step["step_name"] == "playbook_retrieval" for step in result["steps"])
+
+
+@pytest.mark.asyncio
+async def test_graph_carries_playbook_refs_into_create_investigation_payload() -> None:
+    graph = build_graph(VendorRiskToolClient())
+
+    result = await graph.ainvoke(base_state("Review high vendor risk with entity overlap."))
+
+    investigation = next(action for action in result["recommended_actions"] if action["type"] == "create_investigation")
+    assert investigation["requires_approval"] is True
+    assert investigation["payload"]["retrieval_query"] == "Review high vendor risk with entity overlap."
+    assert investigation["payload"]["playbook_refs"] == result["playbook_refs"]
+    assert [ref["confidence"] for ref in investigation["payload"]["playbook_refs"]] == ["high", "medium"]
+    assert "improper activity occurred" in investigation["payload"]["summary"]
+
+
+@pytest.mark.asyncio
+async def test_graph_degrades_when_playbook_retrieval_fails() -> None:
+    graph = build_graph(FailingPlaybookToolClient())
+
+    result = await graph.ainvoke(base_state("Review duplicate invoice payments."))
+
+    assert "fraud_playbooks" not in result["tool_results"]
+    assert result.get("playbook_refs") == []
+    assert any(tool["tool"] == "fraud_playbook_search" for tool in result["degraded_tools"])
+    playbook_step = next(step for step in result["steps"] if step["step_name"] == "playbook_retrieval")
+    assert playbook_step["status"] == "failed"

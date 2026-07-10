@@ -8,7 +8,7 @@ import pytest
 
 from app.config import Settings
 from app.providers import DeterministicProvider, ProviderConfigError, ProviderResponse, ProviderRuntimeError, get_provider
-from app.providers.openai_compat import OpenAIProvider
+from app.providers.openai_compat import OpenAIProvider, _DISPATCH_SYSTEM_PROMPT, _DISPATCH_TOOL_DEFINITIONS
 
 
 # ---------------------------------------------------------------------------
@@ -238,6 +238,17 @@ def test_openai_provider_accepts_valid_key() -> None:
     provider = OpenAIProvider(api_key="sk-test-key", model_name="gpt-4o")
     assert provider.provider_name == "openai"
     assert provider.model_name == "gpt-4o"
+
+
+def test_openai_tool_dispatch_includes_fraud_playbook_search() -> None:
+    tool_names = {
+        tool["function"]["name"]
+        for tool in _DISPATCH_TOOL_DEFINITIONS
+        if isinstance(tool.get("function"), dict)
+    }
+
+    assert "fraud_playbook_search" in tool_names
+    assert "fraud_playbook_search" in _DISPATCH_SYSTEM_PROMPT
 
 
 def test_get_provider_openai_without_key_raises() -> None:

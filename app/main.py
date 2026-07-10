@@ -61,6 +61,8 @@ def _build_initial_state(request: AgentRunRequest) -> dict:
         "relationship_insights": [],
         "suggested_answers": [],
         "recommended_workflow": None,
+        "playbook_refs": [],
+        "retrieval_query": None,
     }
 
 
